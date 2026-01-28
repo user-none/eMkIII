@@ -249,3 +249,9 @@ func (m *Memory) GetBankSlot(slot int) uint8 {
 func (m *Memory) GetRAMControl() uint8 {
 	return m.ramControl
 }
+
+// GetSystemRAM returns a pointer to the 8KB system RAM for external access.
+// Used by libretro for RetroAchievements memory exposure.
+func (m *Memory) GetSystemRAM() *[0x2000]uint8 {
+	return &m.ram
+}

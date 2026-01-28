@@ -51,3 +51,9 @@ func (e *Emulator) GetAudioSamples() []int16 {
 func (e *Emulator) LeftColumnBlankEnabled() bool {
 	return e.vdp.LeftColumnBlankEnabled()
 }
+
+// GetSystemRAM returns a pointer to the 8KB system RAM.
+// Used by libretro for RetroAchievements memory exposure.
+func (e *Emulator) GetSystemRAM() *[0x2000]uint8 {
+	return e.mem.GetSystemRAM()
+}

@@ -14,10 +14,11 @@ import (
 )
 
 const (
-	WIDTH      = 256
-	HEIGHT     = 192
-	MAXHEIGHT  = 224
-	SAMPLERATE = 48000
+	WIDTH           = 256
+	HEIGHT          = 192
+	MAXHEIGHT       = 224
+	SAMPLERATE      = 48000
+	SYSTEM_RAM_SIZE = 0x2000 // 8KB system RAM
 )
 
 var (
@@ -26,6 +27,9 @@ var (
 	screen   []byte
 	xrgbBuf  []byte // Buffer for RGBA to XRGB8888 conversion
 	romData  []byte // Stored ROM data for reset functionality
+
+	// C-allocated buffer for system RAM (avoids cgo pointer issues with RetroAchievements)
+	systemRAMBuffer *C.uint8_t
 
 	// Pre-allocated C strings for system info (allocated once to prevent leaks)
 	libNameStr   *C.char
@@ -97,6 +101,9 @@ func retro_init() {
 	screen = make([]byte, WIDTH*MAXHEIGHT*4)
 	xrgbBuf = make([]byte, WIDTH*MAXHEIGHT*4)
 
+	// Allocate C buffer for system RAM (avoids cgo pointer issues)
+	systemRAMBuffer = (*C.uint8_t)(C.malloc(SYSTEM_RAM_SIZE))
+
 	// Allocate C strings once to prevent memory leaks
 	if !stringsReady {
 		libNameStr = C.CString("eMKIII")
@@ -119,6 +126,12 @@ func retro_deinit() {
 	screen = nil
 	xrgbBuf = nil
 	romData = nil
+
+	// Free C-allocated system RAM buffer
+	if systemRAMBuffer != nil {
+		C.free(unsafe.Pointer(systemRAMBuffer))
+		systemRAMBuffer = nil
+	}
 }
 
 //export retro_api_version
@@ -227,6 +240,12 @@ func retro_run() {
 	// Run one frame
 	emulator.RunFrame()
 
+	// Sync Go RAM to C buffer for RetroAchievements
+	if systemRAMBuffer != nil {
+		ram := emulator.GetSystemRAM()
+		C.memcpy(unsafe.Pointer(systemRAMBuffer), unsafe.Pointer(&ram[0]), SYSTEM_RAM_SIZE)
+	}
+
 	// Video output with border crop support
 	fb := emulator.GetFramebuffer()
 	activeHeight := emulator.GetActiveHeight()
@@ -313,11 +332,17 @@ func retro_get_region() C.uint {
 
 //export retro_get_memory_data
 func retro_get_memory_data(id C.uint) unsafe.Pointer {
+	if id == C.RETRO_MEMORY_SYSTEM_RAM {
+		return unsafe.Pointer(systemRAMBuffer)
+	}
 	return nil
 }
 
 //export retro_get_memory_size
 func retro_get_memory_size(id C.uint) C.size_t {
+	if id == C.RETRO_MEMORY_SYSTEM_RAM {
+		return 0x2000 // 8KB system RAM
+	}
 	return 0
 }
 

@@ -1,6 +1,9 @@
 #ifndef EMKIII_CFUNCS
 #define EMKIII_CFUNCS
 
+#include <stdlib.h>
+#include <string.h>
+
 static retro_environment_t environ_cb;
 static void _retro_set_environment(retro_environment_t cb) { environ_cb = cb; }
 static bool call_environ_cb(unsigned cmd, void *data) { return environ_cb(cmd, data); }

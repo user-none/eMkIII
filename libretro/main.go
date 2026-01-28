@@ -19,6 +19,7 @@ const (
 	MAXHEIGHT       = 224
 	SAMPLERATE      = 48000
 	SYSTEM_RAM_SIZE = 0x2000 // 8KB system RAM
+	CART_RAM_SIZE   = 0x8000 // 32KB cartridge RAM (battery-backed saves)
 )
 
 var (
@@ -28,8 +29,9 @@ var (
 	xrgbBuf  []byte // Buffer for RGBA to XRGB8888 conversion
 	romData  []byte // Stored ROM data for reset functionality
 
-	// C-allocated buffer for system RAM (avoids cgo pointer issues with RetroAchievements)
-	systemRAMBuffer *C.uint8_t
+	// C-allocated buffers for memory (avoids cgo pointer issues)
+	systemRAMBuffer *C.uint8_t // 8KB system RAM for RetroAchievements
+	cartRAMBuffer   *C.uint8_t // 32KB cart RAM for battery-backed saves
 
 	// Pre-allocated C strings for system info (allocated once to prevent leaks)
 	libNameStr   *C.char
@@ -101,8 +103,9 @@ func retro_init() {
 	screen = make([]byte, WIDTH*MAXHEIGHT*4)
 	xrgbBuf = make([]byte, WIDTH*MAXHEIGHT*4)
 
-	// Allocate C buffer for system RAM (avoids cgo pointer issues)
+	// Allocate C buffers for memory (avoids cgo pointer issues)
 	systemRAMBuffer = (*C.uint8_t)(C.malloc(SYSTEM_RAM_SIZE))
+	cartRAMBuffer = (*C.uint8_t)(C.malloc(CART_RAM_SIZE))
 
 	// Allocate C strings once to prevent memory leaks
 	if !stringsReady {
@@ -127,10 +130,14 @@ func retro_deinit() {
 	xrgbBuf = nil
 	romData = nil
 
-	// Free C-allocated system RAM buffer
+	// Free C-allocated memory buffers
 	if systemRAMBuffer != nil {
 		C.free(unsafe.Pointer(systemRAMBuffer))
 		systemRAMBuffer = nil
+	}
+	if cartRAMBuffer != nil {
+		C.free(unsafe.Pointer(cartRAMBuffer))
+		cartRAMBuffer = nil
 	}
 }
 
@@ -237,13 +244,23 @@ func retro_run() {
 
 	emulator.SetInput(up, down, left, right, btn1, btn2)
 
+	// Sync C cart RAM buffer to Go (loads save data from frontend on first frame)
+	if cartRAMBuffer != nil {
+		cartRAM := emulator.GetCartRAM()
+		C.memcpy(unsafe.Pointer(&cartRAM[0]), unsafe.Pointer(cartRAMBuffer), CART_RAM_SIZE)
+	}
+
 	// Run one frame
 	emulator.RunFrame()
 
-	// Sync Go RAM to C buffer for RetroAchievements
+	// Sync Go RAM to C buffers for RetroAchievements and saves
 	if systemRAMBuffer != nil {
 		ram := emulator.GetSystemRAM()
 		C.memcpy(unsafe.Pointer(systemRAMBuffer), unsafe.Pointer(&ram[0]), SYSTEM_RAM_SIZE)
+	}
+	if cartRAMBuffer != nil {
+		cartRAM := emulator.GetCartRAM()
+		C.memcpy(unsafe.Pointer(cartRAMBuffer), unsafe.Pointer(&cartRAM[0]), CART_RAM_SIZE)
 	}
 
 	// Video output with border crop support
@@ -332,7 +349,10 @@ func retro_get_region() C.uint {
 
 //export retro_get_memory_data
 func retro_get_memory_data(id C.uint) unsafe.Pointer {
-	if id == C.RETRO_MEMORY_SYSTEM_RAM {
+	switch id {
+	case C.RETRO_MEMORY_SAVE_RAM:
+		return unsafe.Pointer(cartRAMBuffer)
+	case C.RETRO_MEMORY_SYSTEM_RAM:
 		return unsafe.Pointer(systemRAMBuffer)
 	}
 	return nil
@@ -340,8 +360,11 @@ func retro_get_memory_data(id C.uint) unsafe.Pointer {
 
 //export retro_get_memory_size
 func retro_get_memory_size(id C.uint) C.size_t {
-	if id == C.RETRO_MEMORY_SYSTEM_RAM {
-		return 0x2000 // 8KB system RAM
+	switch id {
+	case C.RETRO_MEMORY_SAVE_RAM:
+		return CART_RAM_SIZE // 32KB cartridge RAM
+	case C.RETRO_MEMORY_SYSTEM_RAM:
+		return SYSTEM_RAM_SIZE // 8KB system RAM
 	}
 	return 0
 }

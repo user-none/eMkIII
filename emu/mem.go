@@ -255,3 +255,9 @@ func (m *Memory) GetRAMControl() uint8 {
 func (m *Memory) GetSystemRAM() *[0x2000]uint8 {
 	return &m.ram
 }
+
+// GetCartRAM returns a pointer to the 32KB cartridge RAM for external access.
+// Used by libretro for battery-backed save RAM persistence.
+func (m *Memory) GetCartRAM() *[0x8000]uint8 {
+	return &m.cartRAM
+}

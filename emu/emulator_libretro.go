@@ -57,3 +57,9 @@ func (e *Emulator) LeftColumnBlankEnabled() bool {
 func (e *Emulator) GetSystemRAM() *[0x2000]uint8 {
 	return e.mem.GetSystemRAM()
 }
+
+// GetCartRAM returns a pointer to the 32KB cartridge RAM.
+// Used by libretro for battery-backed save RAM persistence.
+func (e *Emulator) GetCartRAM() *[0x8000]uint8 {
+	return e.mem.GetCartRAM()
+}

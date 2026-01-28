@@ -261,3 +261,9 @@ func (m *Memory) GetSystemRAM() *[0x2000]uint8 {
 func (m *Memory) GetCartRAM() *[0x8000]uint8 {
 	return &m.cartRAM
 }
+
+// GetROMCRC32 returns the CRC32 checksum of the loaded ROM.
+// Used for save state verification to ensure states are loaded with the correct ROM.
+func (m *Memory) GetROMCRC32() uint32 {
+	return crc32.ChecksumIEEE(m.rom)
+}

@@ -281,17 +281,50 @@ func retro_run() {
 
 //export retro_serialize_size
 func retro_serialize_size() C.size_t {
-	return 0
+	if emulator == nil {
+		return 0
+	}
+	return C.size_t(emulator.SerializeSize())
 }
 
 //export retro_serialize
 func retro_serialize(data unsafe.Pointer, size C.size_t) C.bool {
-	return C.bool(false)
+	if emulator == nil {
+		return C.bool(false)
+	}
+
+	state, err := emulator.Serialize()
+	if err != nil {
+		return C.bool(false)
+	}
+
+	if len(state) > int(size) {
+		return C.bool(false)
+	}
+
+	// Copy state data to the provided buffer
+	dst := unsafe.Slice((*byte)(data), size)
+	copy(dst, state)
+
+	return C.bool(true)
 }
 
 //export retro_unserialize
 func retro_unserialize(data unsafe.Pointer, size C.size_t) C.bool {
-	return C.bool(false)
+	if emulator == nil {
+		return C.bool(false)
+	}
+
+	// Copy data to Go slice
+	state := make([]byte, size)
+	src := unsafe.Slice((*byte)(data), size)
+	copy(state, src)
+
+	if err := emulator.Deserialize(state); err != nil {
+		return C.bool(false)
+	}
+
+	return C.bool(true)
 }
 
 //export retro_cheat_reset

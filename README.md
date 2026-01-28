@@ -118,4 +118,3 @@ framebuffer to screen.
 
 - **ROM database coverage:** 357 games in database; unknown ROMs default to Sega mapper + NTSC timing (use `-region pal` to override)
 - **Player 2:** Not implemented (only P1 controller input)
-- **Libretro save states:** Not yet implemented (serialization returns size 0)

@@ -234,7 +234,7 @@ func retro_run() {
 	// Poll input
 	C.call_input_poll_cb()
 
-	// Read joypad state
+	// Read Player 1 joypad state (port 0)
 	up := C.call_input_state_cb(0, C.RETRO_DEVICE_JOYPAD, 0, C.RETRO_DEVICE_ID_JOYPAD_UP) != 0
 	down := C.call_input_state_cb(0, C.RETRO_DEVICE_JOYPAD, 0, C.RETRO_DEVICE_ID_JOYPAD_DOWN) != 0
 	left := C.call_input_state_cb(0, C.RETRO_DEVICE_JOYPAD, 0, C.RETRO_DEVICE_ID_JOYPAD_LEFT) != 0
@@ -243,6 +243,16 @@ func retro_run() {
 	btn2 := C.call_input_state_cb(0, C.RETRO_DEVICE_JOYPAD, 0, C.RETRO_DEVICE_ID_JOYPAD_B) != 0
 
 	emulator.SetInput(up, down, left, right, btn1, btn2)
+
+	// Read Player 2 joypad state (port 1)
+	p2up := C.call_input_state_cb(1, C.RETRO_DEVICE_JOYPAD, 0, C.RETRO_DEVICE_ID_JOYPAD_UP) != 0
+	p2down := C.call_input_state_cb(1, C.RETRO_DEVICE_JOYPAD, 0, C.RETRO_DEVICE_ID_JOYPAD_DOWN) != 0
+	p2left := C.call_input_state_cb(1, C.RETRO_DEVICE_JOYPAD, 0, C.RETRO_DEVICE_ID_JOYPAD_LEFT) != 0
+	p2right := C.call_input_state_cb(1, C.RETRO_DEVICE_JOYPAD, 0, C.RETRO_DEVICE_ID_JOYPAD_RIGHT) != 0
+	p2btn1 := C.call_input_state_cb(1, C.RETRO_DEVICE_JOYPAD, 0, C.RETRO_DEVICE_ID_JOYPAD_A) != 0
+	p2btn2 := C.call_input_state_cb(1, C.RETRO_DEVICE_JOYPAD, 0, C.RETRO_DEVICE_ID_JOYPAD_B) != 0
+
+	emulator.SetInputP2(p2up, p2down, p2left, p2right, p2btn1, p2btn2)
 
 	// Sync C cart RAM buffer to Go (loads save data from frontend on first frame)
 	if cartRAMBuffer != nil {

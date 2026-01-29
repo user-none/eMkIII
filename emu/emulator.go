@@ -156,9 +156,14 @@ func (e *EmulatorBase) runScanlines() []float32 {
 	return frameSamples
 }
 
-// SetInput sets controller state from external source
+// SetInput sets Player 1 controller state from external source
 func (e *EmulatorBase) SetInput(up, down, left, right, btn1, btn2 bool) {
 	e.io.Input.SetP1(up, down, left, right, btn1, btn2)
+}
+
+// SetInputP2 sets Player 2 controller state from external source
+func (e *EmulatorBase) SetInputP2(up, down, left, right, btn1, btn2 bool) {
+	e.io.Input.SetP2(up, down, left, right, btn1, btn2)
 }
 
 // GetFramebuffer returns raw RGBA pixel data for current frame

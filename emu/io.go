@@ -69,7 +69,8 @@ func (e *SMSIO) Out(addr uint8, value uint8) {
 //	Bit 6: P2 Up
 //	Bit 7: P2 Down
 func (i *Input) SetP1(up, down, left, right, btn1, btn2 bool) {
-	i.Port1 = 0xFF
+	// Update only P1 bits (0-5), preserve P2 bits (6-7)
+	i.Port1 |= 0x3F
 	if up {
 		i.Port1 &^= 0x01
 	}
@@ -88,5 +89,33 @@ func (i *Input) SetP1(up, down, left, right, btn1, btn2 bool) {
 	if btn2 {
 		i.Port1 &^= 0x20
 	}
-	// P2 bits 6-7 left as released (1)
+}
+
+// SetP2 updates Player 2 controller state
+// Port $DC bits 6-7: P2 Up, Down
+// Port $DD bits 0-3: P2 Left, Right, Btn1, Btn2
+func (i *Input) SetP2(up, down, left, right, btn1, btn2 bool) {
+	// Update Port1 bits 6-7 (P2 Up/Down), preserve P1 bits
+	i.Port1 |= 0xC0
+	if up {
+		i.Port1 &^= 0x40
+	}
+	if down {
+		i.Port1 &^= 0x80
+	}
+
+	// Update Port2 bits 0-3 (P2 Left/Right/Btn1/Btn2)
+	i.Port2 |= 0x0F
+	if left {
+		i.Port2 &^= 0x01
+	}
+	if right {
+		i.Port2 &^= 0x02
+	}
+	if btn1 {
+		i.Port2 &^= 0x04
+	}
+	if btn2 {
+		i.Port2 &^= 0x08
+	}
 }

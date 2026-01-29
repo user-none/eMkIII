@@ -215,6 +215,88 @@ func TestIO_VDPStatusRead(t *testing.T) {
 	}
 }
 
+// TestIO_ControllerP2Input tests Player 2 active-low button encoding
+func TestIO_ControllerP2Input(t *testing.T) {
+	vdp := NewVDP()
+	psg := NewPSG(3579545, 48000, 800)
+	io := NewSMSIO(vdp, psg)
+
+	// Test individual P2 buttons (active low - 0 = pressed)
+	// P2 Up: Port1 bit 6 clear (0xBF)
+	// P2 Down: Port1 bit 7 clear (0x7F)
+	// P2 Left: Port2 bit 0 clear (0xFE)
+	// P2 Right: Port2 bit 1 clear (0xFD)
+	// P2 Button 1: Port2 bit 2 clear (0xFB)
+	// P2 Button 2: Port2 bit 3 clear (0xF7)
+	testCases := []struct {
+		up, down, left, right, btn1, btn2 bool
+		expectedPort1                      uint8
+		expectedPort2                      uint8
+	}{
+		{true, false, false, false, false, false, 0xBF, 0xFF},  // Up: Port1 bit 6 clear
+		{false, true, false, false, false, false, 0x7F, 0xFF},  // Down: Port1 bit 7 clear
+		{false, false, true, false, false, false, 0xFF, 0xFE},  // Left: Port2 bit 0 clear
+		{false, false, false, true, false, false, 0xFF, 0xFD},  // Right: Port2 bit 1 clear
+		{false, false, false, false, true, false, 0xFF, 0xFB},  // Button 1: Port2 bit 2 clear
+		{false, false, false, false, false, true, 0xFF, 0xF7},  // Button 2: Port2 bit 3 clear
+		{true, true, true, true, true, true, 0x3F, 0xF0},       // All P2 pressed
+		{false, false, false, false, false, false, 0xFF, 0xFF}, // All released
+	}
+
+	for i, tc := range testCases {
+		// Reset ports
+		io.Input.Port1 = 0xFF
+		io.Input.Port2 = 0xFF
+		io.Input.SetP2(tc.up, tc.down, tc.left, tc.right, tc.btn1, tc.btn2)
+		if io.Input.Port1 != tc.expectedPort1 {
+			t.Errorf("Test %d: expected Port1=0x%02X, got 0x%02X", i, tc.expectedPort1, io.Input.Port1)
+		}
+		if io.Input.Port2 != tc.expectedPort2 {
+			t.Errorf("Test %d: expected Port2=0x%02X, got 0x%02X", i, tc.expectedPort2, io.Input.Port2)
+		}
+	}
+}
+
+// TestIO_ControllerP1P2Combined tests P1 and P2 inputs don't interfere
+func TestIO_ControllerP1P2Combined(t *testing.T) {
+	vdp := NewVDP()
+	psg := NewPSG(3579545, 48000, 800)
+	io := NewSMSIO(vdp, psg)
+
+	// Set P1: Up + Button 1 (Port1 bits 0 and 4 clear = 0xEE)
+	// Set P2: Down + Button 2 (Port1 bit 7 clear, Port2 bit 3 clear)
+	// Expected Port1: P1 bits (0xEE) + P2 bits (0x7F) = 0x6E (both masks applied)
+	// Expected Port2: P2 Button 2 (0xF7)
+
+	io.Input.SetP1(true, false, false, false, true, false)
+	io.Input.SetP2(false, true, false, false, false, true)
+
+	// Port1 should have P1 Up (bit 0 clear) + P1 Btn1 (bit 4 clear) + P2 Down (bit 7 clear)
+	// = 0xFF & ~0x01 & ~0x10 & ~0x80 = 0x6E
+	expectedPort1 := uint8(0x6E)
+	if io.Input.Port1 != expectedPort1 {
+		t.Errorf("Combined input: expected Port1=0x%02X, got 0x%02X", expectedPort1, io.Input.Port1)
+	}
+
+	// Port2 should have P2 Button 2 (bit 3 clear) = 0xF7
+	expectedPort2 := uint8(0xF7)
+	if io.Input.Port2 != expectedPort2 {
+		t.Errorf("Combined input: expected Port2=0x%02X, got 0x%02X", expectedPort2, io.Input.Port2)
+	}
+
+	// Test reverse order: SetP2 then SetP1 should still work correctly
+	io.Input.Port1 = 0xFF
+	io.Input.Port2 = 0xFF
+	io.Input.SetP2(true, false, false, false, false, false) // P2 Up
+	io.Input.SetP1(false, true, false, false, false, false) // P1 Down
+
+	// Port1: P1 Down (bit 1 clear) + P2 Up (bit 6 clear) = 0xFF & ~0x02 & ~0x40 = 0xBD
+	expectedPort1 = 0xBD
+	if io.Input.Port1 != expectedPort1 {
+		t.Errorf("Reverse order: expected Port1=0x%02X, got 0x%02X", expectedPort1, io.Input.Port1)
+	}
+}
+
 // TestIO_PartialAddressDecoding tests that port decoding uses partial address
 func TestIO_PartialAddressDecoding(t *testing.T) {
 	vdp := NewVDP()

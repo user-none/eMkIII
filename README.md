@@ -9,6 +9,10 @@ timing, VDP rendering with multiple display modes, PSG audio, memory banking
 with multiple mapper support, ROM loading from multiple archive formats, input
 handling (keyboard and gamepad), and libretro core support.
 
+The emulator targets officially licensed and released SMS games for US, EU,
+and Japan. Region and mapper type are auto-detected via CRC32 database; unknown
+ROMs default to Sega mapper with NTSC timing.
+
 ## Build and Run Commands
 
 ```bash
@@ -114,7 +118,28 @@ framebuffer to screen.
 | Libretro | Complete | Full core implementation with region/crop options, works with RetroArch |
 | Tests | Complete | Unit tests for I/O, memory, VDP, PSG, region timing, ROM loading, and libretro |
 
-## Known Limitations
+## Unsupported Functionality
 
-- **ROM database coverage:** 357 games in database; unknown ROMs default to Sega mapper + NTSC timing (use `-region pal` to override)
-- **Player 2:** Not implemented (only P1 controller input)
+This is functionality of the original hardware that is not planned or intended to be supported
+in the future.
+
+- Non-officially licensed and released games (homebrew, unlicensed)
+- Beta or prototype games
+- Korean mappers
+- SG-1000
+- Peripherals
+  - FM Sound Unit
+  - Light Phaser
+  - Card Catcher
+  - Telecon Pack
+  - SK-1100
+  - SF-7000
+
+## Libretro Core Reload Issue
+
+The libretro core cannot be unloaded and reloaded within the same RetroArch
+session. This is a fundamental limitation of Go shared libraries—the Go runtime
+cannot be safely unloaded via `dlclose()` and reinitialized via `dlopen()`.
+When RetroArch closes a game and attempts to load another, the Go runtime
+enters an inconsistent state causing crashes or hangs. **Workaround:** Restart
+RetroArch between games when using this core.

@@ -1,0 +1,447 @@
+//go:build !libretro
+
+package ui
+
+import (
+	"log"
+	"strings"
+	"time"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/user-none/emkiii/emu"
+	"github.com/user-none/emkiii/romloader"
+	"github.com/user-none/emkiii/ui/storage"
+	"github.com/user-none/emkiii/ui/style"
+)
+
+// GameplayManager handles all gameplay-related state and logic.
+// This includes emulator control, input handling, save states,
+// play time tracking, and the pause menu.
+type GameplayManager struct {
+	// Emulation state
+	emulator    *emu.Emulator
+	currentGame *storage.GameEntry
+	cropBorder  bool
+
+	// Pause menu
+	pauseMenu *PauseMenu
+
+	// Play time tracking
+	playTime PlayTimeTracker
+
+	// Auto-save state
+	autoSaveTimer    time.Time
+	autoSaveInterval time.Duration
+	autoSaving       bool
+
+	// External dependencies (not owned by GameplayManager)
+	saveStateManager *SaveStateManager
+	notification     *Notification
+	library          *storage.Library
+	config           *storage.Config
+
+	// Callbacks to App
+	onExitToLibrary func()
+	onExitApp       func()
+}
+
+// PlayTimeTracker tracks play time during gameplay
+type PlayTimeTracker struct {
+	sessionSeconds int64
+	trackStart     int64
+	tracking       bool
+}
+
+// NewGameplayManager creates a new gameplay manager
+func NewGameplayManager(
+	saveStateManager *SaveStateManager,
+	notification *Notification,
+	library *storage.Library,
+	config *storage.Config,
+	onExitToLibrary func(),
+	onExitApp func(),
+) *GameplayManager {
+	gm := &GameplayManager{
+		autoSaveInterval: style.AutoSaveInterval,
+		saveStateManager: saveStateManager,
+		notification:     notification,
+		library:          library,
+		config:           config,
+		onExitToLibrary:  onExitToLibrary,
+		onExitApp:        onExitApp,
+	}
+
+	// Initialize pause menu with callbacks
+	gm.pauseMenu = NewPauseMenu(
+		func() { // onResume
+			gm.Resume()
+		},
+		func() { // onLibrary
+			gm.Exit(true)
+			if gm.onExitToLibrary != nil {
+				gm.onExitToLibrary()
+			}
+		},
+		func() { // onExit
+			gm.Exit(true)
+			if gm.onExitApp != nil {
+				gm.onExitApp()
+			}
+		},
+	)
+
+	return gm
+}
+
+// SetLibrary updates the library reference
+func (gm *GameplayManager) SetLibrary(library *storage.Library) {
+	gm.library = library
+}
+
+// SetConfig updates the config reference
+func (gm *GameplayManager) SetConfig(config *storage.Config) {
+	gm.config = config
+}
+
+// IsPlaying returns true if a game is currently being played
+func (gm *GameplayManager) IsPlaying() bool {
+	return gm.emulator != nil
+}
+
+// CurrentGameCRC returns the CRC of the currently loaded game, or empty string if none
+func (gm *GameplayManager) CurrentGameCRC() string {
+	if gm.currentGame != nil {
+		return gm.currentGame.CRC32
+	}
+	return ""
+}
+
+// Launch starts the emulator with the specified game
+func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
+	game := gm.library.GetGame(gameCRC)
+	if game == nil {
+		gm.notification.ShowDefault("Game not found")
+		return false
+	}
+
+	// Load ROM
+	romData, _, err := romloader.LoadROM(game.File)
+	if err != nil {
+		game.Missing = true
+		storage.SaveLibrary(gm.library)
+		gm.notification.ShowDefault("Failed to load ROM")
+		return false
+	}
+
+	// Determine region
+	region := gm.regionFromLibraryEntry(game)
+
+	// Apply video settings from config
+	gm.cropBorder = gm.config.Video.CropBorder
+
+	// Create emulator
+	gm.emulator = emu.NewEmulator(romData, region)
+	gm.currentGame = game
+	gm.saveStateManager.SetGame(gameCRC)
+
+	// Load SRAM if exists
+	if err := gm.saveStateManager.LoadSRAM(gm.emulator); err != nil {
+		log.Printf("Failed to load SRAM: %v", err)
+	}
+
+	// Load resume state if requested
+	if resume {
+		if err := gm.saveStateManager.LoadResume(gm.emulator); err != nil {
+			gm.notification.ShowShort("Failed to resume, starting fresh")
+		}
+	}
+
+	// Update library entry
+	game.LastPlayed = time.Now().Unix()
+	storage.SaveLibrary(gm.library)
+
+	// Set TPS for region
+	timing := emu.GetTimingForRegion(region)
+	ebiten.SetTPS(timing.FPS)
+
+	// Start play time tracking
+	gm.playTime.sessionSeconds = 0
+	gm.playTime.trackStart = time.Now().Unix()
+	gm.playTime.tracking = true
+
+	// Start auto-save timer (first save after 1 second)
+	gm.autoSaveTimer = time.Now().Add(time.Second)
+
+	// Initialize pause menu
+	gm.pauseMenu.Hide()
+
+	return true
+}
+
+// Update handles the gameplay update loop. Returns true if pause menu was opened.
+func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
+	if gm.emulator == nil {
+		return false, nil
+	}
+
+	// Check for pause menu toggle (ESC or Select button)
+	openPauseMenu := inpututil.IsKeyJustPressed(ebiten.KeyEscape)
+
+	// Check for Select button on gamepad
+	gamepadIDs := ebiten.AppendGamepadIDs(nil)
+	for _, id := range gamepadIDs {
+		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonCenterLeft) {
+			openPauseMenu = true
+			break
+		}
+	}
+
+	if openPauseMenu && !gm.pauseMenu.IsVisible() {
+		// Open pause menu
+		gm.triggerAutoSave()
+		gm.pauseMenu.Show()
+		gm.pausePlayTimeTracking()
+		return true, nil
+	}
+
+	// Handle pause menu if visible
+	if gm.pauseMenu.IsVisible() {
+		gm.pauseMenu.Update()
+		return false, nil
+	}
+
+	// Poll and pass input to emulator
+	gm.pollInput()
+
+	// Run one frame of emulation
+	gm.emulator.RunFrame()
+
+	// Queue audio samples
+	gm.emulator.QueueAudio()
+
+	// Handle save state keys
+	gm.handleSaveStateKeys()
+
+	// Check auto-save timer
+	if time.Now().After(gm.autoSaveTimer) && !gm.autoSaving {
+		gm.triggerAutoSave()
+		gm.autoSaveTimer = time.Now().Add(gm.autoSaveInterval)
+	}
+
+	return false, nil
+}
+
+// Draw renders the gameplay screen
+func (gm *GameplayManager) Draw(screen *ebiten.Image) {
+	if gm.emulator == nil {
+		return
+	}
+
+	// Use emulator's DrawToScreen for rendering
+	gm.emulator.DrawToScreen(screen, gm.cropBorder)
+
+	// Draw pause menu overlay if visible
+	if gm.pauseMenu.IsVisible() {
+		gm.pauseMenu.Draw(screen)
+	}
+}
+
+// Resume resumes gameplay after pause menu
+func (gm *GameplayManager) Resume() {
+	gm.pauseMenu.Hide()
+	gm.playTime.trackStart = time.Now().Unix()
+	gm.playTime.tracking = true
+	gm.autoSaveTimer = time.Now().Add(gm.autoSaveInterval)
+}
+
+// Exit cleans up when exiting gameplay
+func (gm *GameplayManager) Exit(saveResume bool) {
+	if gm.emulator == nil {
+		return
+	}
+
+	// Stop play time tracking and update
+	gm.pausePlayTimeTracking()
+	gm.updatePlayTime()
+
+	// Save SRAM
+	if err := gm.saveStateManager.SaveSRAM(gm.emulator); err != nil {
+		log.Printf("SRAM save failed: %v", err)
+	}
+
+	// Save resume state if requested
+	if saveResume {
+		if err := gm.saveStateManager.SaveResume(gm.emulator); err != nil {
+			log.Printf("Resume save failed: %v", err)
+		}
+	}
+
+	// Close emulator
+	gm.emulator.Close()
+	gm.emulator = nil
+	gm.currentGame = nil
+
+	// Reset TPS to 60 for UI
+	ebiten.SetTPS(60)
+}
+
+// pollInput reads input and passes it to the emulator
+func (gm *GameplayManager) pollInput() {
+	// Keyboard (WASD + JK)
+	up := ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp)
+	down := ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown)
+	left := ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft)
+	right := ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight)
+	btn1 := ebiten.IsKeyPressed(ebiten.KeyJ) || ebiten.IsKeyPressed(ebiten.KeyZ)
+	btn2 := ebiten.IsKeyPressed(ebiten.KeyK) || ebiten.IsKeyPressed(ebiten.KeyX)
+
+	// Gamepad support
+	gamepadIDs := ebiten.AppendGamepadIDs(nil)
+	for _, id := range gamepadIDs {
+		// D-pad
+		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftTop) {
+			up = true
+		}
+		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftBottom) {
+			down = true
+		}
+		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftLeft) {
+			left = true
+		}
+		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftRight) {
+			right = true
+		}
+		// Buttons
+		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonRightBottom) {
+			btn1 = true
+		}
+		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonRightRight) {
+			btn2 = true
+		}
+		// Analog stick
+		axisX := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickHorizontal)
+		axisY := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickVertical)
+		if axisX < -0.25 {
+			left = true
+		}
+		if axisX > 0.25 {
+			right = true
+		}
+		if axisY < -0.25 {
+			up = true
+		}
+		if axisY > 0.25 {
+			down = true
+		}
+	}
+
+	gm.emulator.SetInput(up, down, left, right, btn1, btn2)
+
+	// SMS Pause button (Enter key or Start button triggers NMI)
+	smsPause := inpututil.IsKeyJustPressed(ebiten.KeyEnter)
+	for _, id := range gamepadIDs {
+		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonCenterRight) {
+			smsPause = true
+			break
+		}
+	}
+	if smsPause {
+		gm.emulator.SetPause()
+	}
+}
+
+// handleSaveStateKeys handles F1/F2/F3 for save states
+func (gm *GameplayManager) handleSaveStateKeys() {
+	// F1 - Save to current slot
+	if inpututil.IsKeyJustPressed(ebiten.KeyF1) {
+		if err := gm.saveStateManager.Save(gm.emulator); err != nil {
+			log.Printf("Save state failed: %v", err)
+		}
+	}
+
+	// F2 - Next slot (Shift+F2 - Previous slot)
+	if inpututil.IsKeyJustPressed(ebiten.KeyF2) {
+		if ebiten.IsKeyPressed(ebiten.KeyShift) {
+			gm.saveStateManager.PreviousSlot()
+		} else {
+			gm.saveStateManager.NextSlot()
+		}
+	}
+
+	// F3 - Load from current slot
+	if inpututil.IsKeyJustPressed(ebiten.KeyF3) {
+		if err := gm.saveStateManager.Load(gm.emulator); err != nil {
+			log.Printf("Load state failed: %v", err)
+		}
+	}
+}
+
+// triggerAutoSave performs an auto-save
+func (gm *GameplayManager) triggerAutoSave() {
+	if gm.emulator == nil || gm.currentGame == nil || gm.autoSaving {
+		return
+	}
+
+	gm.autoSaving = true
+	go func() {
+		defer func() { gm.autoSaving = false }()
+
+		// Save resume state
+		if err := gm.saveStateManager.SaveResume(gm.emulator); err != nil {
+			log.Printf("Auto-save failed: %v", err)
+		}
+
+		// Save SRAM
+		if err := gm.saveStateManager.SaveSRAM(gm.emulator); err != nil {
+			log.Printf("SRAM save failed: %v", err)
+		}
+
+		// Update play time
+		gm.updatePlayTime()
+	}()
+}
+
+// pausePlayTimeTracking pauses the play time tracker
+func (gm *GameplayManager) pausePlayTimeTracking() {
+	if gm.playTime.tracking {
+		elapsed := time.Now().Unix() - gm.playTime.trackStart
+		gm.playTime.sessionSeconds += elapsed
+		gm.playTime.tracking = false
+	}
+}
+
+// updatePlayTime updates the play time in the library
+func (gm *GameplayManager) updatePlayTime() {
+	if gm.currentGame == nil {
+		return
+	}
+
+	var totalSession int64
+	if gm.playTime.tracking {
+		elapsed := time.Now().Unix() - gm.playTime.trackStart
+		totalSession = gm.playTime.sessionSeconds + elapsed
+	} else {
+		totalSession = gm.playTime.sessionSeconds
+	}
+
+	// Only update if there's actual play time
+	if totalSession > 0 {
+		gm.currentGame.PlayTimeSeconds += totalSession
+		gm.playTime.sessionSeconds = 0
+		if gm.playTime.tracking {
+			gm.playTime.trackStart = time.Now().Unix()
+		}
+		storage.SaveLibrary(gm.library)
+	}
+}
+
+// regionFromLibraryEntry determines the region from a library entry
+func (gm *GameplayManager) regionFromLibraryEntry(game *storage.GameEntry) emu.Region {
+	switch strings.ToLower(game.Region) {
+	case "eu", "europe", "pal":
+		return emu.RegionPAL
+	default:
+		return emu.RegionNTSC
+	}
+}

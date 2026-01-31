@@ -6,15 +6,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/ebitenui/ebitenui"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/user-none/emkiii/emu"
-	"github.com/user-none/emkiii/romloader"
 	"github.com/user-none/emkiii/ui/screens"
 	"github.com/user-none/emkiii/ui/storage"
 	"github.com/user-none/emkiii/ui/style"
@@ -39,22 +36,13 @@ type App struct {
 	scanScreen     *screens.ScanProgressScreen
 	errorScreen    *screens.ErrorScreen
 
-	// Emulation
-	emulator    *emu.Emulator
-	currentGame *storage.GameEntry
-	cropBorder  bool
+	// Gameplay (emulation, input, save states, pause menu)
+	gameplay *GameplayManager
 
-	// Gameplay managers
-	pauseMenu         *PauseMenu
+	// UI managers
 	notification      *Notification
 	saveStateManager  *SaveStateManager
 	screenshotManager *ScreenshotManager
-	playTimeTracker   *PlayTimeTracker
-
-	// Auto-save
-	autoSaveTimer    time.Time
-	autoSaveInterval time.Duration
-	autoSaving       bool
 
 	// Scanner
 	activeScanner *Scanner
@@ -88,18 +76,10 @@ type gamepadNavState struct {
 	focusChanged bool          // Track if focus changed this frame (for scroll after layout)
 }
 
-// PlayTimeTracker tracks play time during gameplay
-type PlayTimeTracker struct {
-	sessionSeconds int64
-	trackStart     int64
-	tracking       bool
-}
-
 // NewApp creates and initializes the application
 func NewApp() (*App, error) {
 	app := &App{
-		state:            StateLibrary,
-		autoSaveInterval: style.AutoSaveInterval,
+		state: StateLibrary,
 	}
 
 	// Ensure directory structure exists
@@ -125,26 +105,10 @@ func NewApp() (*App, error) {
 		}()
 	}
 
-	// Initialize managers
+	// Initialize UI managers
 	app.notification = NewNotification()
 	app.saveStateManager = NewSaveStateManager(app.notification)
 	app.screenshotManager = NewScreenshotManager(app.notification)
-	app.playTimeTracker = &PlayTimeTracker{}
-
-	// Initialize pause menu with callbacks
-	app.pauseMenu = NewPauseMenu(
-		func() { // onResume
-			app.resumeFromPause()
-		},
-		func() { // onLibrary
-			app.exitGame(true)
-			app.SwitchToLibrary()
-		},
-		func() { // onExit
-			app.exitGame(true)
-			app.Exit()
-		},
-	)
 
 	// Load config
 	config, err := storage.LoadConfig()
@@ -179,6 +143,16 @@ func NewApp() (*App, error) {
 
 	// Set library on save state manager for slot persistence
 	app.saveStateManager.SetLibrary(library)
+
+	// Initialize gameplay manager with callbacks
+	app.gameplay = NewGameplayManager(
+		app.saveStateManager,
+		app.notification,
+		app.library,
+		app.config,
+		func() { app.SwitchToLibrary() }, // onExitToLibrary
+		func() { app.Exit() },            // onExitApp
+	)
 
 	// Initialize screens and build initial UI
 	// Window dimensions are set by main before RunGame, so they're already correct
@@ -276,7 +250,8 @@ func (a *App) Update() error {
 
 	switch a.state {
 	case StatePlaying:
-		return a.updatePlaying()
+		_, err := a.gameplay.Update()
+		return err
 	case StateScanProgress:
 		a.handleGamepadUI()
 		err := a.updateScanProgress()
@@ -491,7 +466,7 @@ func (a *App) ensureFocusedVisible() {
 func (a *App) Draw(screen *ebiten.Image) {
 	switch a.state {
 	case StatePlaying:
-		a.drawPlaying(screen)
+		a.gameplay.Draw(screen)
 	default:
 		a.ui.Draw(screen)
 	}
@@ -502,10 +477,7 @@ func (a *App) Draw(screen *ebiten.Image) {
 	// Take screenshot if pending (after everything is drawn)
 	if a.screenshotPending {
 		a.screenshotPending = false
-		var gameCRC string
-		if a.state == StatePlaying && a.currentGame != nil {
-			gameCRC = a.currentGame.CRC32
-		}
+		gameCRC := a.gameplay.CurrentGameCRC()
 		if err := a.screenshotManager.TakeScreenshot(screen, gameCRC); err != nil {
 			log.Printf("Screenshot failed: %v", err)
 		}
@@ -575,66 +547,10 @@ func (a *App) SwitchToScanProgress(rescanAll bool) {
 
 // LaunchGame starts the emulator with the specified game
 func (a *App) LaunchGame(gameCRC string, resume bool) {
-	game := a.library.GetGame(gameCRC)
-	if game == nil {
-		a.notification.ShowDefault("Game not found")
-		return
+	if a.gameplay.Launch(gameCRC, resume) {
+		a.previousState = a.state
+		a.state = StatePlaying
 	}
-
-	// Load ROM
-	romData, _, err := romloader.LoadROM(game.File)
-	if err != nil {
-		game.Missing = true
-		storage.SaveLibrary(a.library)
-		a.notification.ShowDefault("Failed to load ROM")
-		return
-	}
-
-	// Determine region
-	region := a.regionFromLibraryEntry(game)
-
-	// Apply video settings from config
-	a.cropBorder = a.config.Video.CropBorder
-
-	// Create emulator
-	a.emulator = emu.NewEmulator(romData, region)
-	a.currentGame = game
-	a.saveStateManager.SetGame(gameCRC)
-
-	// Load SRAM if exists
-	if err := a.saveStateManager.LoadSRAM(a.emulator); err != nil {
-		log.Printf("Failed to load SRAM: %v", err)
-	}
-
-	// Load resume state if requested
-	if resume {
-		if err := a.saveStateManager.LoadResume(a.emulator); err != nil {
-			a.notification.ShowShort("Failed to resume, starting fresh")
-		}
-	}
-
-	// Update library entry
-	game.LastPlayed = time.Now().Unix()
-	storage.SaveLibrary(a.library)
-
-	// Set TPS for region
-	timing := emu.GetTimingForRegion(region)
-	ebiten.SetTPS(timing.FPS)
-
-	// Start play time tracking
-	a.playTimeTracker.sessionSeconds = 0
-	a.playTimeTracker.trackStart = time.Now().Unix()
-	a.playTimeTracker.tracking = true
-
-	// Start auto-save timer (first save after 1 second)
-	a.autoSaveTimer = time.Now().Add(time.Second)
-
-	// Initialize pause menu
-	a.pauseMenu.Hide()
-
-	// Change state
-	a.previousState = a.state
-	a.state = StatePlaying
 }
 
 // Exit closes the application
@@ -660,270 +576,6 @@ func (a *App) RequestRebuild() {
 // GetPlaceholderImageData returns the raw embedded placeholder image data
 func (a *App) GetPlaceholderImageData() []byte {
 	return placeholderImageData
-}
-
-// regionFromLibraryEntry determines the region from a library entry
-func (a *App) regionFromLibraryEntry(game *storage.GameEntry) emu.Region {
-	switch strings.ToLower(game.Region) {
-	case "eu", "europe", "pal":
-		return emu.RegionPAL
-	default:
-		return emu.RegionNTSC
-	}
-}
-
-// updatePlaying handles the gameplay update loop
-func (a *App) updatePlaying() error {
-	// Check for pause menu toggle (ESC or Select button) - only open, not close
-	// (closing is handled by the menu's ESC key detection calling onResume)
-	openPauseMenu := inpututil.IsKeyJustPressed(ebiten.KeyEscape)
-
-	// Check for Select button on gamepad
-	gamepadIDs := ebiten.AppendGamepadIDs(nil)
-	for _, id := range gamepadIDs {
-		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonCenterLeft) {
-			openPauseMenu = true
-			break
-		}
-	}
-
-	if openPauseMenu && !a.pauseMenu.IsVisible() {
-		// Open pause menu
-		a.triggerAutoSave()
-		a.pauseMenu.Show()
-		a.pausePlayTimeTracking()
-		return nil
-	}
-
-	// Handle pause menu if visible (input handled via callbacks)
-	if a.pauseMenu.IsVisible() {
-		a.pauseMenu.Update()
-		return nil
-	}
-
-	// Poll and pass input to emulator
-	a.pollGameplayInput()
-
-	// Run one frame of emulation
-	a.emulator.RunFrame()
-
-	// Queue audio samples to SDL
-	a.emulator.QueueAudio()
-
-	// Handle save state keys
-	a.handleSaveStateKeys()
-
-	// Check auto-save timer
-	if time.Now().After(a.autoSaveTimer) && !a.autoSaving {
-		a.triggerAutoSave()
-		a.autoSaveTimer = time.Now().Add(a.autoSaveInterval)
-	}
-
-	return nil
-}
-
-// pollGameplayInput reads input and passes it to the emulator
-func (a *App) pollGameplayInput() {
-	// Keyboard (WASD + JK)
-	up := ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp)
-	down := ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown)
-	left := ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft)
-	right := ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight)
-	btn1 := ebiten.IsKeyPressed(ebiten.KeyJ) || ebiten.IsKeyPressed(ebiten.KeyZ)
-	btn2 := ebiten.IsKeyPressed(ebiten.KeyK) || ebiten.IsKeyPressed(ebiten.KeyX)
-
-	// Gamepad support
-	gamepadIDs := ebiten.AppendGamepadIDs(nil)
-	for _, id := range gamepadIDs {
-		// D-pad
-		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftTop) {
-			up = true
-		}
-		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftBottom) {
-			down = true
-		}
-		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftLeft) {
-			left = true
-		}
-		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftRight) {
-			right = true
-		}
-		// Buttons
-		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonRightBottom) {
-			btn1 = true
-		}
-		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonRightRight) {
-			btn2 = true
-		}
-		// Analog stick
-		axisX := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickHorizontal)
-		axisY := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickVertical)
-		if axisX < -0.25 {
-			left = true
-		}
-		if axisX > 0.25 {
-			right = true
-		}
-		if axisY < -0.25 {
-			up = true
-		}
-		if axisY > 0.25 {
-			down = true
-		}
-	}
-
-	a.emulator.SetInput(up, down, left, right, btn1, btn2)
-
-	// SMS Pause button (Enter key or Start button triggers NMI)
-	smsPause := inpututil.IsKeyJustPressed(ebiten.KeyEnter)
-	for _, id := range gamepadIDs {
-		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonCenterRight) {
-			smsPause = true
-			break
-		}
-	}
-	if smsPause {
-		a.emulator.SetPause()
-	}
-}
-
-// handleSaveStateKeys handles F1/F2/F3 for save states
-func (a *App) handleSaveStateKeys() {
-	// F1 - Save to current slot
-	if inpututil.IsKeyJustPressed(ebiten.KeyF1) {
-		if err := a.saveStateManager.Save(a.emulator); err != nil {
-			log.Printf("Save state failed: %v", err)
-		}
-	}
-
-	// F2 - Next slot (Shift+F2 - Previous slot)
-	if inpututil.IsKeyJustPressed(ebiten.KeyF2) {
-		if ebiten.IsKeyPressed(ebiten.KeyShift) {
-			a.saveStateManager.PreviousSlot()
-		} else {
-			a.saveStateManager.NextSlot()
-		}
-	}
-
-	// F3 - Load from current slot
-	if inpututil.IsKeyJustPressed(ebiten.KeyF3) {
-		if err := a.saveStateManager.Load(a.emulator); err != nil {
-			log.Printf("Load state failed: %v", err)
-		}
-	}
-}
-
-// drawPlaying renders the gameplay screen
-func (a *App) drawPlaying(screen *ebiten.Image) {
-	if a.emulator == nil {
-		return
-	}
-
-	// Use emulator's DrawToScreen for rendering (same implementation as command-line mode)
-	a.emulator.DrawToScreen(screen, a.cropBorder)
-
-	// Draw pause menu overlay if visible
-	if a.pauseMenu.IsVisible() {
-		a.pauseMenu.Draw(screen)
-	}
-}
-
-// triggerAutoSave performs an auto-save
-func (a *App) triggerAutoSave() {
-	if a.emulator == nil || a.currentGame == nil || a.autoSaving {
-		return
-	}
-
-	a.autoSaving = true
-	go func() {
-		defer func() { a.autoSaving = false }()
-
-		// Save resume state
-		if err := a.saveStateManager.SaveResume(a.emulator); err != nil {
-			log.Printf("Auto-save failed: %v", err)
-		}
-
-		// Save SRAM
-		if err := a.saveStateManager.SaveSRAM(a.emulator); err != nil {
-			log.Printf("SRAM save failed: %v", err)
-		}
-
-		// Update play time
-		a.updatePlayTime()
-	}()
-}
-
-// resumeFromPause resumes gameplay after pause menu
-func (a *App) resumeFromPause() {
-	a.pauseMenu.Hide()
-	a.playTimeTracker.trackStart = time.Now().Unix()
-	a.playTimeTracker.tracking = true
-	a.autoSaveTimer = time.Now().Add(a.autoSaveInterval)
-}
-
-// pausePlayTimeTracking pauses the play time tracker
-func (a *App) pausePlayTimeTracking() {
-	if a.playTimeTracker.tracking {
-		elapsed := time.Now().Unix() - a.playTimeTracker.trackStart
-		a.playTimeTracker.sessionSeconds += elapsed
-		a.playTimeTracker.tracking = false
-	}
-}
-
-// updatePlayTime updates the play time in the library
-func (a *App) updatePlayTime() {
-	if a.currentGame == nil {
-		return
-	}
-
-	var totalSession int64
-	if a.playTimeTracker.tracking {
-		elapsed := time.Now().Unix() - a.playTimeTracker.trackStart
-		totalSession = a.playTimeTracker.sessionSeconds + elapsed
-	} else {
-		totalSession = a.playTimeTracker.sessionSeconds
-	}
-
-	// Only update if there's actual play time
-	if totalSession > 0 {
-		a.currentGame.PlayTimeSeconds += totalSession
-		a.playTimeTracker.sessionSeconds = 0
-		if a.playTimeTracker.tracking {
-			a.playTimeTracker.trackStart = time.Now().Unix()
-		}
-		storage.SaveLibrary(a.library)
-	}
-}
-
-// exitGame cleans up when exiting gameplay
-func (a *App) exitGame(saveResume bool) {
-	if a.emulator == nil {
-		return
-	}
-
-	// Stop play time tracking and update
-	a.pausePlayTimeTracking()
-	a.updatePlayTime()
-
-	// Save SRAM
-	if err := a.saveStateManager.SaveSRAM(a.emulator); err != nil {
-		log.Printf("SRAM save failed: %v", err)
-	}
-
-	// Save resume state if requested
-	if saveResume {
-		if err := a.saveStateManager.SaveResume(a.emulator); err != nil {
-			log.Printf("Resume save failed: %v", err)
-		}
-	}
-
-	// Close emulator
-	a.emulator.Close()
-	a.emulator = nil
-	a.currentGame = nil
-
-	// Reset TPS to 60 for UI
-	ebiten.SetTPS(60)
 }
 
 // updateScanProgress handles the scan progress screen updates
@@ -1031,6 +683,24 @@ func (a *App) handleDeleteAndContinue() {
 		if err = storage.SaveLibrary(a.library); err != nil {
 			log.Printf("Failed to save library: %v", err)
 		}
+	}
+
+	// Update save state manager with new library
+	a.saveStateManager.SetLibrary(a.library)
+
+	// Initialize or update gameplay manager
+	if a.gameplay == nil {
+		a.gameplay = NewGameplayManager(
+			a.saveStateManager,
+			a.notification,
+			a.library,
+			a.config,
+			func() { a.SwitchToLibrary() },
+			func() { a.Exit() },
+		)
+	} else {
+		a.gameplay.SetLibrary(a.library)
+		a.gameplay.SetConfig(a.config)
 	}
 
 	// Reinitialize screens with fresh data

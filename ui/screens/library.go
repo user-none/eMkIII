@@ -4,12 +4,10 @@ package screens
 
 import (
 	"bytes"
-	"fmt"
 	goimage "image"
 	"image/color"
 	"os"
 	"strings"
-	"time"
 
 	_ "image/png"
 
@@ -368,8 +366,8 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		if genre == "" {
 			genre = "-"
 		}
-		playTime := formatPlayTime(g.PlayTimeSeconds)
-		lastPlayed := formatLastPlayed(g.LastPlayed)
+		playTime := style.FormatPlayTime(g.PlayTimeSeconds)
+		lastPlayed := style.FormatLastPlayed(g.LastPlayed)
 
 		// Determine row background color for alternating rows
 		var rowIdleBg color.Color
@@ -516,34 +514,6 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 	return mainContainer
 }
 
-// formatLastPlayed formats a Unix timestamp for display
-func formatLastPlayed(timestamp int64) string {
-	if timestamp == 0 {
-		return "Never"
-	}
-
-	t := time.Unix(timestamp, 0)
-	now := time.Now()
-
-	// Check if same day
-	if t.Year() == now.Year() && t.YearDay() == now.YearDay() {
-		return "Today"
-	}
-
-	// Check if yesterday
-	yesterday := now.AddDate(0, 0, -1)
-	if t.Year() == yesterday.Year() && t.YearDay() == yesterday.YearDay() {
-		return "Yesterday"
-	}
-
-	// This year - show month and day
-	if t.Year() == now.Year() {
-		return t.Format("Jan 2")
-	}
-
-	// Previous years - show year
-	return t.Format("2006")
-}
 
 // buildIconView creates the icon/grid view of games with artwork
 func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
@@ -850,21 +820,4 @@ func (s *LibraryScreen) OnExit() {
 	// Nothing to clean up
 }
 
-// formatPlayTime formats seconds into human-readable format
-func formatPlayTime(seconds int64) string {
-	if seconds == 0 {
-		return "Never"
-	}
-	if seconds < 60 {
-		return "< 1m"
-	}
-
-	hours := seconds / 3600
-	minutes := (seconds % 3600) / 60
-
-	if hours > 0 {
-		return fmt.Sprintf("%dh %dm", hours, minutes)
-	}
-	return fmt.Sprintf("%dm", minutes)
-}
 

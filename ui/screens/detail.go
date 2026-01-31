@@ -3,13 +3,11 @@
 package screens
 
 import (
-	"fmt"
 	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
@@ -200,13 +198,13 @@ func (s *DetailScreen) Build() *widget.Container {
 	}
 
 	// Play time
-	metadataContainer.AddChild(s.createMetadataLabel("Play Time: "+s.formatPlayTime(s.game.PlayTimeSeconds), maxChars, style.TextSecondary))
+	metadataContainer.AddChild(s.createMetadataLabel("Play Time: "+style.FormatPlayTime(s.game.PlayTimeSeconds), maxChars, style.TextSecondary))
 
 	// Last played
-	metadataContainer.AddChild(s.createMetadataLabel("Last Played: "+s.formatLastPlayed(s.game.LastPlayed), maxChars, style.TextSecondary))
+	metadataContainer.AddChild(s.createMetadataLabel("Last Played: "+style.FormatLastPlayed(s.game.LastPlayed), maxChars, style.TextSecondary))
 
 	// Added date
-	metadataContainer.AddChild(s.createMetadataLabel("Added: "+s.formatDate(s.game.Added), maxChars, style.TextSecondary))
+	metadataContainer.AddChild(s.createMetadataLabel("Added: "+style.FormatDate(s.game.Added), maxChars, style.TextSecondary))
 
 	// Missing ROM warning
 	if s.game.Missing {
@@ -314,61 +312,6 @@ func (s *DetailScreen) hasResumeState() bool {
 	resumePath := filepath.Join(saveDir, "resume.state")
 	_, err = os.Stat(resumePath)
 	return err == nil
-}
-
-// formatPlayTime formats seconds into human-readable format
-func (s *DetailScreen) formatPlayTime(seconds int64) string {
-	if seconds == 0 {
-		return "Never played"
-	}
-	if seconds < 60 {
-		return "< 1m"
-	}
-
-	hours := seconds / 3600
-	minutes := (seconds % 3600) / 60
-
-	if hours > 0 {
-		return fmt.Sprintf("%dh %dm", hours, minutes)
-	}
-	return fmt.Sprintf("%dm", minutes)
-}
-
-// formatLastPlayed formats a Unix timestamp for display
-func (s *DetailScreen) formatLastPlayed(timestamp int64) string {
-	if timestamp == 0 {
-		return "Never"
-	}
-
-	t := time.Unix(timestamp, 0)
-	now := time.Now()
-
-	// Check if same day
-	if t.Year() == now.Year() && t.YearDay() == now.YearDay() {
-		return "Today"
-	}
-
-	// Check if yesterday
-	yesterday := now.AddDate(0, 0, -1)
-	if t.Year() == yesterday.Year() && t.YearDay() == yesterday.YearDay() {
-		return "Yesterday"
-	}
-
-	// This year - show month and day
-	if t.Year() == now.Year() {
-		return t.Format("Jan 2")
-	}
-
-	// Previous years - show full date
-	return t.Format("Jan 2, 2006")
-}
-
-// formatDate formats a Unix timestamp as a date
-func (s *DetailScreen) formatDate(timestamp int64) string {
-	if timestamp == 0 {
-		return "Unknown"
-	}
-	return time.Unix(timestamp, 0).Format("Jan 2, 2006")
 }
 
 // OnEnter is called when entering the detail screen

@@ -6,16 +6,6 @@ import (
 	"github.com/ebitenui/ebitenui/widget"
 )
 
-// Screen is the interface that all screens implement
-type Screen interface {
-	// Build creates and returns the root container for this screen
-	Build() *widget.Container
-	// OnEnter is called when the screen becomes active
-	OnEnter()
-	// OnExit is called when the screen is being left
-	OnExit()
-}
-
 // ScreenCallback provides callbacks for screen navigation
 type ScreenCallback interface {
 	SwitchToLibrary()

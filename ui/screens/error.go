@@ -97,8 +97,3 @@ func (s *ErrorScreen) Build() *widget.Container {
 func (s *ErrorScreen) OnEnter() {
 	// Nothing to do
 }
-
-// OnExit is called when leaving the error screen
-func (s *ErrorScreen) OnExit() {
-	// Nothing to clean up
-}

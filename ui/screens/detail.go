@@ -319,11 +319,6 @@ func (s *DetailScreen) OnEnter() {
 	// Nothing specific to do
 }
 
-// OnExit is called when leaving the detail screen
-func (s *DetailScreen) OnExit() {
-	// Nothing to clean up
-}
-
 // createMetadataLabel creates a text label with optional truncation and tooltip
 func (s *DetailScreen) createMetadataLabel(text string, maxChars int, textColor color.Color) *widget.Text {
 	displayText := text

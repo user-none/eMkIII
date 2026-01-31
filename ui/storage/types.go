@@ -5,7 +5,6 @@ type Config struct {
 	Version int          `json:"version"`
 	Video   VideoConfig  `json:"video"`
 	Audio   AudioConfig  `json:"audio"`
-	Input   InputConfig  `json:"input"`
 	Window  WindowConfig `json:"window"`
 	Library LibraryView  `json:"library"`
 }
@@ -19,11 +18,6 @@ type VideoConfig struct {
 type AudioConfig struct {
 	Volume float64 `json:"volume"`
 	Muted  bool    `json:"muted"`
-}
-
-// InputConfig contains input-related settings
-type InputConfig struct {
-	// Reserved for future key/gamepad bindings
 }
 
 // WindowConfig contains window position and size
@@ -94,7 +88,6 @@ func DefaultConfig() *Config {
 			Volume: 1.0,
 			Muted:  false,
 		},
-		Input: InputConfig{},
 		Window: WindowConfig{
 			Width:  900,
 			Height: 650,

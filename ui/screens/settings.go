@@ -405,8 +405,3 @@ func (s *SettingsScreen) onAddDirectoryClick() {
 func (s *SettingsScreen) OnEnter() {
 	// Nothing to do
 }
-
-// OnExit is called when leaving the settings screen
-func (s *SettingsScreen) OnExit() {
-	// Nothing to clean up
-}

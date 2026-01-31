@@ -29,9 +29,6 @@ type InputManager struct {
 	lastMove     time.Time     // When last move occurred
 	repeatDelay  time.Duration // Current repeat interval
 	focusChanged bool          // Track if focus changed this frame
-
-	// Global key tracking
-	screenshotPressed bool
 }
 
 // NewInputManager creates a new input manager
@@ -144,12 +141,4 @@ func (im *InputManager) GetUINavigation() UINavigation {
 	result.OpenSettings = inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonCenterRight)
 
 	return result
-}
-
-// ResetNavigation resets the navigation state.
-// Call this when switching screens to prevent stuck navigation.
-func (im *InputManager) ResetNavigation() {
-	im.direction = 0
-	im.repeatDelay = style.NavStartInterval
-	im.focusChanged = false
 }

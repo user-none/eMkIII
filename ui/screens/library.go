@@ -743,8 +743,3 @@ func (s *LibraryScreen) EnsureFocusedVisible(focused widget.Focuser) {
 		}
 	}
 }
-
-// OnExit is called when leaving the library screen
-func (s *LibraryScreen) OnExit() {
-	// Nothing to clean up
-}

@@ -156,13 +156,13 @@ func RDBExists() bool {
 
 // DownloadArtwork downloads artwork for a game using the fallback chain
 // Returns silently on any error (per spec)
-func DownloadArtwork(crc32 string, gameName string) {
+func DownloadArtwork(gameCRC string, gameName string) {
 	if gameName == "" {
 		return
 	}
 
 	// Check if artwork already exists
-	artworkPath, err := storage.GetGameArtworkPath(crc32)
+	artworkPath, err := storage.GetGameArtworkPath(gameCRC)
 	if err != nil {
 		return
 	}

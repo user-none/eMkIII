@@ -134,21 +134,21 @@ func GetScreenshotDir() (string, error) {
 }
 
 // GetGameSaveDir returns the save directory for a specific game (by CRC32)
-func GetGameSaveDir(crc32 string) (string, error) {
+func GetGameSaveDir(gameCRC string) (string, error) {
 	savesDir, err := GetSavesDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(savesDir, crc32), nil
+	return filepath.Join(savesDir, gameCRC), nil
 }
 
 // GetGameArtworkPath returns the path to a game's box art
-func GetGameArtworkPath(crc32 string) (string, error) {
+func GetGameArtworkPath(gameCRC string) (string, error) {
 	artworkDir, err := GetArtworkDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(artworkDir, crc32, "boxart.png"), nil
+	return filepath.Join(artworkDir, gameCRC, "boxart.png"), nil
 }
 
 // AtomicWriteJSON writes data to a JSON file atomically.

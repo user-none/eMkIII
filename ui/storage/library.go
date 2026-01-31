@@ -99,17 +99,17 @@ func (lib *Library) AddGame(entry *GameEntry) {
 }
 
 // GetGame retrieves a game by CRC32
-func (lib *Library) GetGame(crc32 string) *GameEntry {
+func (lib *Library) GetGame(gameCRC string) *GameEntry {
 	if lib.Games == nil {
 		return nil
 	}
-	return lib.Games[crc32]
+	return lib.Games[gameCRC]
 }
 
 // RemoveGame removes a game from the library
-func (lib *Library) RemoveGame(crc32 string) {
+func (lib *Library) RemoveGame(gameCRC string) {
 	if lib.Games != nil {
-		delete(lib.Games, crc32)
+		delete(lib.Games, gameCRC)
 	}
 }
 
@@ -250,8 +250,8 @@ func (lib *Library) IsPathExcluded(path string) bool {
 }
 
 // UpdatePlayTime adds play time to a game and updates last played
-func (lib *Library) UpdatePlayTime(crc32 string, secondsPlayed int64) {
-	if game := lib.GetGame(crc32); game != nil {
+func (lib *Library) UpdatePlayTime(gameCRC string, secondsPlayed int64) {
+	if game := lib.GetGame(gameCRC); game != nil {
 		game.PlayTimeSeconds += secondsPlayed
 		game.LastPlayed = time.Now().Unix()
 	}

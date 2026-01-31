@@ -34,12 +34,12 @@ func (m *SaveStateManager) SetLibrary(library *storage.Library) {
 
 // SetGame sets the current game for save states
 // Restores the last-used slot from the game's settings
-func (m *SaveStateManager) SetGame(crc string) {
-	m.gameCRC = crc
+func (m *SaveStateManager) SetGame(gameCRC string) {
+	m.gameCRC = gameCRC
 
 	// Restore last-used slot from library
 	if m.library != nil {
-		if game := m.library.GetGame(crc); game != nil {
+		if game := m.library.GetGame(gameCRC); game != nil {
 			m.currentSlot = game.Settings.SaveSlot
 		} else {
 			m.currentSlot = 0

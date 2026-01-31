@@ -71,7 +71,7 @@ type Scanner struct {
 
 // artworkJob represents a pending artwork download
 type artworkJob struct {
-	crc32    string
+	gameCRC  string
 	gameName string // No-Intro name from RDB
 }
 
@@ -353,7 +353,7 @@ func (s *Scanner) processROM(path string) {
 		if _, err := os.Stat(artPath); os.IsNotExist(err) {
 			s.mu.Lock()
 			s.artworkQueue = append(s.artworkQueue, artworkJob{
-				crc32:    crcHex,
+				gameCRC:  crcHex,
 				gameName: game.Name,
 			})
 			s.mu.Unlock()
@@ -415,7 +415,7 @@ func (s *Scanner) downloadArtwork() {
 			}
 
 			// Download artwork (silent on failure)
-			DownloadArtwork(j.crc32, j.gameName)
+			DownloadArtwork(j.gameCRC, j.gameName)
 
 			// Update progress
 			s.mu.Lock()

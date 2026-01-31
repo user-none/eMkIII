@@ -34,8 +34,8 @@ func NewDetailScreen(callback ScreenCallback, library *storage.Library, config *
 }
 
 // SetGame sets the game to display
-func (s *DetailScreen) SetGame(crc32 string) {
-	s.game = s.library.GetGame(crc32)
+func (s *DetailScreen) SetGame(gameCRC string) {
+	s.game = s.library.GetGame(gameCRC)
 }
 
 // Build creates the detail screen UI

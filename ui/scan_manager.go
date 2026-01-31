@@ -119,8 +119,8 @@ func (sm *ScanManager) Cancel() {
 // handleComplete processes scan results
 func (sm *ScanManager) handleComplete(result ScanResult) {
 	// Merge discovered games into library
-	for crc, game := range sm.scanner.Games() {
-		sm.library.Games[crc] = game
+	for gameCRC, game := range sm.scanner.Games() {
+		sm.library.Games[gameCRC] = game
 	}
 
 	// Save updated library

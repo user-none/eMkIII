@@ -595,8 +595,8 @@ func (s *LibraryScreen) buildGameCardSized(game *storage.GameEntry, cardWidth, c
 }
 
 // loadGameArtworkSized loads artwork scaled to specific dimensions
-func (s *LibraryScreen) loadGameArtworkSized(crc32 string, maxWidth, maxHeight int) *ebiten.Image {
-	artPath, err := storage.GetGameArtworkPath(crc32)
+func (s *LibraryScreen) loadGameArtworkSized(gameCRC string, maxWidth, maxHeight int) *ebiten.Image {
+	artPath, err := storage.GetGameArtworkPath(gameCRC)
 	if err != nil {
 		return s.getPlaceholderImageSized(maxWidth, maxHeight)
 	}

@@ -148,6 +148,113 @@ func TestLibrarySorting(t *testing.T) {
 	}
 }
 
+func TestLibrarySortingStability(t *testing.T) {
+	// Test that sorting is stable when primary sort values are equal.
+	// Games with the same display name should be sorted by region, then by
+	// No-Intro name (to distinguish revisions), then by CRC32.
+	lib := DefaultLibrary()
+
+	// Add games with same display name but different regions and revisions
+	lib.AddGame(&GameEntry{
+		CRC32:       "C",
+		DisplayName: "Zillion",
+		Name:        "Zillion (Japan) (Rev 2)",
+		Region:      "jp",
+	})
+	lib.AddGame(&GameEntry{
+		CRC32:       "A",
+		DisplayName: "Zillion",
+		Name:        "Zillion (USA)",
+		Region:      "us",
+	})
+	lib.AddGame(&GameEntry{
+		CRC32:       "B",
+		DisplayName: "Zillion",
+		Name:        "Zillion (Europe)",
+		Region:      "eu",
+	})
+	lib.AddGame(&GameEntry{
+		CRC32:       "D",
+		DisplayName: "Zillion",
+		Name:        "Zillion (Japan) (Rev 1)",
+		Region:      "jp",
+	})
+	lib.AddGame(&GameEntry{
+		CRC32:       "E",
+		DisplayName: "Alex Kidd",
+		Name:        "Alex Kidd (USA)",
+		Region:      "us",
+	})
+
+	// Sort by title multiple times and verify order is consistent
+	for i := 0; i < 5; i++ {
+		games := lib.GetGamesSorted("title", false)
+		if len(games) != 5 {
+			t.Fatalf("expected 5 games, got %d", len(games))
+		}
+		// Alex Kidd should be first (alphabetically)
+		if games[0].DisplayName != "Alex Kidd" {
+			t.Errorf("iteration %d: expected first game 'Alex Kidd', got '%s'", i, games[0].DisplayName)
+		}
+		// Zillion games should be sorted by region (eu, jp, us), then by Name
+		// EU version
+		if games[1].Region != "eu" {
+			t.Errorf("iteration %d: expected second game region 'eu', got '%s'", i, games[1].Region)
+		}
+		// JP versions (Rev 1 before Rev 2 alphabetically)
+		if games[2].Name != "Zillion (Japan) (Rev 1)" {
+			t.Errorf("iteration %d: expected third game 'Zillion (Japan) (Rev 1)', got '%s'", i, games[2].Name)
+		}
+		if games[3].Name != "Zillion (Japan) (Rev 2)" {
+			t.Errorf("iteration %d: expected fourth game 'Zillion (Japan) (Rev 2)', got '%s'", i, games[3].Name)
+		}
+		// US version
+		if games[4].Region != "us" {
+			t.Errorf("iteration %d: expected fifth game region 'us', got '%s'", i, games[4].Region)
+		}
+	}
+
+	// Test with lastPlayed - games with same timestamp should have stable order
+	lib2 := DefaultLibrary()
+	lib2.AddGame(&GameEntry{CRC32: "C", DisplayName: "Game C", Name: "Game C (JP)", Region: "jp", LastPlayed: 1000})
+	lib2.AddGame(&GameEntry{CRC32: "A", DisplayName: "Game A", Name: "Game A (US)", Region: "us", LastPlayed: 1000})
+	lib2.AddGame(&GameEntry{CRC32: "B", DisplayName: "Game B", Name: "Game B (EU)", Region: "eu", LastPlayed: 1000})
+
+	for i := 0; i < 5; i++ {
+		games := lib2.GetGamesSorted("lastPlayed", false)
+		// With equal lastPlayed, should fall back to title order (alphabetical)
+		if games[0].DisplayName != "Game A" {
+			t.Errorf("lastPlayed iteration %d: expected first 'Game A', got '%s'", i, games[0].DisplayName)
+		}
+		if games[1].DisplayName != "Game B" {
+			t.Errorf("lastPlayed iteration %d: expected second 'Game B', got '%s'", i, games[1].DisplayName)
+		}
+		if games[2].DisplayName != "Game C" {
+			t.Errorf("lastPlayed iteration %d: expected third 'Game C', got '%s'", i, games[2].DisplayName)
+		}
+	}
+
+	// Test with playTime - games with same play time should have stable order
+	lib3 := DefaultLibrary()
+	lib3.AddGame(&GameEntry{CRC32: "C", DisplayName: "Game C", Name: "Game C (JP)", Region: "jp", PlayTimeSeconds: 100})
+	lib3.AddGame(&GameEntry{CRC32: "A", DisplayName: "Game A", Name: "Game A (US)", Region: "us", PlayTimeSeconds: 100})
+	lib3.AddGame(&GameEntry{CRC32: "B", DisplayName: "Game B", Name: "Game B (EU)", Region: "eu", PlayTimeSeconds: 100})
+
+	for i := 0; i < 5; i++ {
+		games := lib3.GetGamesSorted("playTime", false)
+		// With equal playTime, should fall back to title order (alphabetical)
+		if games[0].DisplayName != "Game A" {
+			t.Errorf("playTime iteration %d: expected first 'Game A', got '%s'", i, games[0].DisplayName)
+		}
+		if games[1].DisplayName != "Game B" {
+			t.Errorf("playTime iteration %d: expected second 'Game B', got '%s'", i, games[1].DisplayName)
+		}
+		if games[2].DisplayName != "Game C" {
+			t.Errorf("playTime iteration %d: expected third 'Game C', got '%s'", i, games[2].DisplayName)
+		}
+	}
+}
+
 func TestLibraryFavoritesFilter(t *testing.T) {
 	lib := DefaultLibrary()
 

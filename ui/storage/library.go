@@ -138,24 +138,60 @@ func (lib *Library) GetGamesSorted(sortBy string, favoritesOnly bool) []*GameEnt
 	switch sortBy {
 	case "title":
 		sort.Slice(games, func(i, j int) bool {
-			return strings.ToLower(games[i].DisplayName) < strings.ToLower(games[j].DisplayName)
+			return compareGamesForSort(games[i], games[j])
 		})
 	case "lastPlayed":
 		sort.Slice(games, func(i, j int) bool {
-			return games[i].LastPlayed > games[j].LastPlayed // Most recent first
+			// Primary: most recent first
+			if games[i].LastPlayed != games[j].LastPlayed {
+				return games[i].LastPlayed > games[j].LastPlayed
+			}
+			// Secondary: fall back to title ordering
+			return compareGamesForSort(games[i], games[j])
 		})
 	case "playTime":
 		sort.Slice(games, func(i, j int) bool {
-			return games[i].PlayTimeSeconds > games[j].PlayTimeSeconds // Most played first
+			// Primary: most played first
+			if games[i].PlayTimeSeconds != games[j].PlayTimeSeconds {
+				return games[i].PlayTimeSeconds > games[j].PlayTimeSeconds
+			}
+			// Secondary: fall back to title ordering
+			return compareGamesForSort(games[i], games[j])
 		})
 	default:
 		// Default to title sort
 		sort.Slice(games, func(i, j int) bool {
-			return strings.ToLower(games[i].DisplayName) < strings.ToLower(games[j].DisplayName)
+			return compareGamesForSort(games[i], games[j])
 		})
 	}
 
 	return games
+}
+
+// compareGamesForSort compares two games for sorting purposes.
+// It compares by DisplayName (A-Z), then Region, then Name, then CRC32.
+func compareGamesForSort(a, b *GameEntry) bool {
+	// Compare by DisplayName (case-insensitive, A-Z)
+	aName := strings.ToLower(a.DisplayName)
+	bName := strings.ToLower(b.DisplayName)
+	if aName != bName {
+		return aName < bName
+	}
+
+	// Compare by Region (alphabetical: eu, jp, us)
+	if a.Region != b.Region {
+		return a.Region < b.Region
+	}
+
+	// Compare by full Name (No-Intro name, for revisions)
+	aFullName := strings.ToLower(a.Name)
+	bFullName := strings.ToLower(b.Name)
+	if aFullName != bFullName {
+		return aFullName < bFullName
+	}
+
+	// Final tiebreaker: CRC32 (guaranteed unique)
+	return a.CRC32 < b.CRC32
 }
 
 // AddScanDirectory adds a directory to scan for ROMs

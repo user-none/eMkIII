@@ -15,6 +15,7 @@ import (
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/user-none/emkiii/ui/storage"
+	"github.com/user-none/emkiii/ui/style"
 )
 
 // DetailScreen displays game information and launch options
@@ -42,7 +43,7 @@ func (s *DetailScreen) SetGame(crc32 string) {
 // Build creates the detail screen UI
 func (s *DetailScreen) Build() *widget.Container {
 	rootContainer := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBackground)),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Background)),
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
 			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(16)),
@@ -52,10 +53,10 @@ func (s *DetailScreen) Build() *widget.Container {
 
 	// Back button
 	backButton := widget.NewButton(
-		widget.ButtonOpts.Image(newButtonImage()),
-		widget.ButtonOpts.Text("Back", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Image(style.ButtonImage()),
+		widget.ButtonOpts.Text("Back", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -66,7 +67,7 @@ func (s *DetailScreen) Build() *widget.Container {
 
 	if s.game == nil {
 		errorLabel := widget.NewText(
-			widget.TextOpts.Text("Game not found", getFontFace(), themeText),
+			widget.TextOpts.Text("Game not found", style.FontFace(), style.Text),
 		)
 		rootContainer.AddChild(errorLabel)
 		return rootContainer
@@ -122,7 +123,7 @@ func (s *DetailScreen) Build() *widget.Container {
 	} else {
 		// Show placeholder text if no artwork
 		artPlaceholder := widget.NewText(
-			widget.TextOpts.Text(s.game.DisplayName, getFontFace(), themeTextSecondary),
+			widget.TextOpts.Text(s.game.DisplayName, style.FontFace(), style.TextSecondary),
 			widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
 			widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
 				HorizontalPosition: widget.AnchorLayoutPositionCenter,
@@ -162,11 +163,11 @@ func (s *DetailScreen) Build() *widget.Container {
 	if s.game.Missing {
 		titleText = "[!] " + titleText
 	}
-	metadataContainer.AddChild(s.createMetadataLabel(titleText, maxChars, themeText))
+	metadataContainer.AddChild(s.createMetadataLabel(titleText, maxChars, style.Text))
 
 	// Full name (No-Intro format)
 	if s.game.Name != "" && s.game.Name != s.game.DisplayName {
-		metadataContainer.AddChild(s.createMetadataLabel("Name: "+s.game.Name, maxChars, themeTextSecondary))
+		metadataContainer.AddChild(s.createMetadataLabel("Name: "+s.game.Name, maxChars, style.TextSecondary))
 	}
 
 	// Region
@@ -174,51 +175,51 @@ func (s *DetailScreen) Build() *widget.Container {
 	if region == "" {
 		region = "Unknown"
 	}
-	metadataContainer.AddChild(s.createMetadataLabel("Region: "+region, maxChars, themeTextSecondary))
+	metadataContainer.AddChild(s.createMetadataLabel("Region: "+region, maxChars, style.TextSecondary))
 
 	// Developer
 	if s.game.Developer != "" {
-		metadataContainer.AddChild(s.createMetadataLabel("Developer: "+s.game.Developer, maxChars, themeTextSecondary))
+		metadataContainer.AddChild(s.createMetadataLabel("Developer: "+s.game.Developer, maxChars, style.TextSecondary))
 	}
 
 	// Publisher
 	if s.game.Publisher != "" {
-		metadataContainer.AddChild(s.createMetadataLabel("Publisher: "+s.game.Publisher, maxChars, themeTextSecondary))
+		metadataContainer.AddChild(s.createMetadataLabel("Publisher: "+s.game.Publisher, maxChars, style.TextSecondary))
 	}
 
 	// Genre
 	if s.game.Genre != "" {
-		metadataContainer.AddChild(s.createMetadataLabel("Genre: "+s.game.Genre, maxChars, themeTextSecondary))
+		metadataContainer.AddChild(s.createMetadataLabel("Genre: "+s.game.Genre, maxChars, style.TextSecondary))
 	}
 
 	// Franchise
 	if s.game.Franchise != "" {
-		metadataContainer.AddChild(s.createMetadataLabel("Franchise: "+s.game.Franchise, maxChars, themeTextSecondary))
+		metadataContainer.AddChild(s.createMetadataLabel("Franchise: "+s.game.Franchise, maxChars, style.TextSecondary))
 	}
 
 	// Release Date
 	if s.game.ReleaseDate != "" {
-		metadataContainer.AddChild(s.createMetadataLabel("Released: "+s.game.ReleaseDate, maxChars, themeTextSecondary))
+		metadataContainer.AddChild(s.createMetadataLabel("Released: "+s.game.ReleaseDate, maxChars, style.TextSecondary))
 	}
 
 	// ESRB Rating
 	if s.game.ESRBRating != "" {
-		metadataContainer.AddChild(s.createMetadataLabel("ESRB: "+s.game.ESRBRating, maxChars, themeTextSecondary))
+		metadataContainer.AddChild(s.createMetadataLabel("ESRB: "+s.game.ESRBRating, maxChars, style.TextSecondary))
 	}
 
 	// Play time
-	metadataContainer.AddChild(s.createMetadataLabel("Play Time: "+s.formatPlayTime(s.game.PlayTimeSeconds), maxChars, themeTextSecondary))
+	metadataContainer.AddChild(s.createMetadataLabel("Play Time: "+s.formatPlayTime(s.game.PlayTimeSeconds), maxChars, style.TextSecondary))
 
 	// Last played
-	metadataContainer.AddChild(s.createMetadataLabel("Last Played: "+s.formatLastPlayed(s.game.LastPlayed), maxChars, themeTextSecondary))
+	metadataContainer.AddChild(s.createMetadataLabel("Last Played: "+s.formatLastPlayed(s.game.LastPlayed), maxChars, style.TextSecondary))
 
 	// Added date
-	metadataContainer.AddChild(s.createMetadataLabel("Added: "+s.formatDate(s.game.Added), maxChars, themeTextSecondary))
+	metadataContainer.AddChild(s.createMetadataLabel("Added: "+s.formatDate(s.game.Added), maxChars, style.TextSecondary))
 
 	// Missing ROM warning
 	if s.game.Missing {
 		warningLabel := widget.NewText(
-			widget.TextOpts.Text("ROM file not found", getFontFace(), themeTextSecondary),
+			widget.TextOpts.Text("ROM file not found", style.FontFace(), style.TextSecondary),
 		)
 		metadataContainer.AddChild(warningLabel)
 	}
@@ -240,10 +241,10 @@ func (s *DetailScreen) Build() *widget.Container {
 	if !s.game.Missing {
 		// Play button
 		playButton := widget.NewButton(
-			widget.ButtonOpts.Image(newPrimaryButtonImage()),
-			widget.ButtonOpts.Text("Play", getFontFace(), &widget.ButtonTextColor{
-				Idle:     themeText,
-				Disabled: themeTextSecondary,
+			widget.ButtonOpts.Image(style.PrimaryButtonImage()),
+			widget.ButtonOpts.Text("Play", style.FontFace(), &widget.ButtonTextColor{
+				Idle:     style.Text,
+				Disabled: style.TextSecondary,
 			}),
 			widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
 			widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -253,16 +254,16 @@ func (s *DetailScreen) Build() *widget.Container {
 		buttonContainer.AddChild(playButton)
 
 		// Resume button (enabled only if resume state exists)
-		resumeImage := newButtonImage()
+		resumeImage := style.ButtonImage()
 		if !hasResume {
-			resumeImage = newDisabledButtonImage()
+			resumeImage = style.DisabledButtonImage()
 		}
 
 		resumeButton := widget.NewButton(
 			widget.ButtonOpts.Image(resumeImage),
-			widget.ButtonOpts.Text("Resume", getFontFace(), &widget.ButtonTextColor{
-				Idle:     themeText,
-				Disabled: themeTextSecondary,
+			widget.ButtonOpts.Text("Resume", style.FontFace(), &widget.ButtonTextColor{
+				Idle:     style.Text,
+				Disabled: style.TextSecondary,
 			}),
 			widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
 			widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -275,10 +276,10 @@ func (s *DetailScreen) Build() *widget.Container {
 	} else {
 		// Remove from Library button for missing games
 		removeButton := widget.NewButton(
-			widget.ButtonOpts.Image(newButtonImage()),
-			widget.ButtonOpts.Text("Remove from Library", getFontFace(), &widget.ButtonTextColor{
-				Idle:     themeText,
-				Disabled: themeTextSecondary,
+			widget.ButtonOpts.Image(style.ButtonImage()),
+			widget.ButtonOpts.Text("Remove from Library", style.FontFace(), &widget.ButtonTextColor{
+				Idle:     style.Text,
+				Disabled: style.TextSecondary,
 			}),
 			widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
 			widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -296,10 +297,10 @@ func (s *DetailScreen) Build() *widget.Container {
 		favText = "Remove from Favorites"
 	}
 	favButton := widget.NewButton(
-		widget.ButtonOpts.Image(newButtonImage()),
-		widget.ButtonOpts.Text(favText, getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Image(style.ButtonImage()),
+		widget.ButtonOpts.Text(favText, style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -443,25 +444,6 @@ func (s *DetailScreen) OnExit() {
 	// Nothing to clean up
 }
 
-// Helper functions for button images
-func newPrimaryButtonImage() *widget.ButtonImage {
-	return &widget.ButtonImage{
-		Idle:     image.NewNineSliceColor(themePrimary),
-		Hover:    image.NewNineSliceColor(themePrimaryHover),
-		Pressed:  image.NewNineSliceColor(themeSurface),
-		Disabled: image.NewNineSliceColor(themeBorder),
-	}
-}
-
-func newDisabledButtonImage() *widget.ButtonImage {
-	return &widget.ButtonImage{
-		Idle:     image.NewNineSliceColor(themeBorder),
-		Hover:    image.NewNineSliceColor(themeBorder),
-		Pressed:  image.NewNineSliceColor(themeBorder),
-		Disabled: image.NewNineSliceColor(themeBorder),
-	}
-}
-
 // colorBlack for box art background
 var colorBlack = color.NRGBA{0x00, 0x00, 0x00, 0xff}
 
@@ -476,18 +458,18 @@ func (s *DetailScreen) createMetadataLabel(text string, maxChars int, textColor 
 	}
 
 	opts := []widget.TextOpt{
-		widget.TextOpts.Text(displayText, getFontFace(), textColor),
+		widget.TextOpts.Text(displayText, style.FontFace(), textColor),
 	}
 
 	if needsTooltip {
 		tooltipContainer := widget.NewContainer(
-			widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBorder)),
+			widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
 			widget.ContainerOpts.Layout(widget.NewRowLayout(
 				widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(8)),
 			)),
 		)
 		tooltipLabel := widget.NewText(
-			widget.TextOpts.Text(text, getFontFace(), themeText),
+			widget.TextOpts.Text(text, style.FontFace(), style.Text),
 		)
 		tooltipContainer.AddChild(tooltipLabel)
 

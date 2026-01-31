@@ -9,6 +9,7 @@ import (
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/sqweek/dialog"
 	"github.com/user-none/emkiii/ui/storage"
+	"github.com/user-none/emkiii/ui/style"
 )
 
 // SettingsScreen displays application settings
@@ -67,7 +68,7 @@ func (s *SettingsScreen) ClearPendingScan() {
 func (s *SettingsScreen) Build() *widget.Container {
 	// Use GridLayout for the root to properly constrain sizes
 	rootContainer := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBackground)),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Background)),
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
 			widget.GridLayoutOpts.Columns(1),
 			// Row 0 (header) = fixed, Row 1 (main content) = stretch
@@ -86,10 +87,10 @@ func (s *SettingsScreen) Build() *widget.Container {
 	)
 
 	backButton := widget.NewButton(
-		widget.ButtonOpts.Image(newButtonImage()),
-		widget.ButtonOpts.Text("Back", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Image(style.ButtonImage()),
+		widget.ButtonOpts.Text("Back", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -113,7 +114,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 
 	// Sidebar
 	sidebar := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeSurface)),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Surface)),
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
 			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(8)),
@@ -127,9 +128,9 @@ func (s *SettingsScreen) Build() *widget.Container {
 	// Library section button
 	libraryBtn := widget.NewButton(
 		widget.ButtonOpts.Image(s.getSidebarButtonImage(s.selectedSection == 0)),
-		widget.ButtonOpts.Text("Library", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Text("Library", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -143,7 +144,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 
 	// Future sections (disabled) - use containers instead of buttons so they're not focusable
 	videoItem := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBorder)),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout(
 			widget.AnchorLayoutOpts.Padding(widget.NewInsetsSimple(8)),
 		)),
@@ -152,7 +153,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 		),
 	)
 	videoItem.AddChild(widget.NewText(
-		widget.TextOpts.Text("Video*", getFontFace(), themeTextSecondary),
+		widget.TextOpts.Text("Video*", style.FontFace(), style.TextSecondary),
 		widget.TextOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
 				HorizontalPosition: widget.AnchorLayoutPositionStart,
@@ -163,7 +164,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 	sidebar.AddChild(videoItem)
 
 	audioItem := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBorder)),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout(
 			widget.AnchorLayoutOpts.Padding(widget.NewInsetsSimple(8)),
 		)),
@@ -172,7 +173,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 		),
 	)
 	audioItem.AddChild(widget.NewText(
-		widget.TextOpts.Text("Audio*", getFontFace(), themeTextSecondary),
+		widget.TextOpts.Text("Audio*", style.FontFace(), style.TextSecondary),
 		widget.TextOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
 				HorizontalPosition: widget.AnchorLayoutPositionStart,
@@ -183,7 +184,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 	sidebar.AddChild(audioItem)
 
 	inputItem := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBorder)),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout(
 			widget.AnchorLayoutOpts.Padding(widget.NewInsetsSimple(8)),
 		)),
@@ -192,7 +193,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 		),
 	)
 	inputItem.AddChild(widget.NewText(
-		widget.TextOpts.Text("Input*", getFontFace(), themeTextSecondary),
+		widget.TextOpts.Text("Input*", style.FontFace(), style.TextSecondary),
 		widget.TextOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
 				HorizontalPosition: widget.AnchorLayoutPositionStart,
@@ -204,7 +205,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 
 	// Future note
 	futureNote := widget.NewText(
-		widget.TextOpts.Text("* Coming soon", getFontFace(), themeTextSecondary),
+		widget.TextOpts.Text("* Coming soon", style.FontFace(), style.TextSecondary),
 	)
 	sidebar.AddChild(futureNote)
 
@@ -253,7 +254,7 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 
 	// ROM Folders label
 	dirLabel := widget.NewText(
-		widget.TextOpts.Text("ROM Folders", getFontFace(), themeText),
+		widget.TextOpts.Text("ROM Folders", style.FontFace(), style.Text),
 	)
 	section.AddChild(dirLabel)
 
@@ -275,10 +276,10 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 
 	// Add Folder button
 	addDirBtn := widget.NewButton(
-		widget.ButtonOpts.Image(newButtonImage()),
-		widget.ButtonOpts.Text("Add Folder...", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Image(style.ButtonImage()),
+		widget.ButtonOpts.Text("Add Folder...", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -289,10 +290,10 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 
 	// Scan Library button
 	scanBtn := widget.NewButton(
-		widget.ButtonOpts.Image(newPrimaryButtonImage()),
-		widget.ButtonOpts.Text("Scan Library", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Image(style.PrimaryButtonImage()),
+		widget.ButtonOpts.Text("Scan Library", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -302,15 +303,15 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 	buttonRow.AddChild(scanBtn)
 
 	// Remove button - disabled when nothing selected, removes all selected folders
-	removeButtonImage := newButtonImage()
+	removeButtonImage := style.ButtonImage()
 	if len(s.selectedDirs) == 0 {
-		removeButtonImage = newDisabledButtonImage()
+		removeButtonImage = style.DisabledButtonImage()
 	}
 	removeBtn := widget.NewButton(
 		widget.ButtonOpts.Image(removeButtonImage),
-		widget.ButtonOpts.Text("Remove", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Text("Remove", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -342,7 +343,7 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 	}
 
 	countLabel := widget.NewText(
-		widget.TextOpts.Text(countText, getFontFace(), themeTextSecondary),
+		widget.TextOpts.Text(countText, style.FontFace(), style.TextSecondary),
 		widget.TextOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
 				HorizontalPosition: widget.GridLayoutPositionCenter,
@@ -379,7 +380,7 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 			),
 		)
 		emptyLabel := widget.NewText(
-			widget.TextOpts.Text("No folders added", getFontFace(), themeTextSecondary),
+			widget.TextOpts.Text("No folders added", style.FontFace(), style.TextSecondary),
 			widget.TextOpts.WidgetOpts(
 				widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
 					HorizontalPosition: widget.AnchorLayoutPositionCenter,
@@ -396,11 +397,11 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 			displayPath, wasTruncated := truncatePath(dirPath, maxPathChars)
 
 			// Determine row background based on selection state
-			var rowBg = themeBackground
+			var rowBg = style.Background
 			if s.selectedDirs[idx] {
-				rowBg = themePrimary // Selected items show primary color
+				rowBg = style.Primary // Selected items show primary color
 			} else if idx%2 == 1 {
-				rowBg = themeSurface // Alternating colors for unselected
+				rowBg = style.Surface // Alternating colors for unselected
 			}
 
 			// Create row content with path label (no background - button handles colors for focus states)
@@ -424,13 +425,13 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 			// Add tooltip if path was truncated
 			if wasTruncated {
 				tooltipContainer := widget.NewContainer(
-					widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBorder)),
+					widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
 					widget.ContainerOpts.Layout(widget.NewRowLayout(
 						widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(8)),
 					)),
 				)
 				tooltipLabel := widget.NewText(
-					widget.TextOpts.Text(dirPath, getFontFace(), themeText),
+					widget.TextOpts.Text(dirPath, style.FontFace(), style.Text),
 				)
 				tooltipContainer.AddChild(tooltipLabel)
 
@@ -442,7 +443,7 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 			}
 
 			pathLabel := widget.NewText(
-				widget.TextOpts.Text(displayPath, getFontFace(), themeText),
+				widget.TextOpts.Text(displayPath, style.FontFace(), style.Text),
 				widget.TextOpts.WidgetOpts(pathWidgetOpts...),
 			)
 			rowContent.AddChild(pathLabel)
@@ -451,8 +452,8 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 			rowButton := widget.NewButton(
 				widget.ButtonOpts.Image(&widget.ButtonImage{
 					Idle:    image.NewNineSliceColor(rowBg),
-					Hover:   image.NewNineSliceColor(themePrimaryHover),
-					Pressed: image.NewNineSliceColor(themePrimary),
+					Hover:   image.NewNineSliceColor(style.PrimaryHover),
+					Pressed: image.NewNineSliceColor(style.Primary),
 				}),
 				widget.ButtonOpts.WidgetOpts(
 					widget.WidgetOpts.LayoutData(widget.RowLayoutData{
@@ -497,8 +498,8 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 		widget.ScrollContainerOpts.Content(listContent),
 		widget.ScrollContainerOpts.StretchContentWidth(),
 		widget.ScrollContainerOpts.Image(&widget.ScrollContainerImage{
-			Idle: image.NewNineSliceColor(themeSurface),
-			Mask: image.NewNineSliceColor(themeSurface),
+			Idle: image.NewNineSliceColor(style.Surface),
+			Mask: image.NewNineSliceColor(style.Surface),
 		}),
 	)
 
@@ -516,10 +517,10 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 		widget.SliderOpts.MinMax(0, 1000),
 		widget.SliderOpts.Images(
 			&widget.SliderTrackImage{
-				Idle:  image.NewNineSliceColor(themeBorder),
-				Hover: image.NewNineSliceColor(themeBorder),
+				Idle:  image.NewNineSliceColor(style.Border),
+				Hover: image.NewNineSliceColor(style.Border),
 			},
-			newSliderButtonImage(),
+			style.SliderButtonImage(),
 		),
 		widget.SliderOpts.FixedHandleSize(40),
 		widget.SliderOpts.PageSizeFunc(func() int {
@@ -558,7 +559,7 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 
 	// Outer wrapper with border - fills the grid cell
 	listWrapper := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBorder)),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
 			widget.GridLayoutOpts.Columns(2),
 			widget.GridLayoutOpts.Stretch([]bool{true, false}, []bool{true}),
@@ -594,13 +595,13 @@ func (s *SettingsScreen) onAddDirectoryClick() {
 func (s *SettingsScreen) getSidebarButtonImage(active bool) *widget.ButtonImage {
 	if active {
 		return &widget.ButtonImage{
-			Idle:     image.NewNineSliceColor(themePrimary),
-			Hover:    image.NewNineSliceColor(themePrimaryHover),
-			Pressed:  image.NewNineSliceColor(themePrimary),
-			Disabled: image.NewNineSliceColor(themeBorder),
+			Idle:     image.NewNineSliceColor(style.Primary),
+			Hover:    image.NewNineSliceColor(style.PrimaryHover),
+			Pressed:  image.NewNineSliceColor(style.Primary),
+			Disabled: image.NewNineSliceColor(style.Border),
 		}
 	}
-	return newButtonImage()
+	return style.ButtonImage()
 }
 
 // OnEnter is called when entering the settings screen

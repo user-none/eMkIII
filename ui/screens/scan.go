@@ -7,6 +7,7 @@ import (
 
 	"github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
+	"github.com/user-none/emkiii/ui/style"
 )
 
 // ScanProgress represents progress updates from the scanner
@@ -70,7 +71,7 @@ func (s *ScanProgressScreen) IsCancelled() bool {
 // Build creates the scan progress screen UI
 func (s *ScanProgressScreen) Build() *widget.Container {
 	rootContainer := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBackground)),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Background)),
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
 	)
 
@@ -93,14 +94,14 @@ func (s *ScanProgressScreen) Build() *widget.Container {
 		statusText = "Scanning..."
 	}
 	statusLabel := widget.NewText(
-		widget.TextOpts.Text(statusText, getFontFace(), themeText),
+		widget.TextOpts.Text(statusText, style.FontFace(), style.Text),
 		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
 	)
 	centerContent.AddChild(statusLabel)
 
 	// Progress bar background
 	progressBg := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBorder)),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.MinSize(300, 20),
 		),
@@ -115,7 +116,7 @@ func (s *ScanProgressScreen) Build() *widget.Container {
 		fillWidth = 1
 	}
 	progressFill := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themePrimary)),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Primary)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.MinSize(fillWidth, 20),
 		),
@@ -127,7 +128,7 @@ func (s *ScanProgressScreen) Build() *widget.Container {
 	// Percentage text
 	percentText := fmt.Sprintf("%.0f%%", s.progress*100)
 	percentLabel := widget.NewText(
-		widget.TextOpts.Text(percentText, getFontFace(), themeTextSecondary),
+		widget.TextOpts.Text(percentText, style.FontFace(), style.TextSecondary),
 		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
 	)
 	centerContent.AddChild(percentLabel)
@@ -135,7 +136,7 @@ func (s *ScanProgressScreen) Build() *widget.Container {
 	// Found count
 	foundText := fmt.Sprintf("Found: %d new games", s.gamesFound)
 	foundLabel := widget.NewText(
-		widget.TextOpts.Text(foundText, getFontFace(), themeText),
+		widget.TextOpts.Text(foundText, style.FontFace(), style.Text),
 		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
 	)
 	centerContent.AddChild(foundLabel)
@@ -144,23 +145,23 @@ func (s *ScanProgressScreen) Build() *widget.Container {
 	if s.phase == 2 && s.artworkTotal > 0 {
 		artworkText := fmt.Sprintf("Downloading artwork: %d/%d", s.artworkComplete, s.artworkTotal)
 		artworkLabel := widget.NewText(
-			widget.TextOpts.Text(artworkText, getFontFace(), themeText),
+			widget.TextOpts.Text(artworkText, style.FontFace(), style.Text),
 			widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
 		)
 		centerContent.AddChild(artworkLabel)
 	}
 
 	// Cancel button
-	cancelBtnImage := newButtonImage()
+	cancelBtnImage := style.ButtonImage()
 	if s.cancelPending {
-		cancelBtnImage = newDisabledButtonImage()
+		cancelBtnImage = style.DisabledButtonImage()
 	}
 
 	cancelButton := widget.NewButton(
 		widget.ButtonOpts.Image(cancelBtnImage),
-		widget.ButtonOpts.Text("Cancel", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Text("Cancel", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {

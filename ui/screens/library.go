@@ -16,9 +16,8 @@ import (
 	"github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/user-none/emkiii/ui/storage"
-	"golang.org/x/image/font/basicfont"
+	"github.com/user-none/emkiii/ui/style"
 )
 
 // LibraryScreen displays the game library
@@ -90,7 +89,7 @@ func (s *LibraryScreen) Build() *widget.Container {
 
 	// Use anchor layout for root to fill entire window
 	rootContainer := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBackground)),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Background)),
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
 	)
 
@@ -158,22 +157,22 @@ func (s *LibraryScreen) buildEmptyState() *widget.Container {
 	)
 
 	titleLabel := widget.NewText(
-		widget.TextOpts.Text("No games in library", getFontFace(), themeText),
+		widget.TextOpts.Text("No games in library", style.FontFace(), style.Text),
 		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
 	)
 	centerContent.AddChild(titleLabel)
 
 	subtitleLabel := widget.NewText(
-		widget.TextOpts.Text("Add a ROM folder in Settings", getFontFace(), themeTextSecondary),
+		widget.TextOpts.Text("Add a ROM folder in Settings", style.FontFace(), style.TextSecondary),
 		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
 	)
 	centerContent.AddChild(subtitleLabel)
 
 	settingsButton := widget.NewButton(
-		widget.ButtonOpts.Image(newButtonImage()),
-		widget.ButtonOpts.Text("Open Settings", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Image(style.ButtonImage()),
+		widget.ButtonOpts.Text("Open Settings", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -211,13 +210,13 @@ func (s *LibraryScreen) buildFilteredEmptyState() *widget.Container {
 	)
 
 	titleLabel := widget.NewText(
-		widget.TextOpts.Text("No favorites yet", getFontFace(), themeText),
+		widget.TextOpts.Text("No favorites yet", style.FontFace(), style.Text),
 		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
 	)
 	centerContent.AddChild(titleLabel)
 
 	subtitleLabel := widget.NewText(
-		widget.TextOpts.Text("Turn off the favorites filter to see all games", getFontFace(), themeTextSecondary),
+		widget.TextOpts.Text("Turn off the favorites filter to see all games", style.FontFace(), style.TextSecondary),
 		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
 	)
 	centerContent.AddChild(subtitleLabel)
@@ -247,9 +246,9 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 
 	iconViewBtn := widget.NewButton(
 		widget.ButtonOpts.Image(s.getViewButtonImage(s.config.Library.ViewMode == "icon")),
-		widget.ButtonOpts.Text("Icon", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Text("Icon", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -264,9 +263,9 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 
 	listViewBtn := widget.NewButton(
 		widget.ButtonOpts.Image(s.getViewButtonImage(s.config.Library.ViewMode == "list")),
-		widget.ButtonOpts.Text("List", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Text("List", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -307,7 +306,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 		),
 	)
 	sortLabel := widget.NewText(
-		widget.TextOpts.Text("Sort:", getFontFace(), themeText),
+		widget.TextOpts.Text("Sort:", style.FontFace(), style.Text),
 		widget.TextOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
 				VerticalPosition: widget.AnchorLayoutPositionCenter,
@@ -330,10 +329,10 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 	}
 
 	sortButton := widget.NewButton(
-		widget.ButtonOpts.Image(newButtonImage()),
-		widget.ButtonOpts.Text(sortOptions[currentSortIdx], getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Image(style.ButtonImage()),
+		widget.ButtonOpts.Text(sortOptions[currentSortIdx], style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -354,9 +353,9 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 	}
 	favButton := widget.NewButton(
 		widget.ButtonOpts.Image(s.getViewButtonImage(s.config.Library.FavoritesFilter)),
-		widget.ButtonOpts.Text(favText, getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Text(favText, style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -378,10 +377,10 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 	)
 
 	settingsButton := widget.NewButton(
-		widget.ButtonOpts.Image(newButtonImage()),
-		widget.ButtonOpts.Text("Settings", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeText,
-			Disabled: themeTextSecondary,
+		widget.ButtonOpts.Image(style.ButtonImage()),
+		widget.ButtonOpts.Text("Settings", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
@@ -422,7 +421,7 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 			),
 		)
 		label := widget.NewText(
-			widget.TextOpts.Text(text, getFontFace(), textColor),
+			widget.TextOpts.Text(text, style.FontFace(), textColor),
 			widget.TextOpts.WidgetOpts(
 				widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
 					VerticalPosition: widget.AnchorLayoutPositionCenter,
@@ -442,7 +441,7 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 			),
 		)
 		label := widget.NewText(
-			widget.TextOpts.Text(text, getFontFace(), themeTextSecondary),
+			widget.TextOpts.Text(text, style.FontFace(), style.TextSecondary),
 			widget.TextOpts.WidgetOpts(
 				widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
 					VerticalPosition: widget.AnchorLayoutPositionCenter,
@@ -464,7 +463,7 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.MinSize(0, headerHeight),
 		),
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeSurface)),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Surface)),
 	)
 	header.AddChild(createHeaderCell("", colFav)) // Favorite column (no header text)
 	header.AddChild(createHeaderCell("Title", 0)) // Title stretches
@@ -510,9 +509,9 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		// Determine row background color for alternating rows
 		var rowIdleBg color.Color
 		if idx%2 == 0 {
-			rowIdleBg = themeBackground
+			rowIdleBg = style.Background
 		} else {
-			rowIdleBg = themeSurface
+			rowIdleBg = style.Surface
 		}
 
 		// Create row container with grid layout (transparent background - button handles colors)
@@ -529,20 +528,20 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		)
 
 		// Add cells
-		row.AddChild(createCell(fav, colFav, false, themeAccent))
-		row.AddChild(createCell(g.DisplayName, 0, true, themeText))
-		row.AddChild(createCell(genre, colGenre, false, themeTextSecondary))
-		row.AddChild(createCell(region, colRegion, false, themeTextSecondary))
-		row.AddChild(createCell(playTime, colPlayTime, false, themeTextSecondary))
-		row.AddChild(createCell(lastPlayed, colLastPlayed, false, themeTextSecondary))
+		row.AddChild(createCell(fav, colFav, false, style.Accent))
+		row.AddChild(createCell(g.DisplayName, 0, true, style.Text))
+		row.AddChild(createCell(genre, colGenre, false, style.TextSecondary))
+		row.AddChild(createCell(region, colRegion, false, style.TextSecondary))
+		row.AddChild(createCell(playTime, colPlayTime, false, style.TextSecondary))
+		row.AddChild(createCell(lastPlayed, colLastPlayed, false, style.TextSecondary))
 
 		// Create button with alternating row color as idle, focus/hover colors for interaction
 		gameCRC := g.CRC32 // Capture for closure
 		rowButton := widget.NewButton(
 			widget.ButtonOpts.Image(&widget.ButtonImage{
 				Idle:    image.NewNineSliceColor(rowIdleBg),
-				Hover:   image.NewNineSliceColor(themePrimaryHover),
-				Pressed: image.NewNineSliceColor(themePrimary),
+				Hover:   image.NewNineSliceColor(style.PrimaryHover),
+				Pressed: image.NewNineSliceColor(style.Primary),
 			}),
 			widget.ButtonOpts.WidgetOpts(
 				widget.WidgetOpts.LayoutData(widget.RowLayoutData{
@@ -584,8 +583,8 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		widget.ScrollContainerOpts.Content(listContent),
 		widget.ScrollContainerOpts.StretchContentWidth(),
 		widget.ScrollContainerOpts.Image(&widget.ScrollContainerImage{
-			Idle: image.NewNineSliceColor(themeBackground),
-			Mask: image.NewNineSliceColor(themeBackground),
+			Idle: image.NewNineSliceColor(style.Background),
+			Mask: image.NewNineSliceColor(style.Background),
 		}),
 	)
 
@@ -603,10 +602,10 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		widget.SliderOpts.MinMax(0, 1000),
 		widget.SliderOpts.Images(
 			&widget.SliderTrackImage{
-				Idle:  image.NewNineSliceColor(themeBorder),
-				Hover: image.NewNineSliceColor(themeBorder),
+				Idle:  image.NewNineSliceColor(style.Border),
+				Hover: image.NewNineSliceColor(style.Border),
 			},
-			newSliderButtonImage(),
+			style.SliderButtonImage(),
 		),
 		widget.SliderOpts.FixedHandleSize(40),
 		widget.SliderOpts.PageSizeFunc(func() int {
@@ -809,8 +808,8 @@ func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
 		widget.ScrollContainerOpts.Content(gridContainer),
 		widget.ScrollContainerOpts.StretchContentWidth(),
 		widget.ScrollContainerOpts.Image(&widget.ScrollContainerImage{
-			Idle: image.NewNineSliceColor(themeBackground),
-			Mask: image.NewNineSliceColor(themeBackground),
+			Idle: image.NewNineSliceColor(style.Background),
+			Mask: image.NewNineSliceColor(style.Background),
 		}),
 	)
 
@@ -828,10 +827,10 @@ func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
 		widget.SliderOpts.MinMax(0, 1000),
 		widget.SliderOpts.Images(
 			&widget.SliderTrackImage{
-				Idle:  image.NewNineSliceColor(themeBorder),
-				Hover: image.NewNineSliceColor(themeBorder),
+				Idle:  image.NewNineSliceColor(style.Border),
+				Hover: image.NewNineSliceColor(style.Border),
 			},
-			newSliderButtonImage(),
+			style.SliderButtonImage(),
 		),
 		widget.SliderOpts.FixedHandleSize(40),
 		widget.SliderOpts.PageSizeFunc(func() int {
@@ -917,9 +916,9 @@ func (s *LibraryScreen) buildGameCardSized(game *storage.GameEntry, cardWidth, c
 	gameCRC := game.CRC32 // Capture for closure
 	artButton := widget.NewButton(
 		widget.ButtonOpts.Image(&widget.ButtonImage{
-			Idle:    image.NewNineSliceColor(themeSurface),
-			Hover:   image.NewNineSliceColor(themePrimaryHover),
-			Pressed: image.NewNineSliceColor(themePrimary),
+			Idle:    image.NewNineSliceColor(style.Surface),
+			Hover:   image.NewNineSliceColor(style.PrimaryHover),
+			Pressed: image.NewNineSliceColor(style.Primary),
 		}),
 		widget.ButtonOpts.WidgetOpts(
 			widget.WidgetOpts.MinSize(cardWidth, artHeight),
@@ -948,7 +947,7 @@ func (s *LibraryScreen) buildGameCardSized(game *storage.GameEntry, cardWidth, c
 	}
 	displayName := truncateString(game.DisplayName, maxChars)
 	titleLabel := widget.NewText(
-		widget.TextOpts.Text(displayName, getFontFace(), themeText),
+		widget.TextOpts.Text(displayName, style.FontFace(), style.Text),
 		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionStart),
 		widget.TextOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
@@ -990,7 +989,7 @@ func (s *LibraryScreen) loadGameArtworkSized(crc32 string, maxWidth, maxHeight i
 // getPlaceholderImageSized returns a placeholder image of specific size
 func getPlaceholderImageSized(width, height int) *ebiten.Image {
 	img := ebiten.NewImage(width, height)
-	img.Fill(themeSurface)
+	img.Fill(style.Surface)
 	return img
 }
 
@@ -1036,13 +1035,13 @@ func scaleImage(src goimage.Image, maxWidth, maxHeight int) *ebiten.Image {
 func (s *LibraryScreen) getViewButtonImage(active bool) *widget.ButtonImage {
 	if active {
 		return &widget.ButtonImage{
-			Idle:     image.NewNineSliceColor(themePrimary),
-			Hover:    image.NewNineSliceColor(themePrimaryHover),
-			Pressed:  image.NewNineSliceColor(themePrimary),
-			Disabled: image.NewNineSliceColor(themeBorder),
+			Idle:     image.NewNineSliceColor(style.Primary),
+			Hover:    image.NewNineSliceColor(style.PrimaryHover),
+			Pressed:  image.NewNineSliceColor(style.Primary),
+			Disabled: image.NewNineSliceColor(style.Border),
 		}
 	}
-	return newButtonImage()
+	return style.ButtonImage()
 }
 
 // SaveScrollPosition saves the current scroll position before a rebuild
@@ -1192,45 +1191,6 @@ func formatPlayTime(seconds int64) string {
 		return fmt.Sprintf("%dh %dm", hours, minutes)
 	}
 	return fmt.Sprintf("%dm", minutes)
-}
-
-// Theme colors (duplicated for package isolation)
-var (
-	themeBackground    = color.NRGBA{0x1a, 0x1a, 0x2e, 0xff}
-	themeSurface       = color.NRGBA{0x25, 0x25, 0x3a, 0xff}
-	themePrimary       = color.NRGBA{0x4a, 0x4a, 0x8a, 0xff}
-	themePrimaryHover  = color.NRGBA{0x5a, 0x5a, 0x9a, 0xff}
-	themeText          = color.NRGBA{0xff, 0xff, 0xff, 0xff}
-	themeTextSecondary = color.NRGBA{0xaa, 0xaa, 0xaa, 0xff}
-	themeAccent        = color.NRGBA{0xff, 0xd7, 0x00, 0xff} // Gold for favorites
-	themeBorder        = color.NRGBA{0x3a, 0x3a, 0x5a, 0xff}
-)
-
-var fontFace text.Face
-
-func getFontFace() text.Face {
-	if fontFace == nil {
-		fontFace = text.NewGoXFace(basicfont.Face7x13)
-	}
-	return fontFace
-}
-
-func newButtonImage() *widget.ButtonImage {
-	return &widget.ButtonImage{
-		Idle:     image.NewNineSliceColor(themeSurface),
-		Hover:    image.NewNineSliceColor(themePrimaryHover),
-		Pressed:  image.NewNineSliceColor(themePrimary),
-		Disabled: image.NewNineSliceColor(themeBorder),
-	}
-}
-
-func newSliderButtonImage() *widget.ButtonImage {
-	return &widget.ButtonImage{
-		Idle:     image.NewNineSliceColor(themePrimary),
-		Hover:    image.NewNineSliceColor(themePrimaryHover),
-		Pressed:  image.NewNineSliceColor(themePrimary),
-		Disabled: image.NewNineSliceColor(themeBorder),
-	}
 }
 
 func truncateString(s string, maxLen int) string {

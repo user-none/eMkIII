@@ -1224,15 +1224,6 @@ func newButtonImage() *widget.ButtonImage {
 	}
 }
 
-func newListButtonImage() *widget.ButtonImage {
-	return &widget.ButtonImage{
-		Idle:     image.NewNineSliceColor(themeSurface),
-		Hover:    image.NewNineSliceColor(themePrimaryHover),
-		Pressed:  image.NewNineSliceColor(themePrimary),
-		Disabled: image.NewNineSliceColor(themeBorder),
-	}
-}
-
 func newSliderButtonImage() *widget.ButtonImage {
 	return &widget.ButtonImage{
 		Idle:     image.NewNineSliceColor(themePrimary),

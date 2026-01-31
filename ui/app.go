@@ -279,13 +279,12 @@ func (a *App) Update() error {
 	case StateSettings:
 		a.handleGamepadUI()
 		a.ui.Update()
-		// Clear focus changed flag - settings has its own scroll handling
-		a.gamepadFocusChanged = false
-		// Restore focus after ui.Update() so the new UI state is ready
-		if btn := a.settingsScreen.GetPendingFocusButton(); btn != nil {
-			btn.Focus(true)
-			a.settingsScreen.ClearPendingFocus()
+		// Check if state changed during ui.Update (e.g., user navigated away)
+		if a.state != StateSettings {
+			return nil
 		}
+		a.gamepadFocusChanged = false // Settings has its own scroll handling
+		a.restorePendingFocus(a.settingsScreen)
 		// Check if settings screen triggered a scan (after adding directory)
 		if a.settingsScreen.HasPendingScan() {
 			a.settingsScreen.ClearPendingScan()
@@ -294,35 +293,41 @@ func (a *App) Update() error {
 	case StateLibrary:
 		a.handleGamepadUI()
 		a.ui.Update()
-		// Restore focus after ui.Update() so the new UI state is ready
-		if btn := a.libraryScreen.GetPendingFocusButton(); btn != nil {
-			btn.Focus(true)
-			a.libraryScreen.ClearPendingFocus()
+		// Check if state changed during ui.Update (e.g., user clicked a game)
+		if a.state != StateLibrary {
+			return nil
 		}
-		// Check scroll after ui.Update() so widget Rects are current
-		if a.gamepadFocusChanged {
-			a.ensureFocusedVisible()
-			a.gamepadFocusChanged = false
-		}
+		a.restorePendingFocus(a.libraryScreen)
+		a.handleFocusScroll()
 	default:
 		// StateDetail, StateError
 		a.handleGamepadUI()
+		prevState := a.state
 		a.ui.Update()
-		// Check scroll after ui.Update() so widget Rects are current
-		if a.gamepadFocusChanged {
-			a.ensureFocusedVisible()
-			a.gamepadFocusChanged = false
+		// Check if state changed during ui.Update (e.g., user clicked Back)
+		if a.state != prevState {
+			return nil
 		}
+		a.handleFocusScroll()
 	}
 	return nil
 }
 
-// abs returns the absolute value of an int
-func abs(x int) int {
-	if x < 0 {
-		return -x
+// handleFocusScroll scrolls to keep focused widget visible after gamepad navigation
+func (a *App) handleFocusScroll() {
+	if a.gamepadFocusChanged {
+		a.ensureFocusedVisible()
+		a.gamepadFocusChanged = false
 	}
-	return x
+}
+
+// restorePendingFocus restores focus to a pending button if one exists
+func (a *App) restorePendingFocus(screen screens.FocusRestorer) {
+	btn := screen.GetPendingFocusButton()
+	if btn != nil {
+		btn.Focus(true)
+		screen.ClearPendingFocus()
+	}
 }
 
 // handleGamepadUI processes gamepad input for UI navigation
@@ -522,12 +527,7 @@ func (a *App) SwitchToLibrary() {
 	a.state = StateLibrary
 	a.libraryScreen.OnEnter()
 	a.rebuildCurrentScreen()
-
-	// Restore focus to previously selected game if any
-	if btn := a.libraryScreen.GetPendingFocusButton(); btn != nil {
-		btn.Focus(true)
-		a.libraryScreen.ClearPendingFocus()
-	}
+	// Focus restoration is handled by the Update loop on the next frame
 }
 
 // SwitchToDetail transitions to the detail screen

@@ -27,3 +27,11 @@ type ScreenCallback interface {
 	GetWindowWidth() int // For responsive layout calculations
 	RequestRebuild()     // Request UI rebuild after state changes
 }
+
+// FocusRestorer is implemented by screens that support focus restoration after rebuilds
+type FocusRestorer interface {
+	// GetPendingFocusButton returns the button that should receive focus after rebuild
+	GetPendingFocusButton() *widget.Button
+	// ClearPendingFocus clears the pending focus state
+	ClearPendingFocus()
+}

@@ -111,8 +111,8 @@ var paletteScale = []uint8{0, 85, 170, 255}
 func NewVDP() *VDP {
 	return &VDP{
 		framebuffer:    image.NewRGBA(image.Rect(0, 0, ScreenWidth, MaxScreenHeight)),
-		totalScanlines: 262,       // Default to NTSC
-		lineCounter:    255,       // Prevent spurious interrupt on first scanline
+		totalScanlines: 262, // Default to NTSC
+		lineCounter:    255, // Prevent spurious interrupt on first scanline
 	}
 }
 
@@ -519,7 +519,6 @@ func (v *VDP) renderSprites(line uint16) {
 
 	// Get active height to determine sprite terminator behavior
 	activeHeight := v.ActiveHeight()
-
 
 	// Collect sprites on this line (max 8)
 	type spriteInfo struct {

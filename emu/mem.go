@@ -6,7 +6,7 @@ import "hash/crc32"
 type MapperType int
 
 const (
-	MapperSega       MapperType = iota // Standard Sega mapper ($FFFC-$FFFF)
+	MapperSega        MapperType = iota // Standard Sega mapper ($FFFC-$FFFF)
 	MapperCodemasters                   // Codemasters mapper ($0000, $4000, $8000)
 )
 

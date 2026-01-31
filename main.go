@@ -9,23 +9,26 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/user-none/emkiii/cli"
 	"github.com/user-none/emkiii/emu"
 	"github.com/user-none/emkiii/romloader"
-
-	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/user-none/emkiii/ui"
 )
 
 func main() {
-	romPath := flag.String("rom", "", "path to ROM file")
+	romPath := flag.String("rom", "", "path to ROM file (optional - opens UI if not provided)")
 	regionFlag := flag.String("region", "auto", "region: auto, ntsc, or pal")
 	cropBorder := flag.Bool("crop-border", false, "crop left border when blank")
 	flag.Parse()
 
+	// If no ROM provided, launch the UI
 	if *romPath == "" {
-		fmt.Println("Usage: go run main.go -rom <romfile> [-region auto|ntsc|pal] [-crop-border]")
-		os.Exit(1)
+		launchUI()
+		return
 	}
 
+	// Direct emulator mode (existing behavior)
 	romData, _, err := romloader.LoadROM(*romPath)
 	if err != nil {
 		log.Fatalf("Failed to load ROM: %v", err)
@@ -45,7 +48,7 @@ func main() {
 	}
 
 	timing := emu.GetTimingForRegion(region)
-	e := emu.NewEmulator(romData, region, *cropBorder)
+	e := emu.NewEmulator(romData, region)
 
 	ebiten.SetWindowSize(emu.ScreenWidth*2, 192*2) // Default size for 192-line mode
 	ebiten.SetWindowTitle("eMKIII")
@@ -53,7 +56,32 @@ func main() {
 	ebiten.SetWindowSizeLimits(348, 348, -1, -1) // Min 348x348, no max
 	ebiten.SetTPS(timing.FPS)
 
-	if err := ebiten.RunGame(e); err != nil {
+	runner := cli.NewRunner(e, *cropBorder)
+	if err := ebiten.RunGame(runner); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// launchUI starts the standalone UI application
+func launchUI() {
+	app, err := ui.NewApp()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to initialize: %v\n", err)
+		os.Exit(1)
+	}
+
+	ebiten.SetWindowTitle("eMKIII")
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	ebiten.SetWindowSizeLimits(900, 650, -1, -1)
+
+	// Set initial window size from config
+	// The App will handle restoring window position/size
+	ebiten.SetWindowSize(800, 600)
+
+	if err := ebiten.RunGame(app); err != nil {
+		log.Fatal(err)
+	}
+
+	// Save before exit
+	app.SaveAndClose()
 }

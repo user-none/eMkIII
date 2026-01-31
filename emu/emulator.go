@@ -37,6 +37,9 @@ type EmulatorBase struct {
 	region    Region
 	timing    RegionTiming
 	scanlines int
+
+	// Audio buffer for accumulating samples (shared between builds)
+	audioBuffer []int16
 }
 
 // initEmulatorBase creates and initializes the shared emulator components
@@ -200,6 +203,62 @@ func (e *EmulatorBase) SetRegion(region Region) {
 	e.cyclesPerFrame = e.timing.CPUClockHz / e.timing.FPS
 	e.cyclesPerScanline = e.cyclesPerFrame / e.timing.Scanlines
 	e.cyclesPerScanlineFP = (e.timing.CPUClockHz * 65536) / e.timing.FPS / e.timing.Scanlines
+}
+
+// =============================================================================
+// Shared Emulation Methods
+// =============================================================================
+
+// ConvertAudioSamples converts float32 mono samples to int16 stereo.
+func ConvertAudioSamples(samples []float32) []int16 {
+	result := make([]int16, len(samples)*2)
+	for i, sample := range samples {
+		intSample := int16(sample * 32767)
+		result[i*2] = intSample   // Left
+		result[i*2+1] = intSample // Right (duplicate for stereo)
+	}
+	return result
+}
+
+// RunFrame executes one frame of emulation without Ebiten or SDL.
+// Audio samples are accumulated in the internal buffer.
+func (e *EmulatorBase) RunFrame() {
+	// Reset audio buffer for this frame
+	e.audioBuffer = e.audioBuffer[:0]
+
+	// Run the core emulation loop
+	frameSamples := e.runScanlines()
+
+	// Convert float32 samples to 16-bit stereo
+	e.audioBuffer = append(e.audioBuffer, ConvertAudioSamples(frameSamples)...)
+}
+
+// GetAudioSamples returns accumulated audio samples as 16-bit stereo PCM.
+func (e *EmulatorBase) GetAudioSamples() []int16 {
+	return e.audioBuffer
+}
+
+// LeftColumnBlankEnabled returns whether VDP has left column blank enabled.
+func (e *EmulatorBase) LeftColumnBlankEnabled() bool {
+	return e.vdp.LeftColumnBlankEnabled()
+}
+
+// GetSystemRAM returns a pointer to the 8KB system RAM.
+// Used by libretro for RetroAchievements memory exposure.
+func (e *EmulatorBase) GetSystemRAM() *[0x2000]uint8 {
+	return e.mem.GetSystemRAM()
+}
+
+// GetCartRAM returns a pointer to the 32KB cartridge RAM.
+// Used by libretro for battery-backed save RAM persistence.
+func (e *EmulatorBase) GetCartRAM() *[0x8000]uint8 {
+	return e.mem.GetCartRAM()
+}
+
+// SetPause triggers the SMS pause button (NMI) for one frame.
+// The NMI is triggered on the next frame start.
+func (e *EmulatorBase) SetPause() {
+	e.cpu.TriggerNMI()
 }
 
 // =============================================================================

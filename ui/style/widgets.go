@@ -280,3 +280,51 @@ func EmptyState(title, subtitle string, button *widget.Button) *widget.Container
 	container.AddChild(centerContent)
 	return container
 }
+
+// ScreenContainer creates a full-screen root container with background.
+// The container uses AnchorLayout so children can stretch to fill.
+func ScreenContainer() *widget.Container {
+	return widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(Background)),
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
+	)
+}
+
+// ScreenContentContainer creates an inner container for screen content.
+// Uses a single-column GridLayout with default padding and spacing.
+// The stretch parameter controls which rows stretch vertically.
+func ScreenContentContainer(rowStretch []bool) *widget.Container {
+	return widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewGridLayout(
+			widget.GridLayoutOpts.Columns(1),
+			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(DefaultPadding)),
+			widget.GridLayoutOpts.Spacing(DefaultSpacing, DefaultSpacing),
+			widget.GridLayoutOpts.Stretch([]bool{true}, rowStretch),
+		)),
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
+				StretchHorizontal: true,
+				StretchVertical:   true,
+			}),
+		),
+	)
+}
+
+// ButtonRow creates a horizontal container for buttons with standard spacing.
+func ButtonRow() *widget.Container {
+	return widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
+			widget.RowLayoutOpts.Spacing(SmallSpacing),
+		)),
+	)
+}
+
+// AlternatingRowColor returns the appropriate background color for alternating rows.
+// Even indices (0, 2, 4...) return Background, odd indices return Surface.
+func AlternatingRowColor(index int) color.Color {
+	if index%2 == 0 {
+		return Background
+	}
+	return Surface
+}

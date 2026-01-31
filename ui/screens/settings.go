@@ -73,8 +73,8 @@ func (s *SettingsScreen) Build() *widget.Container {
 			widget.GridLayoutOpts.Columns(1),
 			// Row 0 (header) = fixed, Row 1 (main content) = stretch
 			widget.GridLayoutOpts.Stretch([]bool{true}, []bool{false, true}),
-			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(16)),
-			widget.GridLayoutOpts.Spacing(16, 16),
+			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(style.DefaultPadding)),
+			widget.GridLayoutOpts.Spacing(style.DefaultSpacing, style.DefaultSpacing),
 		)),
 	)
 
@@ -82,11 +82,11 @@ func (s *SettingsScreen) Build() *widget.Container {
 	header := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
-			widget.RowLayoutOpts.Spacing(16),
+			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
 		)),
 	)
 
-	backButton := style.TextButton("Back", 8, func(args *widget.ButtonClickedEventArgs) {
+	backButton := style.TextButton("Back", style.ButtonPaddingSmall, func(args *widget.ButtonClickedEventArgs) {
 		s.callback.SwitchToLibrary()
 	})
 	header.AddChild(backButton)
@@ -100,7 +100,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 			// Col 0 (sidebar) = fixed, Col 1 (content) = stretch
 			// Row stretches vertically
 			widget.GridLayoutOpts.Stretch([]bool{false, true}, []bool{true}),
-			widget.GridLayoutOpts.Spacing(16, 0),
+			widget.GridLayoutOpts.Spacing(style.DefaultSpacing, 0),
 		)),
 	)
 
@@ -109,11 +109,11 @@ func (s *SettingsScreen) Build() *widget.Container {
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Surface)),
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(8)),
-			widget.RowLayoutOpts.Spacing(4),
+			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(style.SmallSpacing)),
+			widget.RowLayoutOpts.Spacing(style.TinySpacing),
 		)),
 		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.MinSize(160, 0),
+			widget.WidgetOpts.MinSize(style.SettingsSidebarMinWidth, 0),
 		),
 	)
 
@@ -124,7 +124,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 			Idle:     style.Text,
 			Disabled: style.TextSecondary,
 		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.selectedSection = 0
 		}),
@@ -152,7 +152,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
 			widget.GridLayoutOpts.Columns(1),
 			widget.GridLayoutOpts.Stretch([]bool{true}, []bool{true}),
-			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(16)),
+			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(style.DefaultPadding)),
 		)),
 	)
 
@@ -175,7 +175,7 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 			widget.GridLayoutOpts.Columns(1),
 			// Row stretch: label=no, list=YES, buttons=no, count=no
 			widget.GridLayoutOpts.Stretch([]bool{true}, []bool{false, true, false, false}),
-			widget.GridLayoutOpts.Spacing(0, 12),
+			widget.GridLayoutOpts.Spacing(0, style.ButtonPaddingMedium),
 		)),
 	)
 
@@ -192,7 +192,7 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 	buttonRow := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
-			widget.RowLayoutOpts.Spacing(12),
+			widget.RowLayoutOpts.Spacing(style.ButtonPaddingMedium),
 		)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
@@ -202,13 +202,13 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 	)
 
 	// Add Folder button
-	addDirBtn := style.TextButton("Add Folder...", 12, func(args *widget.ButtonClickedEventArgs) {
+	addDirBtn := style.TextButton("Add Folder...", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
 		s.onAddDirectoryClick()
 	})
 	buttonRow.AddChild(addDirBtn)
 
 	// Scan Library button
-	scanBtn := style.PrimaryTextButton("Scan Library", 12, func(args *widget.ButtonClickedEventArgs) {
+	scanBtn := style.PrimaryTextButton("Scan Library", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
 		s.callback.SwitchToScanProgress(true)
 	})
 	buttonRow.AddChild(scanBtn)
@@ -221,7 +221,7 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 	removeBtn := widget.NewButton(
 		widget.ButtonOpts.Image(removeButtonImage),
 		widget.ButtonOpts.Text("Remove", style.FontFace(), style.ButtonTextColor()),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingMedium)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			if len(s.selectedDirs) > 0 {
 				// Collect paths to remove (iterate in reverse to avoid index shifting issues)
@@ -265,7 +265,6 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 
 // buildFolderList creates a selectable folder list with scrolling
 func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget {
-	rowHeight := 28
 	maxPathChars := 70
 
 	// Clear button references for fresh build
@@ -284,7 +283,7 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 		emptyContainer := widget.NewContainer(
 			widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
 			widget.ContainerOpts.WidgetOpts(
-				widget.WidgetOpts.MinSize(0, 100),
+				widget.WidgetOpts.MinSize(0, style.SettingsFolderListMinHeight),
 			),
 		)
 		emptyLabel := widget.NewText(
@@ -315,10 +314,10 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 			// Create row content with path label (no background - button handles colors for focus states)
 			rowContent := widget.NewContainer(
 				widget.ContainerOpts.Layout(widget.NewAnchorLayout(
-					widget.AnchorLayoutOpts.Padding(&widget.Insets{Left: 12, Right: 12}),
+					widget.AnchorLayoutOpts.Padding(&widget.Insets{Left: style.ButtonPaddingMedium, Right: style.ButtonPaddingMedium}),
 				)),
 				widget.ContainerOpts.WidgetOpts(
-					widget.WidgetOpts.MinSize(0, rowHeight),
+					widget.WidgetOpts.MinSize(0, style.SettingsRowHeight),
 				),
 			)
 
@@ -356,7 +355,7 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 					widget.WidgetOpts.LayoutData(widget.RowLayoutData{
 						Stretch: true,
 					}),
-					widget.WidgetOpts.MinSize(0, rowHeight),
+					widget.WidgetOpts.MinSize(0, style.SettingsRowHeight),
 				),
 				widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 					// Toggle selection - click to select, click again to deselect
@@ -380,7 +379,7 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 					widget.WidgetOpts.LayoutData(widget.RowLayoutData{
 						Stretch: true,
 					}),
-					widget.WidgetOpts.MinSize(0, rowHeight),
+					widget.WidgetOpts.MinSize(0, style.SettingsRowHeight),
 				),
 			)
 			rowWrapper.AddChild(rowButton)

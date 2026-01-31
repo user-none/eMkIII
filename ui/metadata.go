@@ -9,10 +9,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/user-none/emkiii/ui/rdb"
 	"github.com/user-none/emkiii/ui/storage"
+	"github.com/user-none/emkiii/ui/style"
 )
 
 const (
@@ -35,7 +35,7 @@ var artworkTypes = []string{
 
 // HTTP client with timeout
 var httpClient = &http.Client{
-	Timeout: 10 * time.Second,
+	Timeout: style.HTTPTimeout,
 }
 
 // MetadataManager handles RDB and artwork downloads

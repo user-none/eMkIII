@@ -44,13 +44,13 @@ func (s *DetailScreen) Build() *widget.Container {
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Background)),
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(16)),
-			widget.RowLayoutOpts.Spacing(16),
+			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(style.DefaultPadding)),
+			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
 		)),
 	)
 
 	// Back button
-	backButton := style.TextButton("Back", 8, func(args *widget.ButtonClickedEventArgs) {
+	backButton := style.TextButton("Back", style.ButtonPaddingSmall, func(args *widget.ButtonClickedEventArgs) {
 		s.callback.SwitchToLibrary()
 	})
 	rootContainer.AddChild(backButton)
@@ -67,7 +67,7 @@ func (s *DetailScreen) Build() *widget.Container {
 	contentContainer := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
-			widget.RowLayoutOpts.Spacing(24),
+			widget.RowLayoutOpts.Spacing(style.LargeSpacing),
 		)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
@@ -76,14 +76,14 @@ func (s *DetailScreen) Build() *widget.Container {
 		),
 	)
 
-	// Calculate art size based on window - use ~40% of width, max 400px
+	// Calculate art size based on window - use ~40% of width, with min/max bounds
 	windowWidth := s.callback.GetWindowWidth()
 	artWidth := windowWidth * 40 / 100
-	if artWidth < 150 {
-		artWidth = 150
+	if artWidth < style.DetailArtWidthSmall {
+		artWidth = style.DetailArtWidthSmall
 	}
-	if artWidth > 400 {
-		artWidth = 400
+	if artWidth > style.DetailArtWidthLarge {
+		artWidth = style.DetailArtWidthLarge
 	}
 	artHeight := artWidth * 4 / 3 // 3:4 aspect ratio for box art
 
@@ -128,7 +128,7 @@ func (s *DetailScreen) Build() *widget.Container {
 	metadataContainer := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Spacing(8),
+			widget.RowLayoutOpts.Spacing(style.SmallSpacing),
 		)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
@@ -221,7 +221,7 @@ func (s *DetailScreen) Build() *widget.Container {
 	buttonContainer := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
-			widget.RowLayoutOpts.Spacing(16),
+			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
 		)),
 	)
 
@@ -230,7 +230,7 @@ func (s *DetailScreen) Build() *widget.Container {
 
 	if !s.game.Missing {
 		// Play button
-		playButton := style.PrimaryTextButton("Play", 12, func(args *widget.ButtonClickedEventArgs) {
+		playButton := style.PrimaryTextButton("Play", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
 			s.callback.LaunchGame(s.game.CRC32, false)
 		})
 		buttonContainer.AddChild(playButton)
@@ -244,7 +244,7 @@ func (s *DetailScreen) Build() *widget.Container {
 		resumeButton := widget.NewButton(
 			widget.ButtonOpts.Image(resumeImage),
 			widget.ButtonOpts.Text("Resume", style.FontFace(), style.ButtonTextColor()),
-			widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
+			widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingMedium)),
 			widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 				if hasResume {
 					s.callback.LaunchGame(s.game.CRC32, true)
@@ -254,7 +254,7 @@ func (s *DetailScreen) Build() *widget.Container {
 		buttonContainer.AddChild(resumeButton)
 	} else {
 		// Remove from Library button for missing games
-		removeButton := style.TextButton("Remove from Library", 12, func(args *widget.ButtonClickedEventArgs) {
+		removeButton := style.TextButton("Remove from Library", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
 			s.library.RemoveGame(s.game.CRC32)
 			storage.SaveLibrary(s.library)
 			s.callback.SwitchToLibrary()

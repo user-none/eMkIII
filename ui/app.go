@@ -17,6 +17,7 @@ import (
 	"github.com/user-none/emkiii/romloader"
 	"github.com/user-none/emkiii/ui/screens"
 	"github.com/user-none/emkiii/ui/storage"
+	"github.com/user-none/emkiii/ui/style"
 )
 
 // App is the main application struct that implements ebiten.Game
@@ -72,17 +73,19 @@ type App struct {
 	// Screenshot pending flag (set in Update, processed in Draw)
 	screenshotPending bool
 
-	// Gamepad analog stick state for debouncing
-	gamepadStickMoved bool
+	// Gamepad navigation state for UI navigation
+	gamepadNav gamepadNavState
+}
 
-	// Track if gamepad changed focus this frame (for scroll after layout)
-	gamepadFocusChanged bool
-
-	// Continuous navigation state
-	gamepadNavDirection   int           // 0=none, 1=prev, 2=next
-	gamepadNavStartTime   time.Time     // When direction was first pressed
-	gamepadNavLastMove    time.Time     // When last move occurred
-	gamepadNavRepeatDelay time.Duration // Current repeat interval
+// gamepadNavState tracks continuous navigation state for gamepad input.
+// This handles repeat navigation when holding a direction.
+type gamepadNavState struct {
+	direction    int           // 0=none, 1=prev, 2=next
+	startTime    time.Time     // When direction was first pressed
+	lastMove     time.Time     // When last move occurred
+	repeatDelay  time.Duration // Current repeat interval
+	stickMoved   bool          // Analog stick state for debouncing
+	focusChanged bool          // Track if focus changed this frame (for scroll after layout)
 }
 
 // PlayTimeTracker tracks play time during gameplay
@@ -96,7 +99,7 @@ type PlayTimeTracker struct {
 func NewApp() (*App, error) {
 	app := &App{
 		state:            StateLibrary,
-		autoSaveInterval: 5 * time.Second,
+		autoSaveInterval: style.AutoSaveInterval,
 	}
 
 	// Ensure directory structure exists
@@ -278,7 +281,7 @@ func (a *App) Update() error {
 		a.handleGamepadUI()
 		err := a.updateScanProgress()
 		// Clear focus changed flag - no scroll containers in scan screen
-		a.gamepadFocusChanged = false
+		a.gamepadNav.focusChanged = false
 		return err
 	case StateSettings:
 		a.handleGamepadUI()
@@ -287,7 +290,7 @@ func (a *App) Update() error {
 		if a.state != StateSettings {
 			return nil
 		}
-		a.gamepadFocusChanged = false // Settings has its own scroll handling
+		a.gamepadNav.focusChanged = false // Settings has its own scroll handling
 		a.restorePendingFocus(a.settingsScreen)
 		// Check if settings screen triggered a scan (after adding directory)
 		if a.settingsScreen.HasPendingScan() {
@@ -319,9 +322,9 @@ func (a *App) Update() error {
 
 // handleFocusScroll scrolls to keep focused widget visible after gamepad navigation
 func (a *App) handleFocusScroll() {
-	if a.gamepadFocusChanged {
+	if a.gamepadNav.focusChanged {
 		a.ensureFocusedVisible()
-		a.gamepadFocusChanged = false
+		a.gamepadNav.focusChanged = false
 	}
 }
 
@@ -349,13 +352,7 @@ func (a *App) handleGamepadUI() {
 	// Use first connected gamepad
 	id := gamepadIDs[0]
 
-	// Continuous navigation constants
-	const (
-		navInitialDelay  = 400 * time.Millisecond // Delay before repeat starts
-		navStartInterval = 200 * time.Millisecond // Initial repeat interval
-		navMinInterval   = 25 * time.Millisecond  // Fastest repeat (cap)
-		navAcceleration  = 20 * time.Millisecond  // Speed increase per repeat
-	)
+	// Navigation timing uses constants from style package
 
 	// Determine current navigation direction from D-pad and analog stick
 	navPrev := false
@@ -394,14 +391,14 @@ func (a *App) handleGamepadUI() {
 
 	if desiredDir == 0 {
 		// No direction pressed - reset state
-		a.gamepadNavDirection = 0
-		a.gamepadNavRepeatDelay = navStartInterval
-	} else if desiredDir != a.gamepadNavDirection {
+		a.gamepadNav.direction = 0
+		a.gamepadNav.repeatDelay = style.NavStartInterval
+	} else if desiredDir != a.gamepadNav.direction {
 		// Direction changed - move immediately and start tracking
-		a.gamepadNavDirection = desiredDir
-		a.gamepadNavStartTime = now
-		a.gamepadNavLastMove = now
-		a.gamepadNavRepeatDelay = navStartInterval
+		a.gamepadNav.direction = desiredDir
+		a.gamepadNav.startTime = now
+		a.gamepadNav.lastMove = now
+		a.gamepadNav.repeatDelay = style.NavStartInterval
 
 		if desiredDir == 1 {
 			a.ui.ChangeFocus(widget.FOCUS_PREVIOUS)
@@ -411,10 +408,10 @@ func (a *App) handleGamepadUI() {
 		focusChanged = true
 	} else {
 		// Same direction held - check for repeat
-		holdDuration := now.Sub(a.gamepadNavStartTime)
-		timeSinceLastMove := now.Sub(a.gamepadNavLastMove)
+		holdDuration := now.Sub(a.gamepadNav.startTime)
+		timeSinceLastMove := now.Sub(a.gamepadNav.lastMove)
 
-		if holdDuration >= navInitialDelay && timeSinceLastMove >= a.gamepadNavRepeatDelay {
+		if holdDuration >= style.NavInitialDelay && timeSinceLastMove >= a.gamepadNav.repeatDelay {
 			// Time to repeat
 			if desiredDir == 1 {
 				a.ui.ChangeFocus(widget.FOCUS_PREVIOUS)
@@ -422,19 +419,19 @@ func (a *App) handleGamepadUI() {
 				a.ui.ChangeFocus(widget.FOCUS_NEXT)
 			}
 			focusChanged = true
-			a.gamepadNavLastMove = now
+			a.gamepadNav.lastMove = now
 
 			// Accelerate (decrease interval)
-			a.gamepadNavRepeatDelay -= navAcceleration
-			if a.gamepadNavRepeatDelay < navMinInterval {
-				a.gamepadNavRepeatDelay = navMinInterval
+			a.gamepadNav.repeatDelay -= style.NavAcceleration
+			if a.gamepadNav.repeatDelay < style.NavMinInterval {
+				a.gamepadNav.repeatDelay = style.NavMinInterval
 			}
 		}
 	}
 
 	// Mark that focus changed - scroll check happens after ui.Update()
 	if focusChanged {
-		a.gamepadFocusChanged = true
+		a.gamepadNav.focusChanged = true
 	}
 
 	// A/Cross button activates focused widget

@@ -92,7 +92,7 @@ func (s *ScanProgressScreen) Build() *widget.Container {
 	progressBg := widget.NewContainer(
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
 		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.MinSize(300, 20),
+			widget.WidgetOpts.MinSize(style.ProgressBarWidth, style.ProgressBarHeight),
 		),
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
@@ -100,14 +100,14 @@ func (s *ScanProgressScreen) Build() *widget.Container {
 	)
 
 	// Progress bar fill (width based on progress)
-	fillWidth := int(300 * s.progress)
+	fillWidth := int(float64(style.ProgressBarWidth) * s.progress)
 	if fillWidth < 1 {
 		fillWidth = 1
 	}
 	progressFill := widget.NewContainer(
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Primary)),
 		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.MinSize(fillWidth, 20),
+			widget.WidgetOpts.MinSize(fillWidth, style.ProgressBarHeight),
 		),
 	)
 	progressBg.AddChild(progressFill)
@@ -149,7 +149,7 @@ func (s *ScanProgressScreen) Build() *widget.Container {
 	cancelButton := widget.NewButton(
 		widget.ButtonOpts.Image(cancelBtnImage),
 		widget.ButtonOpts.Text("Cancel", style.FontFace(), style.ButtonTextColor()),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingMedium)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			if !s.cancelPending {
 				s.cancelPending = true

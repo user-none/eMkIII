@@ -5,7 +5,6 @@ package screens
 import (
 	"bytes"
 	goimage "image"
-	"image/color"
 	"os"
 	"strings"
 
@@ -85,27 +84,9 @@ func (s *LibraryScreen) Build() *widget.Container {
 	// Check if library is truly empty vs filtered empty
 	totalGames := s.library.GameCount()
 
-	// Use anchor layout for root to fill entire window
-	rootContainer := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Background)),
-		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
-	)
-
-	// Inner container with vertical layout for toolbar + content
-	innerContainer := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewGridLayout(
-			widget.GridLayoutOpts.Columns(1),
-			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(16)),
-			widget.GridLayoutOpts.Spacing(16, 16),
-			widget.GridLayoutOpts.Stretch([]bool{true}, []bool{false, true}),
-		)),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-				StretchHorizontal: true,
-				StretchVertical:   true,
-			}),
-		),
-	)
+	// Use standard screen container pattern
+	rootContainer := style.ScreenContainer()
+	innerContainer := style.ScreenContentContainer([]bool{false, true}) // toolbar=fixed, content=stretch
 
 	if totalGames == 0 {
 		// Library is truly empty - no games at all
@@ -150,7 +131,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
 			widget.GridLayoutOpts.Columns(3),
 			widget.GridLayoutOpts.Stretch([]bool{false, true, false}, nil),
-			widget.GridLayoutOpts.Spacing(8, 0),
+			widget.GridLayoutOpts.Spacing(style.SmallSpacing, 0),
 		)),
 	)
 
@@ -158,14 +139,14 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 	leftSection := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
-			widget.RowLayoutOpts.Spacing(8),
+			widget.RowLayoutOpts.Spacing(style.SmallSpacing),
 		)),
 	)
 
 	iconViewBtn := widget.NewButton(
 		widget.ButtonOpts.Image(style.ActiveButtonImage(s.config.Library.ViewMode == "icon")),
 		widget.ButtonOpts.Text("Icon", style.FontFace(), style.ButtonTextColor()),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.config.Library.ViewMode = "icon"
 			storage.SaveConfig(s.config)
@@ -179,7 +160,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 	listViewBtn := widget.NewButton(
 		widget.ButtonOpts.Image(style.ActiveButtonImage(s.config.Library.ViewMode == "list")),
 		widget.ButtonOpts.Text("List", style.FontFace(), style.ButtonTextColor()),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.config.Library.ViewMode = "list"
 			storage.SaveConfig(s.config)
@@ -200,7 +181,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 	centerContent := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
-			widget.RowLayoutOpts.Spacing(8),
+			widget.RowLayoutOpts.Spacing(style.SmallSpacing),
 		)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
@@ -243,7 +224,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 	sortButton := widget.NewButton(
 		widget.ButtonOpts.Image(style.ButtonImage()),
 		widget.ButtonOpts.Text(sortOptions[currentSortIdx], style.FontFace(), style.ButtonTextColor()),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			currentSortIdx = (currentSortIdx + 1) % len(sortOptions)
 			s.config.Library.SortBy = sortValues[currentSortIdx]
@@ -263,7 +244,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 	favButton := widget.NewButton(
 		widget.ButtonOpts.Image(style.ActiveButtonImage(s.config.Library.FavoritesFilter)),
 		widget.ButtonOpts.Text(favText, style.FontFace(), style.ButtonTextColor()),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.config.Library.FavoritesFilter = !s.config.Library.FavoritesFilter
 			storage.SaveConfig(s.config)
@@ -285,7 +266,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 	settingsButton := widget.NewButton(
 		widget.ButtonOpts.Image(style.ButtonImage()),
 		widget.ButtonOpts.Text("Settings", style.FontFace(), style.ButtonTextColor()),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.callback.SwitchToSettings()
 		}),
@@ -304,36 +285,27 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 
 // buildListView creates the list view of games using custom ScrollContainer for scroll control
 func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
-	rowHeight := 30 // Height of each list row
-	headerHeight := 28
 	selectedIndex := -1
-
-	// Column widths
-	colFav := 24
-	colGenre := 100
-	colRegion := 50
-	colPlayTime := 80
-	colLastPlayed := 100
 
 	// Build header row
 	header := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
 			widget.GridLayoutOpts.Columns(6),
 			widget.GridLayoutOpts.Stretch([]bool{false, true, false, false, false, false}, nil),
-			widget.GridLayoutOpts.Spacing(8, 0),
-			widget.GridLayoutOpts.Padding(&widget.Insets{Left: 8, Right: 8}),
+			widget.GridLayoutOpts.Spacing(style.SmallSpacing, 0),
+			widget.GridLayoutOpts.Padding(&widget.Insets{Left: style.SmallSpacing, Right: style.SmallSpacing}),
 		)),
 		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.MinSize(0, headerHeight),
+			widget.WidgetOpts.MinSize(0, style.ListHeaderHeight),
 		),
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Surface)),
 	)
-	header.AddChild(style.TableHeaderCell("", colFav, headerHeight)) // Favorite column (no header text)
-	header.AddChild(style.TableHeaderCell("Title", 0, headerHeight)) // Title stretches
-	header.AddChild(style.TableHeaderCell("Genre", colGenre, headerHeight))
-	header.AddChild(style.TableHeaderCell("Region", colRegion, headerHeight))
-	header.AddChild(style.TableHeaderCell("Play Time", colPlayTime, headerHeight))
-	header.AddChild(style.TableHeaderCell("Last Played", colLastPlayed, headerHeight))
+	header.AddChild(style.TableHeaderCell("", style.ListColFavorite, style.ListHeaderHeight)) // Favorite column (no header text)
+	header.AddChild(style.TableHeaderCell("Title", 0, style.ListHeaderHeight))                // Title stretches
+	header.AddChild(style.TableHeaderCell("Genre", style.ListColGenre, style.ListHeaderHeight))
+	header.AddChild(style.TableHeaderCell("Region", style.ListColRegion, style.ListHeaderHeight))
+	header.AddChild(style.TableHeaderCell("Play Time", style.ListColPlayTime, style.ListHeaderHeight))
+	header.AddChild(style.TableHeaderCell("Last Played", style.ListColLastPlayed, style.ListHeaderHeight))
 
 	// Create vertical container for all game rows
 	listContent := widget.NewContainer(
@@ -370,33 +342,28 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		lastPlayed := style.FormatLastPlayed(g.LastPlayed)
 
 		// Determine row background color for alternating rows
-		var rowIdleBg color.Color
-		if idx%2 == 0 {
-			rowIdleBg = style.Background
-		} else {
-			rowIdleBg = style.Surface
-		}
+		rowIdleBg := style.AlternatingRowColor(idx)
 
 		// Create row container with grid layout (transparent background - button handles colors)
 		row := widget.NewContainer(
 			widget.ContainerOpts.Layout(widget.NewGridLayout(
 				widget.GridLayoutOpts.Columns(6),
 				widget.GridLayoutOpts.Stretch([]bool{false, true, false, false, false, false}, nil),
-				widget.GridLayoutOpts.Spacing(8, 0),
-				widget.GridLayoutOpts.Padding(&widget.Insets{Left: 8, Right: 8}),
+				widget.GridLayoutOpts.Spacing(style.SmallSpacing, 0),
+				widget.GridLayoutOpts.Padding(&widget.Insets{Left: style.SmallSpacing, Right: style.SmallSpacing}),
 			)),
 			widget.ContainerOpts.WidgetOpts(
-				widget.WidgetOpts.MinSize(0, rowHeight),
+				widget.WidgetOpts.MinSize(0, style.ListRowHeight),
 			),
 		)
 
 		// Add cells
-		row.AddChild(style.TableCell(fav, colFav, rowHeight, style.Accent))
-		row.AddChild(style.TableCell(g.DisplayName, 0, rowHeight, style.Text))
-		row.AddChild(style.TableCell(genre, colGenre, rowHeight, style.TextSecondary))
-		row.AddChild(style.TableCell(region, colRegion, rowHeight, style.TextSecondary))
-		row.AddChild(style.TableCell(playTime, colPlayTime, rowHeight, style.TextSecondary))
-		row.AddChild(style.TableCell(lastPlayed, colLastPlayed, rowHeight, style.TextSecondary))
+		row.AddChild(style.TableCell(fav, style.ListColFavorite, style.ListRowHeight, style.Accent))
+		row.AddChild(style.TableCell(g.DisplayName, 0, style.ListRowHeight, style.Text))
+		row.AddChild(style.TableCell(genre, style.ListColGenre, style.ListRowHeight, style.TextSecondary))
+		row.AddChild(style.TableCell(region, style.ListColRegion, style.ListRowHeight, style.TextSecondary))
+		row.AddChild(style.TableCell(playTime, style.ListColPlayTime, style.ListRowHeight, style.TextSecondary))
+		row.AddChild(style.TableCell(lastPlayed, style.ListColLastPlayed, style.ListRowHeight, style.TextSecondary))
 
 		// Create button with alternating row color as idle, focus/hover colors for interaction
 		gameCRC := g.CRC32 // Capture for closure
@@ -410,7 +377,7 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 				widget.WidgetOpts.LayoutData(widget.RowLayoutData{
 					Stretch: true,
 				}),
-				widget.WidgetOpts.MinSize(0, rowHeight),
+				widget.WidgetOpts.MinSize(0, style.ListRowHeight),
 			),
 			widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 				if s.listScrollContainer != nil {
@@ -432,7 +399,7 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 				widget.WidgetOpts.LayoutData(widget.RowLayoutData{
 					Stretch: true,
 				}),
-				widget.WidgetOpts.MinSize(0, rowHeight),
+				widget.WidgetOpts.MinSize(0, style.ListRowHeight),
 			),
 		)
 		rowWrapper.AddChild(rowButton)
@@ -445,7 +412,7 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 	scrollContainer, vSlider, scrollRow := style.ScrollableContainer(style.ScrollableOpts{
 		Content: listContent,
 		BgColor: style.Background,
-		Spacing: 4,
+		Spacing: style.TinySpacing,
 	})
 
 	// Store references for scroll preservation
@@ -457,10 +424,10 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		scrollContainer.ScrollTop = s.listScrollTop
 		vSlider.Current = int(s.listScrollTop * 1000)
 	} else if selectedIndex >= 0 && len(s.games) > 0 {
-		totalHeight := len(s.games) * rowHeight
-		selectedY := selectedIndex * rowHeight
-		viewportHeight := 400
-		targetScrollY := selectedY - (viewportHeight / 2) + (rowHeight / 2)
+		totalHeight := len(s.games) * style.ListRowHeight
+		selectedY := selectedIndex * style.ListRowHeight
+		viewportHeight := style.EstimatedViewportHeight
+		targetScrollY := selectedY - (viewportHeight / 2) + (style.ListRowHeight / 2)
 		if targetScrollY < 0 {
 			targetScrollY = 0
 		}
@@ -480,14 +447,11 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		}
 	}
 
-	// Slider width constant
-	sliderWidth := 20
-
 	// Header row with spacer for slider alignment
 	headerRow := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
 			widget.GridLayoutOpts.Columns(2),
-			widget.GridLayoutOpts.Spacing(4, 0),
+			widget.GridLayoutOpts.Spacing(style.TinySpacing, 0),
 			widget.GridLayoutOpts.Stretch([]bool{true, false}, nil),
 		)),
 	)
@@ -495,7 +459,7 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 	// Empty spacer matching slider width
 	headerSpacer := widget.NewContainer(
 		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.MinSize(sliderWidth, 0),
+			widget.WidgetOpts.MinSize(style.ScrollbarWidth, 0),
 		),
 	)
 	headerRow.AddChild(headerSpacer)
@@ -505,7 +469,7 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
 			widget.GridLayoutOpts.Columns(1),
 			widget.GridLayoutOpts.Stretch([]bool{true}, []bool{false, true}),
-			widget.GridLayoutOpts.Spacing(0, 4),
+			widget.GridLayoutOpts.Spacing(0, style.TinySpacing),
 		)),
 	)
 	mainContainer.AddChild(headerRow)
@@ -519,33 +483,26 @@ func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
 	// Calculate responsive grid dimensions
 	windowWidth := s.callback.GetWindowWidth()
 	if windowWidth < 400 {
-		windowWidth = 800 // Default if not yet available
+		windowWidth = style.IconDefaultWindowWidth
 	}
 
-	// Layout constants
-	padding := 16        // Padding on sides
-	scrollbarWidth := 20 // Width for scrollbar
-	minCardWidth := 200  // Minimum card width (matches image 9 look)
-	spacing := 8         // Fixed spacing between cards
-	textHeight := 24     // Height for title text
-
 	// Available width for cards (subtract padding and scrollbar)
-	availableWidth := windowWidth - (padding * 2) - scrollbarWidth
+	availableWidth := windowWidth - (style.DefaultPadding * 2) - style.ScrollbarWidth
 
 	// Calculate number of columns that fit with minimum card width
 	// Formula: columns = floor((availableWidth + spacing) / (minCardWidth + spacing))
-	columns := (availableWidth + spacing) / (minCardWidth + spacing)
+	columns := (availableWidth + style.SmallSpacing) / (style.IconMinCardWidth + style.SmallSpacing)
 	if columns < 2 {
 		columns = 2
 	}
 
 	// Calculate exact card width to fill the available space
 	// Formula: cardWidth = (availableWidth - (columns - 1) * spacing) / columns
-	cardWidth := (availableWidth - (columns-1)*spacing) / columns
+	cardWidth := (availableWidth - (columns-1)*style.SmallSpacing) / columns
 
 	// Card height maintains ~4:3 aspect ratio for artwork + text
 	artHeight := cardWidth * 4 / 3
-	cardHeight := artHeight + textHeight
+	cardHeight := artHeight + style.IconCardTextHeight
 
 	// Create stretch array - all columns stretch equally to fill width
 	columnStretches := make([]bool, columns)
@@ -557,7 +514,7 @@ func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
 	gridContainer := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
 			widget.GridLayoutOpts.Columns(columns),
-			widget.GridLayoutOpts.Spacing(spacing, spacing),
+			widget.GridLayoutOpts.Spacing(style.SmallSpacing, style.SmallSpacing),
 			widget.GridLayoutOpts.Stretch(columnStretches, nil),
 		)),
 	)

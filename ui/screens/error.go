@@ -69,12 +69,12 @@ func (s *ErrorScreen) Build() *widget.Container {
 	buttonsContainer := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
-			widget.RowLayoutOpts.Spacing(16),
+			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
 		)),
 	)
 
 	// Delete and Continue button
-	deleteButton := style.TextButton("Delete and Continue", 12, func(args *widget.ButtonClickedEventArgs) {
+	deleteButton := style.TextButton("Delete and Continue", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
 		if s.onDelete != nil {
 			s.onDelete()
 		}
@@ -82,7 +82,7 @@ func (s *ErrorScreen) Build() *widget.Container {
 	buttonsContainer.AddChild(deleteButton)
 
 	// Exit button
-	exitButton := style.TextButton("Exit", 12, func(args *widget.ButtonClickedEventArgs) {
+	exitButton := style.TextButton("Exit", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
 		s.callback.Exit()
 	})
 	buttonsContainer.AddChild(exitButton)

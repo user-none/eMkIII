@@ -42,6 +42,18 @@ type LibraryScreen struct {
 	vSlider             *widget.Slider          // icon view
 	listScrollContainer *widget.ScrollContainer // list view
 	listVSlider         *widget.Slider          // list view
+
+	// Button references for focus restoration (maps CRC to button)
+	gameButtons map[string]*widget.Button
+
+	// CRC of game to restore focus to after rebuild
+	pendingFocusCRC string
+
+	// Toolbar button references for focus restoration
+	toolbarButtons map[string]*widget.Button
+
+	// Key of toolbar button to restore focus to after rebuild
+	pendingToolbarFocus string
 }
 
 // NewLibraryScreen creates a new library screen
@@ -66,6 +78,10 @@ func (s *LibraryScreen) SetConfig(config *storage.Config) {
 
 // Build creates the library screen UI
 func (s *LibraryScreen) Build() *widget.Container {
+	// Initialize button maps for focus restoration
+	s.gameButtons = make(map[string]*widget.Button)
+	s.toolbarButtons = make(map[string]*widget.Button)
+
 	// Get sorted games
 	s.games = s.library.GetGamesSorted(s.config.Library.SortBy, s.config.Library.FavoritesFilter)
 
@@ -239,9 +255,11 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.config.Library.ViewMode = "icon"
 			storage.SaveConfig(s.config)
+			s.pendingToolbarFocus = "icon"
 			s.callback.RequestRebuild()
 		}),
 	)
+	s.toolbarButtons["icon"] = iconViewBtn
 	leftSection.AddChild(iconViewBtn)
 
 	listViewBtn := widget.NewButton(
@@ -254,9 +272,11 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.config.Library.ViewMode = "list"
 			storage.SaveConfig(s.config)
+			s.pendingToolbarFocus = "list"
 			s.callback.RequestRebuild()
 		}),
 	)
+	s.toolbarButtons["list"] = listViewBtn
 	leftSection.AddChild(listViewBtn)
 
 	toolbar.AddChild(leftSection)
@@ -320,9 +340,11 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 			currentSortIdx = (currentSortIdx + 1) % len(sortOptions)
 			s.config.Library.SortBy = sortValues[currentSortIdx]
 			storage.SaveConfig(s.config)
+			s.pendingToolbarFocus = "sort"
 			s.callback.RequestRebuild()
 		}),
 	)
+	s.toolbarButtons["sort"] = sortButton
 	centerContent.AddChild(sortButton)
 
 	// Favorites button
@@ -340,9 +362,11 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.config.Library.FavoritesFilter = !s.config.Library.FavoritesFilter
 			storage.SaveConfig(s.config)
+			s.pendingToolbarFocus = "favorites"
 			s.callback.RequestRebuild()
 		}),
 	)
+	s.toolbarButtons["favorites"] = favButton
 	centerContent.AddChild(favButton)
 
 	centerSection.AddChild(centerContent)
@@ -483,17 +507,15 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		playTime := formatPlayTime(g.PlayTimeSeconds)
 		lastPlayed := formatLastPlayed(g.LastPlayed)
 
-		// Determine row background based on selection
-		var rowBg color.Color
-		if g.CRC32 == s.listSelectedCRC {
-			rowBg = themePrimary
-		} else if idx%2 == 0 {
-			rowBg = themeBackground
+		// Determine row background color for alternating rows
+		var rowIdleBg color.Color
+		if idx%2 == 0 {
+			rowIdleBg = themeBackground
 		} else {
-			rowBg = themeSurface
+			rowIdleBg = themeSurface
 		}
 
-		// Create row container with grid layout
+		// Create row container with grid layout (transparent background - button handles colors)
 		row := widget.NewContainer(
 			widget.ContainerOpts.Layout(widget.NewGridLayout(
 				widget.GridLayoutOpts.Columns(6),
@@ -501,7 +523,6 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 				widget.GridLayoutOpts.Spacing(8, 0),
 				widget.GridLayoutOpts.Padding(widget.Insets{Left: 8, Right: 8}),
 			)),
-			widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(rowBg)),
 			widget.ContainerOpts.WidgetOpts(
 				widget.WidgetOpts.MinSize(0, rowHeight),
 			),
@@ -515,10 +536,11 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		row.AddChild(createCell(playTime, colPlayTime, false, themeTextSecondary))
 		row.AddChild(createCell(lastPlayed, colLastPlayed, false, themeTextSecondary))
 
-		// Wrap row in a button for click handling
+		// Create button with alternating row color as idle, focus/hover colors for interaction
+		gameCRC := g.CRC32 // Capture for closure
 		rowButton := widget.NewButton(
 			widget.ButtonOpts.Image(&widget.ButtonImage{
-				Idle:    image.NewNineSliceColor(color.Transparent),
+				Idle:    image.NewNineSliceColor(rowIdleBg),
 				Hover:   image.NewNineSliceColor(themePrimaryHover),
 				Pressed: image.NewNineSliceColor(themePrimary),
 			}),
@@ -532,12 +554,16 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 				if s.listScrollContainer != nil {
 					s.listScrollTop = s.listScrollContainer.ScrollTop
 				}
-				s.listSelectedCRC = g.CRC32
-				s.callback.SwitchToDetail(g.CRC32)
+				s.listSelectedCRC = gameCRC
+				s.pendingFocusCRC = gameCRC // Remember for focus restoration
+				s.callback.SwitchToDetail(gameCRC)
 			}),
 		)
 
-		// Stack the row content on top of the button
+		// Store button reference for focus restoration
+		s.gameButtons[gameCRC] = rowButton
+
+		// Stack: button at bottom (shows background), row content on top (transparent)
 		rowWrapper := widget.NewContainer(
 			widget.ContainerOpts.Layout(widget.NewStackedLayout()),
 			widget.ContainerOpts.WidgetOpts(
@@ -570,8 +596,9 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		return contentHeight > 0 && viewHeight > 0 && contentHeight > viewHeight
 	}
 
-	// Create vertical slider for scrolling
+	// Create vertical slider for scrolling (TabOrder -1 makes it non-focusable for gamepad)
 	vSlider := widget.NewSlider(
+		widget.SliderOpts.TabOrder(-1),
 		widget.SliderOpts.Direction(widget.DirectionVertical),
 		widget.SliderOpts.MinMax(0, 1000),
 		widget.SliderOpts.Images(
@@ -794,8 +821,9 @@ func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
 		return contentHeight > 0 && viewHeight > 0 && contentHeight > viewHeight
 	}
 
-	// Create vertical slider for scrolling
+	// Create vertical slider for scrolling (TabOrder -1 makes it non-focusable for gamepad)
 	vSlider := widget.NewSlider(
+		widget.SliderOpts.TabOrder(-1),
 		widget.SliderOpts.Direction(widget.DirectionVertical),
 		widget.SliderOpts.MinMax(0, 1000),
 		widget.SliderOpts.Images(
@@ -886,6 +914,7 @@ func (s *LibraryScreen) buildGameCardSized(game *storage.GameEntry, cardWidth, c
 	)
 
 	// Artwork button (clickable)
+	gameCRC := game.CRC32 // Capture for closure
 	artButton := widget.NewButton(
 		widget.ButtonOpts.Image(&widget.ButtonImage{
 			Idle:    image.NewNineSliceColor(themeSurface),
@@ -898,13 +927,18 @@ func (s *LibraryScreen) buildGameCardSized(game *storage.GameEntry, cardWidth, c
 		widget.ButtonOpts.Graphic(artwork),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			// Save scroll position and selected game before navigating
-			s.iconSelectedCRC = game.CRC32
+			s.iconSelectedCRC = gameCRC
+			s.pendingFocusCRC = gameCRC // Remember for focus restoration
 			if s.scrollContainer != nil {
 				s.iconScrollTop = s.scrollContainer.ScrollTop
 			}
-			s.callback.SwitchToDetail(game.CRC32)
+			s.callback.SwitchToDetail(gameCRC)
 		}),
 	)
+
+	// Store button reference for focus restoration
+	s.gameButtons[gameCRC] = artButton
+
 	cardContent.AddChild(artButton)
 
 	// Game title (truncated based on card width)
@@ -1029,6 +1063,112 @@ func (s *LibraryScreen) SaveScrollPosition() {
 func (s *LibraryScreen) OnEnter() {
 	// Refresh games list
 	s.games = s.library.GetGamesSorted(s.config.Library.SortBy, s.config.Library.FavoritesFilter)
+}
+
+// GetPendingFocusButton returns the button that should receive focus after rebuild
+// Returns nil if no pending focus or button not found
+func (s *LibraryScreen) GetPendingFocusButton() *widget.Button {
+	// Check toolbar focus first (higher priority for toolbar actions)
+	if s.pendingToolbarFocus != "" {
+		return s.toolbarButtons[s.pendingToolbarFocus]
+	}
+	// Then check game button focus
+	if s.pendingFocusCRC == "" {
+		return nil
+	}
+	return s.gameButtons[s.pendingFocusCRC]
+}
+
+// ClearPendingFocus clears all pending focus state
+func (s *LibraryScreen) ClearPendingFocus() {
+	s.pendingFocusCRC = ""
+	s.pendingToolbarFocus = ""
+}
+
+// EnsureFocusedVisible scrolls the view to ensure the focused widget is visible
+// This is called after gamepad navigation changes focus
+func (s *LibraryScreen) EnsureFocusedVisible(focused widget.Focuser) {
+	if focused == nil {
+		return
+	}
+
+	// Check if this is a game button (not toolbar)
+	// Only game buttons should trigger scrolling
+	isGameButton := false
+	if btn, ok := focused.(*widget.Button); ok {
+		for _, gameBtn := range s.gameButtons {
+			if gameBtn == btn {
+				isGameButton = true
+				break
+			}
+		}
+	}
+	if !isGameButton {
+		return
+	}
+
+	// Get the appropriate scroll container based on view mode
+	var scrollContainer *widget.ScrollContainer
+	var vSlider *widget.Slider
+	if s.config.Library.ViewMode == "icon" {
+		scrollContainer = s.scrollContainer
+		vSlider = s.vSlider
+	} else {
+		scrollContainer = s.listScrollContainer
+		vSlider = s.listVSlider
+	}
+
+	if scrollContainer == nil {
+		return
+	}
+
+	// Get the focused widget's rectangle
+	focusWidget := focused.GetWidget()
+	if focusWidget == nil {
+		return
+	}
+	focusRect := focusWidget.Rect
+
+	// Get the scroll container's view rect (visible area on screen)
+	viewRect := scrollContainer.ViewRect()
+	contentRect := scrollContainer.ContentRect()
+
+	// If content fits in view, no scrolling needed
+	if contentRect.Dy() <= viewRect.Dy() {
+		return
+	}
+
+	// Current scroll offset in pixels
+	maxScroll := contentRect.Dy() - viewRect.Dy()
+	scrollOffset := int(scrollContainer.ScrollTop * float64(maxScroll))
+
+	// Widget's position relative to view top
+	widgetTopInView := focusRect.Min.Y - viewRect.Min.Y
+	widgetBottomInView := focusRect.Max.Y - viewRect.Min.Y
+	viewHeight := viewRect.Dy()
+
+	// Check if widget top is above the visible area
+	if widgetTopInView < 0 {
+		// Scroll up: align widget top with view top
+		newScrollOffset := scrollOffset + widgetTopInView
+		if newScrollOffset < 0 {
+			newScrollOffset = 0
+		}
+		scrollContainer.ScrollTop = float64(newScrollOffset) / float64(maxScroll)
+		if vSlider != nil {
+			vSlider.Current = int(scrollContainer.ScrollTop * 1000)
+		}
+	} else if widgetBottomInView > viewHeight {
+		// Scroll down: align widget bottom with view bottom (minimal scroll)
+		newScrollOffset := scrollOffset + (widgetBottomInView - viewHeight)
+		if newScrollOffset > maxScroll {
+			newScrollOffset = maxScroll
+		}
+		scrollContainer.ScrollTop = float64(newScrollOffset) / float64(maxScroll)
+		if vSlider != nil {
+			vSlider.Current = int(scrollContainer.ScrollTop * 1000)
+		}
+	}
 }
 
 // OnExit is called when leaving the library screen

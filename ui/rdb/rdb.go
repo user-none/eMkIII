@@ -1,7 +1,7 @@
 // Package rdb is a parser for RDB files, a binary database of games with
 // metadata used by RetroArch/libretro.
 //
-// Adapted from github.com/libretro/ludo/rdb (MIT License)
+// Adapted from github.com/libretro/ludo/rdb
 // Original Copyright (c) libretro team
 package rdb
 

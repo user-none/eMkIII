@@ -13,23 +13,44 @@ import (
 
 // SettingsScreen displays application settings
 type SettingsScreen struct {
-	callback         ScreenCallback
-	library          *storage.Library
-	config           *storage.Config
-	selectedSection  int
-	selectedDirIndex int  // -1 if no directory selected
-	pendingScan      bool // True when a directory was added and scan should start
+	callback        ScreenCallback
+	library         *storage.Library
+	config          *storage.Config
+	selectedSection int
+	selectedDirs    map[int]bool // Multi-select: indices of selected directories
+	pendingScan     bool         // True when a directory was added and scan should start
+
+	// Button references for focus restoration
+	folderButtons     map[int]*widget.Button
+	pendingFocusIndex int // Index to restore focus to after rebuild
 }
 
 // NewSettingsScreen creates a new settings screen
 func NewSettingsScreen(callback ScreenCallback, library *storage.Library, config *storage.Config) *SettingsScreen {
 	return &SettingsScreen{
-		callback:         callback,
-		library:          library,
-		config:           config,
-		selectedSection:  0,
-		selectedDirIndex: -1,
+		callback:          callback,
+		library:           library,
+		config:            config,
+		selectedSection:   0,
+		selectedDirs:      make(map[int]bool),
+		folderButtons:     make(map[int]*widget.Button),
+		pendingFocusIndex: -1,
 	}
+}
+
+// GetPendingFocusButton returns the button that should receive focus after rebuild
+func (s *SettingsScreen) GetPendingFocusButton() *widget.Button {
+	if s.pendingFocusIndex >= 0 {
+		if btn, ok := s.folderButtons[s.pendingFocusIndex]; ok {
+			return btn
+		}
+	}
+	return nil
+}
+
+// ClearPendingFocus clears the pending focus index
+func (s *SettingsScreen) ClearPendingFocus() {
+	s.pendingFocusIndex = -1
 }
 
 // HasPendingScan returns true if a scan should be triggered
@@ -120,45 +141,66 @@ func (s *SettingsScreen) Build() *widget.Container {
 	)
 	sidebar.AddChild(libraryBtn)
 
-	// Future sections (disabled)
-	videoBtn := widget.NewButton(
-		widget.ButtonOpts.Image(newDisabledButtonImage()),
-		widget.ButtonOpts.Text("Video*", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeTextSecondary,
-			Disabled: themeTextSecondary,
-		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
-		widget.ButtonOpts.WidgetOpts(
+	// Future sections (disabled) - use containers instead of buttons so they're not focusable
+	videoItem := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBorder)),
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout(
+			widget.AnchorLayoutOpts.Padding(widget.NewInsetsSimple(8)),
+		)),
+		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
 		),
 	)
-	sidebar.AddChild(videoBtn)
+	videoItem.AddChild(widget.NewText(
+		widget.TextOpts.Text("Video*", getFontFace(), themeTextSecondary),
+		widget.TextOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
+				HorizontalPosition: widget.AnchorLayoutPositionStart,
+				VerticalPosition:   widget.AnchorLayoutPositionCenter,
+			}),
+		),
+	))
+	sidebar.AddChild(videoItem)
 
-	audioBtn := widget.NewButton(
-		widget.ButtonOpts.Image(newDisabledButtonImage()),
-		widget.ButtonOpts.Text("Audio*", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeTextSecondary,
-			Disabled: themeTextSecondary,
-		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
-		widget.ButtonOpts.WidgetOpts(
+	audioItem := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBorder)),
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout(
+			widget.AnchorLayoutOpts.Padding(widget.NewInsetsSimple(8)),
+		)),
+		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
 		),
 	)
-	sidebar.AddChild(audioBtn)
+	audioItem.AddChild(widget.NewText(
+		widget.TextOpts.Text("Audio*", getFontFace(), themeTextSecondary),
+		widget.TextOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
+				HorizontalPosition: widget.AnchorLayoutPositionStart,
+				VerticalPosition:   widget.AnchorLayoutPositionCenter,
+			}),
+		),
+	))
+	sidebar.AddChild(audioItem)
 
-	inputBtn := widget.NewButton(
-		widget.ButtonOpts.Image(newDisabledButtonImage()),
-		widget.ButtonOpts.Text("Input*", getFontFace(), &widget.ButtonTextColor{
-			Idle:     themeTextSecondary,
-			Disabled: themeTextSecondary,
-		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
-		widget.ButtonOpts.WidgetOpts(
+	inputItem := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(themeBorder)),
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout(
+			widget.AnchorLayoutOpts.Padding(widget.NewInsetsSimple(8)),
+		)),
+		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
 		),
 	)
-	sidebar.AddChild(inputBtn)
+	inputItem.AddChild(widget.NewText(
+		widget.TextOpts.Text("Input*", getFontFace(), themeTextSecondary),
+		widget.TextOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
+				HorizontalPosition: widget.AnchorLayoutPositionStart,
+				VerticalPosition:   widget.AnchorLayoutPositionCenter,
+			}),
+		),
+	))
+	sidebar.AddChild(inputItem)
 
 	// Future note
 	futureNote := widget.NewText(
@@ -259,9 +301,9 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 	)
 	buttonRow.AddChild(scanBtn)
 
-	// Remove button (disabled when nothing selected)
+	// Remove button - disabled when nothing selected, removes all selected folders
 	removeButtonImage := newButtonImage()
-	if s.selectedDirIndex < 0 {
+	if len(s.selectedDirs) == 0 {
 		removeButtonImage = newDisabledButtonImage()
 	}
 	removeBtn := widget.NewButton(
@@ -272,10 +314,15 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			if s.selectedDirIndex >= 0 && s.selectedDirIndex < len(s.library.ScanDirectories) {
-				path := s.library.ScanDirectories[s.selectedDirIndex].Path
-				s.library.RemoveScanDirectory(path)
-				s.selectedDirIndex = -1
+			if len(s.selectedDirs) > 0 {
+				// Collect paths to remove (iterate in reverse to avoid index shifting issues)
+				for idx := len(s.library.ScanDirectories) - 1; idx >= 0; idx-- {
+					if s.selectedDirs[idx] {
+						path := s.library.ScanDirectories[idx].Path
+						s.library.RemoveScanDirectory(path)
+					}
+				}
+				s.selectedDirs = make(map[int]bool) // Clear selection
 				storage.SaveLibrary(s.library)
 				s.callback.RequestRebuild()
 			}
@@ -312,6 +359,9 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 	rowHeight := 28
 	maxPathChars := 70
 
+	// Clear button references for fresh build
+	s.folderButtons = make(map[int]*widget.Button)
+
 	// Create list content container
 	listContent := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
@@ -345,20 +395,19 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 			dirPath := dir.Path
 			displayPath, wasTruncated := truncatePath(dirPath, maxPathChars)
 
-			// Determine row background based on selection
+			// Determine row background based on selection state
 			var rowBg = themeBackground
-			if idx == s.selectedDirIndex {
-				rowBg = themePrimary
+			if s.selectedDirs[idx] {
+				rowBg = themePrimary // Selected items show primary color
 			} else if idx%2 == 1 {
-				rowBg = themeSurface
+				rowBg = themeSurface // Alternating colors for unselected
 			}
 
-			// Create row content with path label
+			// Create row content with path label (no background - button handles colors for focus states)
 			rowContent := widget.NewContainer(
 				widget.ContainerOpts.Layout(widget.NewAnchorLayout(
 					widget.AnchorLayoutOpts.Padding(widget.Insets{Left: 12, Right: 12}),
 				)),
-				widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(rowBg)),
 				widget.ContainerOpts.WidgetOpts(
 					widget.WidgetOpts.MinSize(0, rowHeight),
 				),
@@ -412,10 +461,19 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 					widget.WidgetOpts.MinSize(0, rowHeight),
 				),
 				widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-					s.selectedDirIndex = idx
+					// Toggle selection - click to select, click again to deselect
+					if s.selectedDirs[idx] {
+						delete(s.selectedDirs, idx)
+					} else {
+						s.selectedDirs[idx] = true
+					}
+					s.pendingFocusIndex = idx
 					s.callback.RequestRebuild()
 				}),
 			)
+
+			// Store button reference for focus restoration
+			s.folderButtons[idx] = rowButton
 
 			// Stack button and content
 			rowWrapper := widget.NewContainer(
@@ -451,8 +509,9 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 		return contentHeight > 0 && viewHeight > 0 && contentHeight > viewHeight
 	}
 
-	// Create vertical slider for scrolling
+	// Create vertical slider for scrolling (TabOrder -1 makes it non-focusable for gamepad)
 	vSlider := widget.NewSlider(
+		widget.SliderOpts.TabOrder(-1),
 		widget.SliderOpts.Direction(widget.DirectionVertical),
 		widget.SliderOpts.MinMax(0, 1000),
 		widget.SliderOpts.Images(

@@ -143,65 +143,9 @@ func (s *SettingsScreen) Build() *widget.Container {
 	sidebar.AddChild(libraryBtn)
 
 	// Future sections (disabled) - use containers instead of buttons so they're not focusable
-	videoItem := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
-		widget.ContainerOpts.Layout(widget.NewAnchorLayout(
-			widget.AnchorLayoutOpts.Padding(widget.NewInsetsSimple(8)),
-		)),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
-		),
-	)
-	videoItem.AddChild(widget.NewText(
-		widget.TextOpts.Text("Video*", style.FontFace(), style.TextSecondary),
-		widget.TextOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-				HorizontalPosition: widget.AnchorLayoutPositionStart,
-				VerticalPosition:   widget.AnchorLayoutPositionCenter,
-			}),
-		),
-	))
-	sidebar.AddChild(videoItem)
-
-	audioItem := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
-		widget.ContainerOpts.Layout(widget.NewAnchorLayout(
-			widget.AnchorLayoutOpts.Padding(widget.NewInsetsSimple(8)),
-		)),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
-		),
-	)
-	audioItem.AddChild(widget.NewText(
-		widget.TextOpts.Text("Audio*", style.FontFace(), style.TextSecondary),
-		widget.TextOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-				HorizontalPosition: widget.AnchorLayoutPositionStart,
-				VerticalPosition:   widget.AnchorLayoutPositionCenter,
-			}),
-		),
-	))
-	sidebar.AddChild(audioItem)
-
-	inputItem := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
-		widget.ContainerOpts.Layout(widget.NewAnchorLayout(
-			widget.AnchorLayoutOpts.Padding(widget.NewInsetsSimple(8)),
-		)),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
-		),
-	)
-	inputItem.AddChild(widget.NewText(
-		widget.TextOpts.Text("Input*", style.FontFace(), style.TextSecondary),
-		widget.TextOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-				HorizontalPosition: widget.AnchorLayoutPositionStart,
-				VerticalPosition:   widget.AnchorLayoutPositionCenter,
-			}),
-		),
-	))
-	sidebar.AddChild(inputItem)
+	sidebar.AddChild(style.DisabledSidebarItem("Video*"))
+	sidebar.AddChild(style.DisabledSidebarItem("Audio*"))
+	sidebar.AddChild(style.DisabledSidebarItem("Input*"))
 
 	// Future note
 	futureNote := widget.NewText(
@@ -505,57 +449,16 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 
 	// Helper to check if scrolling is needed
 	needsScroll := func() bool {
-		contentHeight := listContent.GetWidget().Rect.Dy()
+		contentHeight := scrollContainer.ContentRect().Dy()
 		viewHeight := scrollContainer.ViewRect().Dy()
 		return contentHeight > 0 && viewHeight > 0 && contentHeight > viewHeight
 	}
 
-	// Create vertical slider for scrolling (TabOrder -1 makes it non-focusable for gamepad)
-	vSlider := widget.NewSlider(
-		widget.SliderOpts.TabOrder(-1),
-		widget.SliderOpts.Direction(widget.DirectionVertical),
-		widget.SliderOpts.MinMax(0, 1000),
-		widget.SliderOpts.Images(
-			&widget.SliderTrackImage{
-				Idle:  image.NewNineSliceColor(style.Border),
-				Hover: image.NewNineSliceColor(style.Border),
-			},
-			style.SliderButtonImage(),
-		),
-		widget.SliderOpts.FixedHandleSize(40),
-		widget.SliderOpts.PageSizeFunc(func() int {
-			if !needsScroll() {
-				return 1000 // Handle fills track - no scrolling needed
-			}
-			contentHeight := listContent.GetWidget().Rect.Dy()
-			viewHeight := scrollContainer.ViewRect().Dy()
-			return int(float64(viewHeight) / float64(contentHeight) * 1000)
-		}),
-		widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
-			if !needsScroll() {
-				scrollContainer.ScrollTop = 0
-				return
-			}
-			scrollContainer.ScrollTop = float64(args.Current) / 1000
-		}),
-	)
+	// Create vertical slider for scrolling
+	vSlider := style.ScrollSlider(scrollContainer, needsScroll)
 
-	// Mouse wheel scroll support - only scroll if content exceeds view
-	scrollContainer.GetWidget().ScrolledEvent.AddHandler(func(args interface{}) {
-		if !needsScroll() {
-			scrollContainer.ScrollTop = 0
-			return
-		}
-		a := args.(*widget.WidgetScrolledEventArgs)
-		p := scrollContainer.ScrollTop + (a.Y * 0.05)
-		if p < 0 {
-			p = 0
-		} else if p > 1 {
-			p = 1
-		}
-		scrollContainer.ScrollTop = p
-		vSlider.Current = int(p * 1000)
-	})
+	// Mouse wheel scroll support
+	style.SetupScrollHandler(scrollContainer, vSlider, needsScroll)
 
 	// Outer wrapper with border - fills the grid cell
 	listWrapper := widget.NewContainer(

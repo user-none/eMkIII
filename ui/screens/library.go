@@ -595,35 +595,8 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		return contentHeight > 0 && viewHeight > 0 && contentHeight > viewHeight
 	}
 
-	// Create vertical slider for scrolling (TabOrder -1 makes it non-focusable for gamepad)
-	vSlider := widget.NewSlider(
-		widget.SliderOpts.TabOrder(-1),
-		widget.SliderOpts.Direction(widget.DirectionVertical),
-		widget.SliderOpts.MinMax(0, 1000),
-		widget.SliderOpts.Images(
-			&widget.SliderTrackImage{
-				Idle:  image.NewNineSliceColor(style.Border),
-				Hover: image.NewNineSliceColor(style.Border),
-			},
-			style.SliderButtonImage(),
-		),
-		widget.SliderOpts.FixedHandleSize(40),
-		widget.SliderOpts.PageSizeFunc(func() int {
-			if !needsScroll() {
-				return 1000 // Handle fills track - no scrolling needed
-			}
-			viewHeight := scrollContainer.ViewRect().Dy()
-			contentHeight := scrollContainer.ContentRect().Dy()
-			return int(float64(viewHeight) / float64(contentHeight) * 1000)
-		}),
-		widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
-			if !needsScroll() {
-				scrollContainer.ScrollTop = 0
-				return
-			}
-			scrollContainer.ScrollTop = float64(args.Current) / 1000
-		}),
-	)
+	// Create vertical slider for scrolling
+	vSlider := style.ScrollSlider(scrollContainer, needsScroll)
 
 	// Store references for scroll preservation
 	s.listScrollContainer = scrollContainer
@@ -657,23 +630,8 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		}
 	}
 
-	// Sync scroll container to slider on mouse wheel - only scroll if content exceeds view
-	scrollContainer.GetWidget().ScrolledEvent.AddHandler(func(args any) {
-		if !needsScroll() {
-			scrollContainer.ScrollTop = 0
-			return
-		}
-		a := args.(*widget.WidgetScrolledEventArgs)
-		p := scrollContainer.ScrollTop + (a.Y * 0.05)
-		if p < 0 {
-			p = 0
-		}
-		if p > 1 {
-			p = 1
-		}
-		scrollContainer.ScrollTop = p
-		vSlider.Current = int(p * 1000)
-	})
+	// Sync scroll container to slider on mouse wheel
+	style.SetupScrollHandler(scrollContainer, vSlider, needsScroll)
 
 	// Slider width constant
 	sliderWidth := 20
@@ -820,35 +778,8 @@ func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
 		return contentHeight > 0 && viewHeight > 0 && contentHeight > viewHeight
 	}
 
-	// Create vertical slider for scrolling (TabOrder -1 makes it non-focusable for gamepad)
-	vSlider := widget.NewSlider(
-		widget.SliderOpts.TabOrder(-1),
-		widget.SliderOpts.Direction(widget.DirectionVertical),
-		widget.SliderOpts.MinMax(0, 1000),
-		widget.SliderOpts.Images(
-			&widget.SliderTrackImage{
-				Idle:  image.NewNineSliceColor(style.Border),
-				Hover: image.NewNineSliceColor(style.Border),
-			},
-			style.SliderButtonImage(),
-		),
-		widget.SliderOpts.FixedHandleSize(40),
-		widget.SliderOpts.PageSizeFunc(func() int {
-			if !needsScroll() {
-				return 1000 // Handle fills track - no scrolling needed
-			}
-			viewHeight := scrollContainer.ViewRect().Dy()
-			contentHeight := scrollContainer.ContentRect().Dy()
-			return int(float64(viewHeight) / float64(contentHeight) * 1000)
-		}),
-		widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
-			if !needsScroll() {
-				scrollContainer.ScrollTop = 0
-				return
-			}
-			scrollContainer.ScrollTop = float64(args.Current) / 1000
-		}),
-	)
+	// Create vertical slider for scrolling
+	vSlider := style.ScrollSlider(scrollContainer, needsScroll)
 
 	// Store references for scroll preservation
 	s.scrollContainer = scrollContainer
@@ -860,23 +791,8 @@ func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
 		vSlider.Current = int(s.iconScrollTop * 1000)
 	}
 
-	// Sync scroll container to slider on mouse wheel - only scroll if content exceeds view
-	scrollContainer.GetWidget().ScrolledEvent.AddHandler(func(args any) {
-		if !needsScroll() {
-			scrollContainer.ScrollTop = 0
-			return
-		}
-		a := args.(*widget.WidgetScrolledEventArgs)
-		p := scrollContainer.ScrollTop + (a.Y * 0.05)
-		if p < 0 {
-			p = 0
-		}
-		if p > 1 {
-			p = 1
-		}
-		scrollContainer.ScrollTop = p
-		vSlider.Current = int(p * 1000)
-	})
+	// Sync scroll container to slider on mouse wheel
+	style.SetupScrollHandler(scrollContainer, vSlider, needsScroll)
 
 	// Use GridLayout with 2 columns: stretching scroll area + fixed width slider
 	scrollRow := widget.NewContainer(

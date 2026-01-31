@@ -134,87 +134,15 @@ func (s *LibraryScreen) Build() *widget.Container {
 
 // buildEmptyState creates the empty library display
 func (s *LibraryScreen) buildEmptyState() *widget.Container {
-	emptyContainer := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
-				Stretch: true,
-			}),
-		),
-	)
-
-	centerContent := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewRowLayout(
-			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Spacing(16),
-		)),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-				HorizontalPosition: widget.AnchorLayoutPositionCenter,
-				VerticalPosition:   widget.AnchorLayoutPositionCenter,
-			}),
-		),
-	)
-
-	titleLabel := widget.NewText(
-		widget.TextOpts.Text("No games in library", style.FontFace(), style.Text),
-		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
-	)
-	centerContent.AddChild(titleLabel)
-
-	subtitleLabel := widget.NewText(
-		widget.TextOpts.Text("Add a ROM folder in Settings", style.FontFace(), style.TextSecondary),
-		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
-	)
-	centerContent.AddChild(subtitleLabel)
-
-	settingsButton := style.TextButton("Open Settings", 12, func(args *widget.ButtonClickedEventArgs) {
+	button := style.TextButton("Open Settings", 12, func(args *widget.ButtonClickedEventArgs) {
 		s.callback.SwitchToSettings()
 	})
-	centerContent.AddChild(settingsButton)
-
-	emptyContainer.AddChild(centerContent)
-	return emptyContainer
+	return style.EmptyState("No games in library", "Add a ROM folder in Settings", button)
 }
 
 // buildFilteredEmptyState creates the display when filters hide all games
 func (s *LibraryScreen) buildFilteredEmptyState() *widget.Container {
-	container := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
-				Stretch: true,
-			}),
-		),
-	)
-
-	centerContent := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewRowLayout(
-			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Spacing(16),
-		)),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-				HorizontalPosition: widget.AnchorLayoutPositionCenter,
-				VerticalPosition:   widget.AnchorLayoutPositionCenter,
-			}),
-		),
-	)
-
-	titleLabel := widget.NewText(
-		widget.TextOpts.Text("No favorites yet", style.FontFace(), style.Text),
-		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
-	)
-	centerContent.AddChild(titleLabel)
-
-	subtitleLabel := widget.NewText(
-		widget.TextOpts.Text("Turn off the favorites filter to see all games", style.FontFace(), style.TextSecondary),
-		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
-	)
-	centerContent.AddChild(subtitleLabel)
-
-	container.AddChild(centerContent)
-	return container
+	return style.EmptyState("No favorites yet", "Turn off the favorites filter to see all games", nil)
 }
 
 // buildToolbar creates the library toolbar

@@ -391,3 +391,51 @@ func ScrollableContainer(opts ScrollableOpts) (*widget.ScrollContainer, *widget.
 
 	return scrollContainer, vSlider, wrapper
 }
+
+// EmptyState creates a centered empty state display with title, optional subtitle, and optional button.
+// The returned container has RowLayoutData{Stretch: true} for use in row layouts.
+// Pass empty string for subtitle to omit it. Pass nil for button to omit it.
+func EmptyState(title, subtitle string, button *widget.Button) *widget.Container {
+	container := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
+				Stretch: true,
+			}),
+		),
+	)
+
+	centerContent := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(16),
+		)),
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
+				HorizontalPosition: widget.AnchorLayoutPositionCenter,
+				VerticalPosition:   widget.AnchorLayoutPositionCenter,
+			}),
+		),
+	)
+
+	titleLabel := widget.NewText(
+		widget.TextOpts.Text(title, FontFace(), Text),
+		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
+	)
+	centerContent.AddChild(titleLabel)
+
+	if subtitle != "" {
+		subtitleLabel := widget.NewText(
+			widget.TextOpts.Text(subtitle, FontFace(), TextSecondary),
+			widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
+		)
+		centerContent.AddChild(subtitleLabel)
+	}
+
+	if button != nil {
+		centerContent.AddChild(button)
+	}
+
+	container.AddChild(centerContent)
+	return container
+}

@@ -665,27 +665,41 @@ func (s *LibraryScreen) buildGameCardSized(game *storage.GameEntry, cardWidth, c
 func (s *LibraryScreen) loadGameArtworkSized(crc32 string, maxWidth, maxHeight int) *ebiten.Image {
 	artPath, err := storage.GetGameArtworkPath(crc32)
 	if err != nil {
-		return getPlaceholderImageSized(maxWidth, maxHeight)
+		return s.getPlaceholderImageSized(maxWidth, maxHeight)
 	}
 
 	data, err := os.ReadFile(artPath)
 	if err != nil {
-		return getPlaceholderImageSized(maxWidth, maxHeight)
+		return s.getPlaceholderImageSized(maxWidth, maxHeight)
 	}
 
 	img, _, err := goimage.Decode(bytes.NewReader(data))
 	if err != nil {
-		return getPlaceholderImageSized(maxWidth, maxHeight)
+		return s.getPlaceholderImageSized(maxWidth, maxHeight)
 	}
 
 	return style.ScaleImage(img, maxWidth, maxHeight)
 }
 
-// getPlaceholderImageSized returns a placeholder image of specific size
-func getPlaceholderImageSized(width, height int) *ebiten.Image {
-	img := ebiten.NewImage(width, height)
-	img.Fill(style.Surface)
-	return img
+// getPlaceholderImageSized returns the placeholder image scaled to the specified size
+func (s *LibraryScreen) getPlaceholderImageSized(width, height int) *ebiten.Image {
+	data := s.callback.GetPlaceholderImageData()
+	if data == nil {
+		// Fallback to solid color if no placeholder data
+		img := ebiten.NewImage(width, height)
+		img.Fill(style.Surface)
+		return img
+	}
+
+	img, _, err := goimage.Decode(bytes.NewReader(data))
+	if err != nil {
+		// Fallback to solid color on decode error
+		fallback := ebiten.NewImage(width, height)
+		fallback.Fill(style.Surface)
+		return fallback
+	}
+
+	return style.ScaleImage(img, width, height)
 }
 
 // SaveScrollPosition saves the current scroll position before a rebuild

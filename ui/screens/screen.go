@@ -24,8 +24,9 @@ type ScreenCallback interface {
 	SwitchToScanProgress(rescanAll bool)
 	LaunchGame(gameCRC string, resume bool)
 	Exit()
-	GetWindowWidth() int // For responsive layout calculations
-	RequestRebuild()     // Request UI rebuild after state changes
+	GetWindowWidth() int             // For responsive layout calculations
+	RequestRebuild()                 // Request UI rebuild after state changes
+	GetPlaceholderImageData() []byte // Get raw placeholder image data for missing artwork
 }
 
 // FocusRestorer is implemented by screens that support focus restoration after rebuilds

@@ -77,10 +77,10 @@ type App struct {
 	gamepadFocusChanged bool
 
 	// Continuous navigation state
-	gamepadNavDirection    int       // 0=none, 1=prev, 2=next
-	gamepadNavStartTime    time.Time // When direction was first pressed
-	gamepadNavLastMove     time.Time // When last move occurred
-	gamepadNavRepeatDelay  time.Duration // Current repeat interval
+	gamepadNavDirection   int           // 0=none, 1=prev, 2=next
+	gamepadNavStartTime   time.Time     // When direction was first pressed
+	gamepadNavLastMove    time.Time     // When last move occurred
+	gamepadNavRepeatDelay time.Duration // Current repeat interval
 }
 
 // PlayTimeTracker tracks play time during gameplay
@@ -346,10 +346,10 @@ func (a *App) handleGamepadUI() {
 
 	// Continuous navigation constants
 	const (
-		navInitialDelay   = 400 * time.Millisecond // Delay before repeat starts
-		navStartInterval  = 200 * time.Millisecond // Initial repeat interval
-		navMinInterval    = 25 * time.Millisecond  // Fastest repeat (cap)
-		navAcceleration   = 20 * time.Millisecond  // Speed increase per repeat
+		navInitialDelay  = 400 * time.Millisecond // Delay before repeat starts
+		navStartInterval = 200 * time.Millisecond // Initial repeat interval
+		navMinInterval   = 25 * time.Millisecond  // Fastest repeat (cap)
+		navAcceleration  = 20 * time.Millisecond  // Speed increase per repeat
 	)
 
 	// Determine current navigation direction from D-pad and analog stick
@@ -466,7 +466,7 @@ func (a *App) handleGamepadBack() {
 		if a.activeScanner != nil {
 			a.activeScanner.Cancel()
 		}
-	// StateLibrary and StateError have no back action
+		// StateLibrary and StateError have no back action
 	}
 }
 
@@ -481,7 +481,7 @@ func (a *App) ensureFocusedVisible() {
 	switch a.state {
 	case StateLibrary:
 		a.libraryScreen.EnsureFocusedVisible(focused)
-	// Other screens can be added here as needed
+		// Other screens can be added here as needed
 	}
 }
 
@@ -652,6 +652,11 @@ func (a *App) GetWindowWidth() int {
 // Focus restoration is handled in the Update loop after ui.Update()
 func (a *App) RequestRebuild() {
 	a.rebuildCurrentScreen()
+}
+
+// GetPlaceholderImageData returns the raw embedded placeholder image data
+func (a *App) GetPlaceholderImageData() []byte {
+	return placeholderImageData
 }
 
 // regionFromLibraryEntry determines the region from a library entry

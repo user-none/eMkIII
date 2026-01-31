@@ -52,17 +52,9 @@ func (s *DetailScreen) Build() *widget.Container {
 	)
 
 	// Back button
-	backButton := widget.NewButton(
-		widget.ButtonOpts.Image(style.ButtonImage()),
-		widget.ButtonOpts.Text("Back", style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
-		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			s.callback.SwitchToLibrary()
-		}),
-	)
+	backButton := style.TextButton("Back", 8, func(args *widget.ButtonClickedEventArgs) {
+		s.callback.SwitchToLibrary()
+	})
 	rootContainer.AddChild(backButton)
 
 	if s.game == nil {
@@ -240,17 +232,9 @@ func (s *DetailScreen) Build() *widget.Container {
 
 	if !s.game.Missing {
 		// Play button
-		playButton := widget.NewButton(
-			widget.ButtonOpts.Image(style.PrimaryButtonImage()),
-			widget.ButtonOpts.Text("Play", style.FontFace(), &widget.ButtonTextColor{
-				Idle:     style.Text,
-				Disabled: style.TextSecondary,
-			}),
-			widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
-			widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-				s.callback.LaunchGame(s.game.CRC32, false)
-			}),
-		)
+		playButton := style.PrimaryTextButton("Play", 12, func(args *widget.ButtonClickedEventArgs) {
+			s.callback.LaunchGame(s.game.CRC32, false)
+		})
 		buttonContainer.AddChild(playButton)
 
 		// Resume button (enabled only if resume state exists)
@@ -261,10 +245,7 @@ func (s *DetailScreen) Build() *widget.Container {
 
 		resumeButton := widget.NewButton(
 			widget.ButtonOpts.Image(resumeImage),
-			widget.ButtonOpts.Text("Resume", style.FontFace(), &widget.ButtonTextColor{
-				Idle:     style.Text,
-				Disabled: style.TextSecondary,
-			}),
+			widget.ButtonOpts.Text("Resume", style.FontFace(), style.ButtonTextColor()),
 			widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
 			widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 				if hasResume {
@@ -275,19 +256,11 @@ func (s *DetailScreen) Build() *widget.Container {
 		buttonContainer.AddChild(resumeButton)
 	} else {
 		// Remove from Library button for missing games
-		removeButton := widget.NewButton(
-			widget.ButtonOpts.Image(style.ButtonImage()),
-			widget.ButtonOpts.Text("Remove from Library", style.FontFace(), &widget.ButtonTextColor{
-				Idle:     style.Text,
-				Disabled: style.TextSecondary,
-			}),
-			widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
-			widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-				s.library.RemoveGame(s.game.CRC32)
-				storage.SaveLibrary(s.library)
-				s.callback.SwitchToLibrary()
-			}),
-		)
+		removeButton := style.TextButton("Remove from Library", 12, func(args *widget.ButtonClickedEventArgs) {
+			s.library.RemoveGame(s.game.CRC32)
+			storage.SaveLibrary(s.library)
+			s.callback.SwitchToLibrary()
+		})
 		buttonContainer.AddChild(removeButton)
 	}
 
@@ -296,18 +269,10 @@ func (s *DetailScreen) Build() *widget.Container {
 	if s.game.Favorite {
 		favText = "Remove from Favorites"
 	}
-	favButton := widget.NewButton(
-		widget.ButtonOpts.Image(style.ButtonImage()),
-		widget.ButtonOpts.Text(favText, style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
-		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			s.game.Favorite = !s.game.Favorite
-			storage.SaveLibrary(s.library)
-		}),
-	)
+	favButton := style.TextButton(favText, 12, func(args *widget.ButtonClickedEventArgs) {
+		s.game.Favorite = !s.game.Favorite
+		storage.SaveLibrary(s.library)
+	})
 	buttonContainer.AddChild(favButton)
 
 	rootContainer.AddChild(buttonContainer)
@@ -432,21 +397,10 @@ func (s *DetailScreen) createMetadataLabel(text string, maxChars int, textColor 
 	}
 
 	if needsTooltip {
-		tooltipContainer := widget.NewContainer(
-			widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
-			widget.ContainerOpts.Layout(widget.NewRowLayout(
-				widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(8)),
-			)),
-		)
-		tooltipLabel := widget.NewText(
-			widget.TextOpts.Text(text, style.FontFace(), style.Text),
-		)
-		tooltipContainer.AddChild(tooltipLabel)
-
 		opts = append(opts, widget.TextOpts.WidgetOpts(
 			widget.WidgetOpts.ToolTip(
 				widget.NewToolTip(
-					widget.ToolTipOpts.Content(tooltipContainer),
+					widget.ToolTipOpts.Content(style.TooltipContent(text)),
 				),
 			),
 		))

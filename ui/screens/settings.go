@@ -86,17 +86,9 @@ func (s *SettingsScreen) Build() *widget.Container {
 		)),
 	)
 
-	backButton := widget.NewButton(
-		widget.ButtonOpts.Image(style.ButtonImage()),
-		widget.ButtonOpts.Text("Back", style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
-		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			s.callback.SwitchToLibrary()
-		}),
-	)
+	backButton := style.TextButton("Back", 8, func(args *widget.ButtonClickedEventArgs) {
+		s.callback.SwitchToLibrary()
+	})
 	header.AddChild(backButton)
 
 	rootContainer.AddChild(header)
@@ -211,31 +203,15 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 	)
 
 	// Add Folder button
-	addDirBtn := widget.NewButton(
-		widget.ButtonOpts.Image(style.ButtonImage()),
-		widget.ButtonOpts.Text("Add Folder...", style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
-		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			s.onAddDirectoryClick()
-		}),
-	)
+	addDirBtn := style.TextButton("Add Folder...", 12, func(args *widget.ButtonClickedEventArgs) {
+		s.onAddDirectoryClick()
+	})
 	buttonRow.AddChild(addDirBtn)
 
 	// Scan Library button
-	scanBtn := widget.NewButton(
-		widget.ButtonOpts.Image(style.PrimaryButtonImage()),
-		widget.ButtonOpts.Text("Scan Library", style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
-		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			s.callback.SwitchToScanProgress(true)
-		}),
-	)
+	scanBtn := style.PrimaryTextButton("Scan Library", 12, func(args *widget.ButtonClickedEventArgs) {
+		s.callback.SwitchToScanProgress(true)
+	})
 	buttonRow.AddChild(scanBtn)
 
 	// Remove button - disabled when nothing selected, removes all selected folders
@@ -245,10 +221,7 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 	}
 	removeBtn := widget.NewButton(
 		widget.ButtonOpts.Image(removeButtonImage),
-		widget.ButtonOpts.Text("Remove", style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
+		widget.ButtonOpts.Text("Remove", style.FontFace(), style.ButtonTextColor()),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			if len(s.selectedDirs) > 0 {
@@ -360,20 +333,9 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 
 			// Add tooltip if path was truncated
 			if wasTruncated {
-				tooltipContainer := widget.NewContainer(
-					widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
-					widget.ContainerOpts.Layout(widget.NewRowLayout(
-						widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(8)),
-					)),
-				)
-				tooltipLabel := widget.NewText(
-					widget.TextOpts.Text(dirPath, style.FontFace(), style.Text),
-				)
-				tooltipContainer.AddChild(tooltipLabel)
-
 				pathWidgetOpts = append(pathWidgetOpts, widget.WidgetOpts.ToolTip(
 					widget.NewToolTip(
-						widget.ToolTipOpts.Content(tooltipContainer),
+						widget.ToolTipOpts.Content(style.TooltipContent(dirPath)),
 					),
 				))
 			}

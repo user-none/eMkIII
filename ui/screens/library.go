@@ -168,17 +168,9 @@ func (s *LibraryScreen) buildEmptyState() *widget.Container {
 	)
 	centerContent.AddChild(subtitleLabel)
 
-	settingsButton := widget.NewButton(
-		widget.ButtonOpts.Image(style.ButtonImage()),
-		widget.ButtonOpts.Text("Open Settings", style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
-		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			s.callback.SwitchToSettings()
-		}),
-	)
+	settingsButton := style.TextButton("Open Settings", 12, func(args *widget.ButtonClickedEventArgs) {
+		s.callback.SwitchToSettings()
+	})
 	centerContent.AddChild(settingsButton)
 
 	emptyContainer.AddChild(centerContent)
@@ -412,46 +404,6 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 	colPlayTime := 80
 	colLastPlayed := 100
 
-	// Helper to create a text cell with proper styling
-	createCell := func(text string, width int, stretch bool, textColor color.Color) *widget.Container {
-		cell := widget.NewContainer(
-			widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
-			widget.ContainerOpts.WidgetOpts(
-				widget.WidgetOpts.MinSize(width, rowHeight),
-			),
-		)
-		label := widget.NewText(
-			widget.TextOpts.Text(text, style.FontFace(), textColor),
-			widget.TextOpts.WidgetOpts(
-				widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-					VerticalPosition: widget.AnchorLayoutPositionCenter,
-				}),
-			),
-		)
-		cell.AddChild(label)
-		return cell
-	}
-
-	// Helper to create header cell
-	createHeaderCell := func(text string, width int) *widget.Container {
-		cell := widget.NewContainer(
-			widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
-			widget.ContainerOpts.WidgetOpts(
-				widget.WidgetOpts.MinSize(width, headerHeight),
-			),
-		)
-		label := widget.NewText(
-			widget.TextOpts.Text(text, style.FontFace(), style.TextSecondary),
-			widget.TextOpts.WidgetOpts(
-				widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-					VerticalPosition: widget.AnchorLayoutPositionCenter,
-				}),
-			),
-		)
-		cell.AddChild(label)
-		return cell
-	}
-
 	// Build header row
 	header := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
@@ -465,12 +417,12 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		),
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Surface)),
 	)
-	header.AddChild(createHeaderCell("", colFav)) // Favorite column (no header text)
-	header.AddChild(createHeaderCell("Title", 0)) // Title stretches
-	header.AddChild(createHeaderCell("Genre", colGenre))
-	header.AddChild(createHeaderCell("Region", colRegion))
-	header.AddChild(createHeaderCell("Play Time", colPlayTime))
-	header.AddChild(createHeaderCell("Last Played", colLastPlayed))
+	header.AddChild(style.TableHeaderCell("", colFav, headerHeight)) // Favorite column (no header text)
+	header.AddChild(style.TableHeaderCell("Title", 0, headerHeight)) // Title stretches
+	header.AddChild(style.TableHeaderCell("Genre", colGenre, headerHeight))
+	header.AddChild(style.TableHeaderCell("Region", colRegion, headerHeight))
+	header.AddChild(style.TableHeaderCell("Play Time", colPlayTime, headerHeight))
+	header.AddChild(style.TableHeaderCell("Last Played", colLastPlayed, headerHeight))
 
 	// Create vertical container for all game rows
 	listContent := widget.NewContainer(
@@ -528,12 +480,12 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		)
 
 		// Add cells
-		row.AddChild(createCell(fav, colFav, false, style.Accent))
-		row.AddChild(createCell(g.DisplayName, 0, true, style.Text))
-		row.AddChild(createCell(genre, colGenre, false, style.TextSecondary))
-		row.AddChild(createCell(region, colRegion, false, style.TextSecondary))
-		row.AddChild(createCell(playTime, colPlayTime, false, style.TextSecondary))
-		row.AddChild(createCell(lastPlayed, colLastPlayed, false, style.TextSecondary))
+		row.AddChild(style.TableCell(fav, colFav, rowHeight, style.Accent))
+		row.AddChild(style.TableCell(g.DisplayName, 0, rowHeight, style.Text))
+		row.AddChild(style.TableCell(genre, colGenre, rowHeight, style.TextSecondary))
+		row.AddChild(style.TableCell(region, colRegion, rowHeight, style.TextSecondary))
+		row.AddChild(style.TableCell(playTime, colPlayTime, rowHeight, style.TextSecondary))
+		row.AddChild(style.TableCell(lastPlayed, colLastPlayed, rowHeight, style.TextSecondary))
 
 		// Create button with alternating row color as idle, focus/hover colors for interaction
 		gameCRC := g.CRC32 // Capture for closure

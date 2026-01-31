@@ -159,10 +159,7 @@ func (s *ScanProgressScreen) Build() *widget.Container {
 
 	cancelButton := widget.NewButton(
 		widget.ButtonOpts.Image(cancelBtnImage),
-		widget.ButtonOpts.Text("Cancel", style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
+		widget.ButtonOpts.Text("Cancel", style.FontFace(), style.ButtonTextColor()),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			if !s.cancelPending {

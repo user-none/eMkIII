@@ -253,3 +253,68 @@ func TruncateEnd(s string, maxLen int) (string, bool) {
 	}
 	return s[:maxLen-3] + "...", true
 }
+
+// TextButton creates a standard text button with consistent styling.
+// Use for regular actions like "Back", "Cancel", "Settings".
+func TextButton(text string, padding int, handler func(*widget.ButtonClickedEventArgs)) *widget.Button {
+	return widget.NewButton(
+		widget.ButtonOpts.Image(ButtonImage()),
+		widget.ButtonOpts.Text(text, FontFace(), ButtonTextColor()),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(padding)),
+		widget.ButtonOpts.ClickedHandler(handler),
+	)
+}
+
+// PrimaryTextButton creates a prominent text button with primary styling.
+// Use for main actions like "Play", "Save", "Scan Library".
+func PrimaryTextButton(text string, padding int, handler func(*widget.ButtonClickedEventArgs)) *widget.Button {
+	return widget.NewButton(
+		widget.ButtonOpts.Image(PrimaryButtonImage()),
+		widget.ButtonOpts.Text(text, FontFace(), ButtonTextColor()),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(padding)),
+		widget.ButtonOpts.ClickedHandler(handler),
+	)
+}
+
+// TooltipContent creates a tooltip container with consistent styling.
+// Use for showing full text when content is truncated.
+func TooltipContent(text string) *widget.Container {
+	container := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(Border)),
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(8)),
+		)),
+	)
+	label := widget.NewText(
+		widget.TextOpts.Text(text, FontFace(), Text),
+	)
+	container.AddChild(label)
+	return container
+}
+
+// TableCell creates a table cell with text content.
+// Use for data cells in list/table views.
+func TableCell(text string, width, height int, textColor color.Color) *widget.Container {
+	cell := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.MinSize(width, height),
+		),
+	)
+	label := widget.NewText(
+		widget.TextOpts.Text(text, FontFace(), textColor),
+		widget.TextOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
+				VerticalPosition: widget.AnchorLayoutPositionCenter,
+			}),
+		),
+	)
+	cell.AddChild(label)
+	return cell
+}
+
+// TableHeaderCell creates a table header cell with secondary text color.
+// Use for column headers in list/table views.
+func TableHeaderCell(text string, width, height int) *widget.Container {
+	return TableCell(text, width, height, TextSecondary)
+}

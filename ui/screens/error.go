@@ -85,33 +85,17 @@ func (s *ErrorScreen) Build() *widget.Container {
 	)
 
 	// Delete and Continue button
-	deleteButton := widget.NewButton(
-		widget.ButtonOpts.Image(style.ButtonImage()),
-		widget.ButtonOpts.Text("Delete and Continue", style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
-		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			if s.onDelete != nil {
-				s.onDelete()
-			}
-		}),
-	)
+	deleteButton := style.TextButton("Delete and Continue", 12, func(args *widget.ButtonClickedEventArgs) {
+		if s.onDelete != nil {
+			s.onDelete()
+		}
+	})
 	buttonsContainer.AddChild(deleteButton)
 
 	// Exit button
-	exitButton := widget.NewButton(
-		widget.ButtonOpts.Image(style.ButtonImage()),
-		widget.ButtonOpts.Text("Exit", style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
-		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			s.callback.Exit()
-		}),
-	)
+	exitButton := style.TextButton("Exit", 12, func(args *widget.ButtonClickedEventArgs) {
+		s.callback.Exit()
+	})
 	buttonsContainer.AddChild(exitButton)
 
 	centerContent.AddChild(buttonsContainer)

@@ -99,7 +99,7 @@ func (s *DetailScreen) Build() *widget.Container {
 
 	// Box art container with black background (per design spec)
 	artContainer := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(colorBlack)),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Black)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.MinSize(artWidth, artHeight),
 		),
@@ -444,8 +444,6 @@ func (s *DetailScreen) OnExit() {
 	// Nothing to clean up
 }
 
-// colorBlack for box art background
-var colorBlack = color.NRGBA{0x00, 0x00, 0x00, 0xff}
 
 // createMetadataLabel creates a text label with optional truncation and tooltip
 func (s *DetailScreen) createMetadataLabel(text string, maxChars int, textColor color.Color) *widget.Text {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
-	"golang.org/x/image/font/basicfont"
+	"github.com/user-none/emkiii/ui/style"
 )
 
 // Notification displays temporary messages on screen
@@ -16,14 +16,11 @@ type Notification struct {
 	message   string
 	startTime time.Time
 	duration  time.Duration
-	fontFace  text.Face
 }
 
 // NewNotification creates a new notification system
 func NewNotification() *Notification {
-	return &Notification{
-		fontFace: text.NewGoXFace(basicfont.Face7x13),
-	}
+	return &Notification{}
 }
 
 // Show displays a notification message
@@ -67,7 +64,7 @@ func (n *Notification) Draw(screen *ebiten.Image) {
 	screenHeight := bounds.Dy()
 
 	// Calculate text size
-	textWidth, textHeight := text.Measure(n.message, n.fontFace, 0)
+	textWidth, textHeight := text.Measure(n.message, style.FontFace(), 0)
 
 	// Padding
 	padding := 12
@@ -90,6 +87,6 @@ func (n *Notification) Draw(screen *ebiten.Image) {
 	// Draw text centered in background
 	textOpts := &text.DrawOptions{}
 	textOpts.GeoM.Translate(float64(bgX+padding), float64(bgY+padding+int(textHeight)))
-	textOpts.ColorScale.ScaleWithColor(color.White)
-	text.Draw(screen, n.message, n.fontFace, textOpts)
+	textOpts.ColorScale.ScaleWithColor(style.Text)
+	text.Draw(screen, n.message, style.FontFace(), textOpts)
 }

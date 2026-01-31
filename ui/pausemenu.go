@@ -9,7 +9,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
-	"golang.org/x/image/font/basicfont"
+	"github.com/user-none/emkiii/ui/style"
 )
 
 // PauseMenuOption represents a menu option
@@ -26,7 +26,6 @@ const (
 type PauseMenu struct {
 	visible       bool
 	selectedIndex int
-	fontFace      text.Face
 	onResume      func()
 	onLibrary     func()
 	onExit        func()
@@ -37,7 +36,6 @@ func NewPauseMenu(onResume, onLibrary, onExit func()) *PauseMenu {
 	return &PauseMenu{
 		visible:       false,
 		selectedIndex: 0,
-		fontFace:      text.NewGoXFace(basicfont.Face7x13),
 		onResume:      onResume,
 		onLibrary:     onLibrary,
 		onExit:        onExit,
@@ -194,17 +192,16 @@ func (m *PauseMenu) Draw(screen *ebiten.Image) {
 
 	// Draw panel background
 	panelBg := ebiten.NewImage(panelWidth, panelHeight)
-	panelBg.Fill(color.RGBA{0x25, 0x25, 0x3a, 0xff}) // Theme.Surface
+	panelBg.Fill(style.Surface)
 
 	// Draw panel border
-	borderColor := color.RGBA{0x3a, 0x3a, 0x5a, 0xff} // Theme.Border
 	for x := 0; x < panelWidth; x++ {
-		panelBg.Set(x, 0, borderColor)
-		panelBg.Set(x, panelHeight-1, borderColor)
+		panelBg.Set(x, 0, style.Border)
+		panelBg.Set(x, panelHeight-1, style.Border)
 	}
 	for y := 0; y < panelHeight; y++ {
-		panelBg.Set(0, y, borderColor)
-		panelBg.Set(panelWidth-1, y, borderColor)
+		panelBg.Set(0, y, style.Border)
+		panelBg.Set(panelWidth-1, y, style.Border)
 	}
 
 	opts := &ebiten.DrawImageOptions{}
@@ -221,17 +218,17 @@ func (m *PauseMenu) Draw(screen *ebiten.Image) {
 		// Button background
 		buttonBg := ebiten.NewImage(buttonWidth, buttonHeight)
 		if i == m.selectedIndex {
-			buttonBg.Fill(color.RGBA{0x4a, 0x4a, 0x8a, 0xff}) // Theme.Primary
+			buttonBg.Fill(style.Primary)
 		} else {
-			buttonBg.Fill(color.RGBA{0x25, 0x25, 0x3a, 0xff}) // Theme.Surface
+			buttonBg.Fill(style.Surface)
 			// Draw border
 			for x := 0; x < buttonWidth; x++ {
-				buttonBg.Set(x, 0, borderColor)
-				buttonBg.Set(x, buttonHeight-1, borderColor)
+				buttonBg.Set(x, 0, style.Border)
+				buttonBg.Set(x, buttonHeight-1, style.Border)
 			}
 			for y := 0; y < buttonHeight; y++ {
-				buttonBg.Set(0, y, borderColor)
-				buttonBg.Set(buttonWidth-1, y, borderColor)
+				buttonBg.Set(0, y, style.Border)
+				buttonBg.Set(buttonWidth-1, y, style.Border)
 			}
 		}
 
@@ -244,8 +241,8 @@ func (m *PauseMenu) Draw(screen *ebiten.Image) {
 		textOpts.GeoM.Translate(float64(buttonX+buttonWidth/2), float64(buttonY+buttonHeight/2))
 		textOpts.PrimaryAlign = text.AlignCenter
 		textOpts.SecondaryAlign = text.AlignCenter
-		textOpts.ColorScale.ScaleWithColor(color.White)
-		text.Draw(screen, optionText, m.fontFace, textOpts)
+		textOpts.ColorScale.ScaleWithColor(style.Text)
+		text.Draw(screen, optionText, style.FontFace(), textOpts)
 	}
 }
 

@@ -167,7 +167,6 @@ func (s *SettingsScreen) Build() *widget.Container {
 	return rootContainer
 }
 
-
 // buildLibrarySection creates the library settings section
 func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 	// Use GridLayout so we can make the list stretch to fill available space
@@ -316,7 +315,7 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 			// Create row content with path label (no background - button handles colors for focus states)
 			rowContent := widget.NewContainer(
 				widget.ContainerOpts.Layout(widget.NewAnchorLayout(
-					widget.AnchorLayoutOpts.Padding(widget.Insets{Left: 12, Right: 12}),
+					widget.AnchorLayoutOpts.Padding(&widget.Insets{Left: 12, Right: 12}),
 				)),
 				widget.ContainerOpts.WidgetOpts(
 					widget.WidgetOpts.MinSize(0, rowHeight),

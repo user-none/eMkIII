@@ -28,11 +28,11 @@ var (
 var fontFace text.Face
 
 // FontFace returns the font face to use for UI text
-func FontFace() text.Face {
+func FontFace() *text.Face {
 	if fontFace == nil {
 		fontFace = text.NewGoXFace(basicfont.Face7x13)
 	}
-	return fontFace
+	return &fontFace
 }
 
 // ButtonImage creates a standard button image set

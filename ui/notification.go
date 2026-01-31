@@ -64,7 +64,7 @@ func (n *Notification) Draw(screen *ebiten.Image) {
 	screenHeight := bounds.Dy()
 
 	// Calculate text size
-	textWidth, textHeight := text.Measure(n.message, style.FontFace(), 0)
+	textWidth, textHeight := text.Measure(n.message, *style.FontFace(), 0)
 
 	// Padding
 	padding := 12
@@ -88,5 +88,5 @@ func (n *Notification) Draw(screen *ebiten.Image) {
 	textOpts := &text.DrawOptions{}
 	textOpts.GeoM.Translate(float64(bgX+padding), float64(bgY+padding+int(textHeight)))
 	textOpts.ColorScale.ScaleWithColor(style.Text)
-	text.Draw(screen, n.message, style.FontFace(), textOpts)
+	text.Draw(screen, n.message, *style.FontFace(), textOpts)
 }

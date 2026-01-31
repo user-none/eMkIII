@@ -321,7 +321,7 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 			widget.GridLayoutOpts.Columns(6),
 			widget.GridLayoutOpts.Stretch([]bool{false, true, false, false, false, false}, nil),
 			widget.GridLayoutOpts.Spacing(8, 0),
-			widget.GridLayoutOpts.Padding(widget.Insets{Left: 8, Right: 8}),
+			widget.GridLayoutOpts.Padding(&widget.Insets{Left: 8, Right: 8}),
 		)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.MinSize(0, headerHeight),
@@ -383,7 +383,7 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 				widget.GridLayoutOpts.Columns(6),
 				widget.GridLayoutOpts.Stretch([]bool{false, true, false, false, false, false}, nil),
 				widget.GridLayoutOpts.Spacing(8, 0),
-				widget.GridLayoutOpts.Padding(widget.Insets{Left: 8, Right: 8}),
+				widget.GridLayoutOpts.Padding(&widget.Insets{Left: 8, Right: 8}),
 			)),
 			widget.ContainerOpts.WidgetOpts(
 				widget.WidgetOpts.MinSize(0, rowHeight),
@@ -514,7 +514,6 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 	return mainContainer
 }
 
-
 // buildIconView creates the icon/grid view of games with artwork
 func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
 	// Calculate responsive grid dimensions
@@ -619,7 +618,7 @@ func (s *LibraryScreen) buildGameCardSized(game *storage.GameEntry, cardWidth, c
 		widget.ButtonOpts.WidgetOpts(
 			widget.WidgetOpts.MinSize(cardWidth, artHeight),
 		),
-		widget.ButtonOpts.Graphic(artwork),
+		widget.ButtonOpts.Graphic(&widget.GraphicImage{Idle: artwork}),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			// Save scroll position and selected game before navigating
 			s.iconSelectedCRC = gameCRC
@@ -819,5 +818,3 @@ func (s *LibraryScreen) EnsureFocusedVisible(focused widget.Focuser) {
 func (s *LibraryScreen) OnExit() {
 	// Nothing to clean up
 }
-
-

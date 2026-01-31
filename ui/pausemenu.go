@@ -242,7 +242,7 @@ func (m *PauseMenu) Draw(screen *ebiten.Image) {
 		textOpts.PrimaryAlign = text.AlignCenter
 		textOpts.SecondaryAlign = text.AlignCenter
 		textOpts.ColorScale.ScaleWithColor(style.Text)
-		text.Draw(screen, optionText, style.FontFace(), textOpts)
+		text.Draw(screen, optionText, *style.FontFace(), textOpts)
 	}
 }
 

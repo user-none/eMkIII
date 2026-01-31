@@ -6,15 +6,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/ebitenui/ebitenui"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/user-none/emkiii/ui/screens"
 	"github.com/user-none/emkiii/ui/storage"
-	"github.com/user-none/emkiii/ui/style"
 )
 
 // App is the main application struct that implements ebiten.Game
@@ -61,19 +58,8 @@ type App struct {
 	// Screenshot pending flag (set in Update, processed in Draw)
 	screenshotPending bool
 
-	// Gamepad navigation state for UI navigation
-	gamepadNav gamepadNavState
-}
-
-// gamepadNavState tracks continuous navigation state for gamepad input.
-// This handles repeat navigation when holding a direction.
-type gamepadNavState struct {
-	direction    int           // 0=none, 1=prev, 2=next
-	startTime    time.Time     // When direction was first pressed
-	lastMove     time.Time     // When last move occurred
-	repeatDelay  time.Duration // Current repeat interval
-	stickMoved   bool          // Analog stick state for debouncing
-	focusChanged bool          // Track if focus changed this frame (for scroll after layout)
+	// Input manager for UI navigation
+	inputManager *InputManager
 }
 
 // NewApp creates and initializes the application
@@ -109,6 +95,7 @@ func NewApp() (*App, error) {
 	app.notification = NewNotification()
 	app.saveStateManager = NewSaveStateManager(app.notification)
 	app.screenshotManager = NewScreenshotManager(app.notification)
+	app.inputManager = NewInputManager()
 
 	// Load config
 	config, err := storage.LoadConfig()
@@ -249,9 +236,8 @@ func (a *App) Update() error {
 	// Layout() handles width/height, but position must be queried here
 	a.windowX, a.windowY = ebiten.WindowPosition()
 
-	// Handle screenshot globally (F12 works everywhere)
-	// Set flag here, actual screenshot taken in Draw() where we have screen access
-	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
+	// Poll input manager for global keys (F12 screenshot)
+	if a.inputManager.Update() {
 		a.screenshotPending = true
 	}
 
@@ -268,20 +254,21 @@ func (a *App) Update() error {
 		_, err := a.gameplay.Update()
 		return err
 	case StateScanProgress:
-		a.handleGamepadUI()
+		nav := a.processUIInput()
 		a.ui.Update()
 		a.scanManager.Update()
-		// Clear focus changed flag - no scroll containers in scan screen
-		a.gamepadNav.focusChanged = false
+		// No scroll containers in scan screen
+		_ = nav
 		return nil
 	case StateSettings:
-		a.handleGamepadUI()
+		nav := a.processUIInput()
 		a.ui.Update()
 		// Check if state changed during ui.Update (e.g., user navigated away)
 		if a.state != StateSettings {
 			return nil
 		}
-		a.gamepadNav.focusChanged = false // Settings has its own scroll handling
+		// Settings has its own scroll handling
+		_ = nav
 		a.restorePendingFocus(a.settingsScreen)
 		// Check if settings screen triggered a scan (after adding directory)
 		if a.settingsScreen.HasPendingScan() {
@@ -289,34 +276,30 @@ func (a *App) Update() error {
 			a.SwitchToScanProgress(false)
 		}
 	case StateLibrary:
-		a.handleGamepadUI()
+		nav := a.processUIInput()
 		a.ui.Update()
 		// Check if state changed during ui.Update (e.g., user clicked a game)
 		if a.state != StateLibrary {
 			return nil
 		}
 		a.restorePendingFocus(a.libraryScreen)
-		a.handleFocusScroll()
+		if nav.FocusChanged {
+			a.ensureFocusedVisible()
+		}
 	default:
 		// StateDetail, StateError
-		a.handleGamepadUI()
+		nav := a.processUIInput()
 		prevState := a.state
 		a.ui.Update()
 		// Check if state changed during ui.Update (e.g., user clicked Back)
 		if a.state != prevState {
 			return nil
 		}
-		a.handleFocusScroll()
+		if nav.FocusChanged {
+			a.ensureFocusedVisible()
+		}
 	}
 	return nil
-}
-
-// handleFocusScroll scrolls to keep focused widget visible after gamepad navigation
-func (a *App) handleFocusScroll() {
-	if a.gamepadNav.focusChanged {
-		a.ensureFocusedVisible()
-		a.gamepadNav.focusChanged = false
-	}
 }
 
 // restorePendingFocus restores focus to a pending button if one exists
@@ -328,105 +311,24 @@ func (a *App) restorePendingFocus(screen screens.FocusRestorer) {
 	}
 }
 
-// handleGamepadUI processes gamepad input for UI navigation
-// This leverages ebitenui's built-in focus system
-func (a *App) handleGamepadUI() {
+// processUIInput polls gamepad input via InputManager and applies UI actions.
+// Returns the navigation result for focus scroll handling.
+func (a *App) processUIInput() UINavigation {
 	if a.ui == nil {
-		return
+		return UINavigation{}
 	}
 
-	gamepadIDs := ebiten.AppendGamepadIDs(nil)
-	if len(gamepadIDs) == 0 {
-		return
-	}
+	nav := a.inputManager.GetUINavigation()
 
-	// Use first connected gamepad
-	id := gamepadIDs[0]
-
-	// Navigation timing uses constants from style package
-
-	// Determine current navigation direction from D-pad and analog stick
-	navPrev := false
-	navNext := false
-
-	// D-pad
-	if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftTop) ||
-		ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftLeft) {
-		navPrev = true
-	}
-	if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftBottom) ||
-		ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftRight) {
-		navNext = true
-	}
-
-	// Analog stick
-	axisY := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickVertical)
-	axisX := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickHorizontal)
-	if axisY < -0.5 || axisX < -0.5 {
-		navPrev = true
-	}
-	if axisY > 0.5 || axisX > 0.5 {
-		navNext = true
-	}
-
-	// Determine desired direction (prev takes priority if both pressed)
-	desiredDir := 0
-	if navPrev {
-		desiredDir = 1
-	} else if navNext {
-		desiredDir = 2
-	}
-
-	now := time.Now()
-	focusChanged := false
-
-	if desiredDir == 0 {
-		// No direction pressed - reset state
-		a.gamepadNav.direction = 0
-		a.gamepadNav.repeatDelay = style.NavStartInterval
-	} else if desiredDir != a.gamepadNav.direction {
-		// Direction changed - move immediately and start tracking
-		a.gamepadNav.direction = desiredDir
-		a.gamepadNav.startTime = now
-		a.gamepadNav.lastMove = now
-		a.gamepadNav.repeatDelay = style.NavStartInterval
-
-		if desiredDir == 1 {
-			a.ui.ChangeFocus(widget.FOCUS_PREVIOUS)
-		} else {
-			a.ui.ChangeFocus(widget.FOCUS_NEXT)
-		}
-		focusChanged = true
-	} else {
-		// Same direction held - check for repeat
-		holdDuration := now.Sub(a.gamepadNav.startTime)
-		timeSinceLastMove := now.Sub(a.gamepadNav.lastMove)
-
-		if holdDuration >= style.NavInitialDelay && timeSinceLastMove >= a.gamepadNav.repeatDelay {
-			// Time to repeat
-			if desiredDir == 1 {
-				a.ui.ChangeFocus(widget.FOCUS_PREVIOUS)
-			} else {
-				a.ui.ChangeFocus(widget.FOCUS_NEXT)
-			}
-			focusChanged = true
-			a.gamepadNav.lastMove = now
-
-			// Accelerate (decrease interval)
-			a.gamepadNav.repeatDelay -= style.NavAcceleration
-			if a.gamepadNav.repeatDelay < style.NavMinInterval {
-				a.gamepadNav.repeatDelay = style.NavMinInterval
-			}
-		}
-	}
-
-	// Mark that focus changed - scroll check happens after ui.Update()
-	if focusChanged {
-		a.gamepadNav.focusChanged = true
+	// Apply navigation direction
+	if nav.Direction == 1 {
+		a.ui.ChangeFocus(widget.FOCUS_PREVIOUS)
+	} else if nav.Direction == 2 {
+		a.ui.ChangeFocus(widget.FOCUS_NEXT)
 	}
 
 	// A/Cross button activates focused widget
-	if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightBottom) {
+	if nav.Activate {
 		if focused := a.ui.GetFocusedWidget(); focused != nil {
 			if btn, ok := focused.(*widget.Button); ok {
 				btn.Click()
@@ -435,16 +337,16 @@ func (a *App) handleGamepadUI() {
 	}
 
 	// B/Circle button for back navigation
-	if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightRight) {
+	if nav.Back {
 		a.handleGamepadBack()
 	}
 
 	// Start button opens settings from library
-	if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonCenterRight) {
-		if a.state == StateLibrary {
-			a.SwitchToSettings()
-		}
+	if nav.OpenSettings && a.state == StateLibrary {
+		a.SwitchToSettings()
 	}
+
+	return nav
 }
 
 // handleGamepadBack handles B button press for back navigation

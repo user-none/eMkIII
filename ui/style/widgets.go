@@ -226,6 +226,24 @@ func ScrollableContainer(opts ScrollableOpts) (*widget.ScrollContainer, *widget.
 	return scrollContainer, vSlider, wrapper
 }
 
+// CenteredContainer creates a container with vertical layout, centered in its parent.
+// Use for modal dialogs, status screens, and centered content.
+// The spacing parameter controls vertical spacing between children.
+func CenteredContainer(spacing int) *widget.Container {
+	return widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(spacing),
+		)),
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
+				HorizontalPosition: widget.AnchorLayoutPositionCenter,
+				VerticalPosition:   widget.AnchorLayoutPositionCenter,
+			}),
+		),
+	)
+}
+
 // EmptyState creates a centered empty state display with title, optional subtitle, and optional button.
 // The returned container has RowLayoutData{Stretch: true} for use in row layouts.
 // Pass empty string for subtitle to omit it. Pass nil for button to omit it.
@@ -239,18 +257,7 @@ func EmptyState(title, subtitle string, button *widget.Button) *widget.Container
 		),
 	)
 
-	centerContent := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewRowLayout(
-			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Spacing(16),
-		)),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-				HorizontalPosition: widget.AnchorLayoutPositionCenter,
-				VerticalPosition:   widget.AnchorLayoutPositionCenter,
-			}),
-		),
-	)
+	centerContent := CenteredContainer(16)
 
 	titleLabel := widget.NewText(
 		widget.TextOpts.Text(title, FontFace(), Text),

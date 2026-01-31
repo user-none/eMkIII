@@ -166,10 +166,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 
 	iconViewBtn := widget.NewButton(
 		widget.ButtonOpts.Image(style.ActiveButtonImage(s.config.Library.ViewMode == "icon")),
-		widget.ButtonOpts.Text("Icon", style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
+		widget.ButtonOpts.Text("Icon", style.FontFace(), style.ButtonTextColor()),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.config.Library.ViewMode = "icon"
@@ -183,10 +180,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 
 	listViewBtn := widget.NewButton(
 		widget.ButtonOpts.Image(style.ActiveButtonImage(s.config.Library.ViewMode == "list")),
-		widget.ButtonOpts.Text("List", style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
+		widget.ButtonOpts.Text("List", style.FontFace(), style.ButtonTextColor()),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.config.Library.ViewMode = "list"
@@ -250,10 +244,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 
 	sortButton := widget.NewButton(
 		widget.ButtonOpts.Image(style.ButtonImage()),
-		widget.ButtonOpts.Text(sortOptions[currentSortIdx], style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
+		widget.ButtonOpts.Text(sortOptions[currentSortIdx], style.FontFace(), style.ButtonTextColor()),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			currentSortIdx = (currentSortIdx + 1) % len(sortOptions)
@@ -273,10 +264,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 	}
 	favButton := widget.NewButton(
 		widget.ButtonOpts.Image(style.ActiveButtonImage(s.config.Library.FavoritesFilter)),
-		widget.ButtonOpts.Text(favText, style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
+		widget.ButtonOpts.Text(favText, style.FontFace(), style.ButtonTextColor()),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.config.Library.FavoritesFilter = !s.config.Library.FavoritesFilter
@@ -298,10 +286,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 
 	settingsButton := widget.NewButton(
 		widget.ButtonOpts.Image(style.ButtonImage()),
-		widget.ButtonOpts.Text("Settings", style.FontFace(), &widget.ButtonTextColor{
-			Idle:     style.Text,
-			Disabled: style.TextSecondary,
-		}),
+		widget.ButtonOpts.Text("Settings", style.FontFace(), style.ButtonTextColor()),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(8)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.callback.SwitchToSettings()

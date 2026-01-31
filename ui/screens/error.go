@@ -41,18 +41,7 @@ func (s *ErrorScreen) Build() *widget.Container {
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
 	)
 
-	centerContent := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewRowLayout(
-			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Spacing(16),
-		)),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-				HorizontalPosition: widget.AnchorLayoutPositionCenter,
-				VerticalPosition:   widget.AnchorLayoutPositionCenter,
-			}),
-		),
-	)
+	centerContent := style.CenteredContainer(16)
 
 	// Title
 	titleLabel := widget.NewText(

@@ -117,15 +117,17 @@ The emulator uses Ebiten for windowing/rendering, koron-go/z80 for CPU emulation
 - `main.go` - Entry point; launches UI by default, or direct emulator with `-rom` flag
 - `ui/` - Standalone UI application:
   - `app.go` - Main application struct, screen management, Ebiten game loop
-  - `theme.go` - Colors, fonts, widget styling
+  - `state.go` - AppState enum (Library, Detail, Settings, etc.)
   - `screens/` - Library, Detail, Settings, Scan Progress, Error screens
   - `pausemenu.go` - In-game pause overlay with keyboard/gamepad navigation
   - `savestate.go` - Save state management (10 slots per game, auto-save)
   - `screenshot.go` - Screenshot capture (F12)
+  - `notification.go` - On-screen notifications
   - `scanner.go` - ROM discovery and metadata lookup
   - `metadata.go` - RDB download and artwork fetching
-  - `notification.go` - On-screen notifications
   - `storage/` - Config and library JSON persistence
+  - `style/` - Theme colors, widget builders, utility functions
+  - `rdb/` - RDB parser for game metadata lookup
 - `cli/` - CLI runner for direct ROM launch mode:
   - `runner.go` - Ebiten game wrapper for direct emulation (bypasses UI)
 - `emu/` - All emulation components:

@@ -391,44 +391,16 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 		}
 	}
 
-	// Create scroll container
-	scrollContainer := widget.NewScrollContainer(
-		widget.ScrollContainerOpts.Content(listContent),
-		widget.ScrollContainerOpts.StretchContentWidth(),
-		widget.ScrollContainerOpts.Image(&widget.ScrollContainerImage{
-			Idle: image.NewNineSliceColor(style.Surface),
-			Mask: image.NewNineSliceColor(style.Surface),
-		}),
-	)
+	// Create scrollable container with border
+	_, _, wrapper := style.ScrollableContainer(style.ScrollableOpts{
+		Content:     listContent,
+		BgColor:     style.Surface,
+		BorderColor: style.Border,
+		Spacing:     0,
+		Padding:     2,
+	})
 
-	// Helper to check if scrolling is needed
-	needsScroll := func() bool {
-		contentHeight := scrollContainer.ContentRect().Dy()
-		viewHeight := scrollContainer.ViewRect().Dy()
-		return contentHeight > 0 && viewHeight > 0 && contentHeight > viewHeight
-	}
-
-	// Create vertical slider for scrolling
-	vSlider := style.ScrollSlider(scrollContainer, needsScroll)
-
-	// Mouse wheel scroll support
-	style.SetupScrollHandler(scrollContainer, vSlider, needsScroll)
-
-	// Outer wrapper with border - fills the grid cell
-	listWrapper := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Border)),
-		widget.ContainerOpts.Layout(widget.NewGridLayout(
-			widget.GridLayoutOpts.Columns(2),
-			widget.GridLayoutOpts.Stretch([]bool{true, false}, []bool{true}),
-			widget.GridLayoutOpts.Spacing(0, 0),
-			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(2)), // Border width
-		)),
-	)
-
-	listWrapper.AddChild(scrollContainer)
-	listWrapper.AddChild(vSlider)
-
-	return listWrapper
+	return wrapper
 }
 
 // onAddDirectoryClick handles adding a search directory

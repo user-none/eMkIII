@@ -530,25 +530,12 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		listContent.AddChild(rowWrapper)
 	}
 
-	// Create scroll container
-	scrollContainer := widget.NewScrollContainer(
-		widget.ScrollContainerOpts.Content(listContent),
-		widget.ScrollContainerOpts.StretchContentWidth(),
-		widget.ScrollContainerOpts.Image(&widget.ScrollContainerImage{
-			Idle: image.NewNineSliceColor(style.Background),
-			Mask: image.NewNineSliceColor(style.Background),
-		}),
-	)
-
-	// Helper to check if scrolling is needed
-	needsScroll := func() bool {
-		contentHeight := scrollContainer.ContentRect().Dy()
-		viewHeight := scrollContainer.ViewRect().Dy()
-		return contentHeight > 0 && viewHeight > 0 && contentHeight > viewHeight
-	}
-
-	// Create vertical slider for scrolling
-	vSlider := style.ScrollSlider(scrollContainer, needsScroll)
+	// Create scrollable container (we use custom layout for header alignment, so ignore wrapper)
+	scrollContainer, vSlider, scrollRow := style.ScrollableContainer(style.ScrollableOpts{
+		Content: listContent,
+		BgColor: style.Background,
+		Spacing: 4,
+	})
 
 	// Store references for scroll preservation
 	s.listScrollContainer = scrollContainer
@@ -582,9 +569,6 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		}
 	}
 
-	// Sync scroll container to slider on mouse wheel
-	style.SetupScrollHandler(scrollContainer, vSlider, needsScroll)
-
 	// Slider width constant
 	sliderWidth := 20
 
@@ -604,17 +588,6 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		),
 	)
 	headerRow.AddChild(headerSpacer)
-
-	// Scroll area with slider
-	scrollRow := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewGridLayout(
-			widget.GridLayoutOpts.Columns(2),
-			widget.GridLayoutOpts.Spacing(4, 0),
-			widget.GridLayoutOpts.Stretch([]bool{true, false}, []bool{true}),
-		)),
-	)
-	scrollRow.AddChild(scrollContainer)
-	scrollRow.AddChild(vSlider)
 
 	// Main container: header row + scroll area
 	mainContainer := widget.NewContainer(
@@ -713,25 +686,12 @@ func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
 		gridContainer.AddChild(card)
 	}
 
-	// Create scroll container
-	scrollContainer := widget.NewScrollContainer(
-		widget.ScrollContainerOpts.Content(gridContainer),
-		widget.ScrollContainerOpts.StretchContentWidth(),
-		widget.ScrollContainerOpts.Image(&widget.ScrollContainerImage{
-			Idle: image.NewNineSliceColor(style.Background),
-			Mask: image.NewNineSliceColor(style.Background),
-		}),
-	)
-
-	// Helper to check if scrolling is needed
-	needsScroll := func() bool {
-		contentHeight := scrollContainer.ContentRect().Dy()
-		viewHeight := scrollContainer.ViewRect().Dy()
-		return contentHeight > 0 && viewHeight > 0 && contentHeight > viewHeight
-	}
-
-	// Create vertical slider for scrolling
-	vSlider := style.ScrollSlider(scrollContainer, needsScroll)
+	// Create scrollable container
+	scrollContainer, vSlider, wrapper := style.ScrollableContainer(style.ScrollableOpts{
+		Content: gridContainer,
+		BgColor: style.Background,
+		Spacing: 4,
+	})
 
 	// Store references for scroll preservation
 	s.scrollContainer = scrollContainer
@@ -743,22 +703,7 @@ func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
 		vSlider.Current = int(s.iconScrollTop * 1000)
 	}
 
-	// Sync scroll container to slider on mouse wheel
-	style.SetupScrollHandler(scrollContainer, vSlider, needsScroll)
-
-	// Use GridLayout with 2 columns: stretching scroll area + fixed width slider
-	scrollRow := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewGridLayout(
-			widget.GridLayoutOpts.Columns(2),
-			widget.GridLayoutOpts.Spacing(4, 0),
-			widget.GridLayoutOpts.Stretch([]bool{true, false}, []bool{true}),
-		)),
-	)
-
-	scrollRow.AddChild(scrollContainer)
-	scrollRow.AddChild(vSlider)
-
-	return scrollRow
+	return wrapper
 }
 
 // buildGameCardSized creates a game card with specific dimensions

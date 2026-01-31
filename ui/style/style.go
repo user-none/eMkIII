@@ -318,3 +318,76 @@ func TableCell(text string, width, height int, textColor color.Color) *widget.Co
 func TableHeaderCell(text string, width, height int) *widget.Container {
 	return TableCell(text, width, height, TextSecondary)
 }
+
+// ScrollableOpts configures a scrollable container.
+type ScrollableOpts struct {
+	Content     *widget.Container // Required: content to scroll
+	BgColor     color.Color       // Background color for scroll area (default: Background)
+	BorderColor color.Color       // Border color for wrapper (nil = no border)
+	Spacing     int               // Spacing between scroll area and slider (default: 4)
+	Padding     int               // Padding inside wrapper, used with BorderColor (default: 0)
+}
+
+// ScrollableContainer creates a scrollable container with a vertical slider.
+// Returns the scroll container, slider, and wrapper widget for embedding in layouts.
+// The scroll container and slider references can be used for scroll position preservation.
+func ScrollableContainer(opts ScrollableOpts) (*widget.ScrollContainer, *widget.Slider, widget.PreferredSizeLocateableWidget) {
+	// Apply defaults
+	bgColor := opts.BgColor
+	if bgColor == nil {
+		bgColor = Background
+	}
+	spacing := opts.Spacing
+	if spacing == 0 && opts.BorderColor == nil {
+		spacing = 4 // Default spacing when no border
+	}
+
+	// Create scroll container
+	scrollContainer := widget.NewScrollContainer(
+		widget.ScrollContainerOpts.Content(opts.Content),
+		widget.ScrollContainerOpts.StretchContentWidth(),
+		widget.ScrollContainerOpts.Image(&widget.ScrollContainerImage{
+			Idle: image.NewNineSliceColor(bgColor),
+			Mask: image.NewNineSliceColor(bgColor),
+		}),
+	)
+
+	// Helper to check if scrolling is needed
+	needsScroll := func() bool {
+		contentHeight := scrollContainer.ContentRect().Dy()
+		viewHeight := scrollContainer.ViewRect().Dy()
+		return contentHeight > 0 && viewHeight > 0 && contentHeight > viewHeight
+	}
+
+	// Create vertical slider
+	vSlider := ScrollSlider(scrollContainer, needsScroll)
+
+	// Setup mouse wheel scroll support
+	SetupScrollHandler(scrollContainer, vSlider, needsScroll)
+
+	// Create wrapper container
+	var wrapperOpts []widget.ContainerOpt
+
+	// Add border background if specified
+	if opts.BorderColor != nil {
+		wrapperOpts = append(wrapperOpts,
+			widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(opts.BorderColor)),
+		)
+	}
+
+	// Grid layout: stretching scroll area + fixed slider
+	wrapperOpts = append(wrapperOpts,
+		widget.ContainerOpts.Layout(widget.NewGridLayout(
+			widget.GridLayoutOpts.Columns(2),
+			widget.GridLayoutOpts.Stretch([]bool{true, false}, []bool{true}),
+			widget.GridLayoutOpts.Spacing(spacing, 0),
+			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(opts.Padding)),
+		)),
+	)
+
+	wrapper := widget.NewContainer(wrapperOpts...)
+	wrapper.AddChild(scrollContainer)
+	wrapper.AddChild(vSlider)
+
+	return scrollContainer, vSlider, wrapper
+}

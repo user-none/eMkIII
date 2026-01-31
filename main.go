@@ -74,9 +74,21 @@ func launchUI() {
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowSizeLimits(900, 650, -1, -1)
 
-	// Set initial window size from config
-	// The App will handle restoring window position/size
-	ebiten.SetWindowSize(900, 650)
+	// Set window size from saved config (before RunGame to avoid resize flash)
+	// Fall back to minimum size if config doesn't have valid dimensions
+	width, height, x, y := app.GetWindowConfig()
+	if width < 900 {
+		width = 900
+	}
+	if height < 650 {
+		height = 650
+	}
+	ebiten.SetWindowSize(width, height)
+
+	// Restore window position if previously saved
+	if x != nil && y != nil {
+		ebiten.SetWindowPosition(*x, *y)
+	}
 
 	if err := ebiten.RunGame(app); err != nil {
 		log.Fatal(err)

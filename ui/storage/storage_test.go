@@ -12,11 +12,11 @@ func TestDefaultConfig(t *testing.T) {
 	if config.Version != 1 {
 		t.Errorf("expected version 1, got %d", config.Version)
 	}
-	if config.Window.Width != 800 {
-		t.Errorf("expected window width 800, got %d", config.Window.Width)
+	if config.Window.Width != 900 {
+		t.Errorf("expected window width 900, got %d", config.Window.Width)
 	}
-	if config.Window.Height != 600 {
-		t.Errorf("expected window height 600, got %d", config.Window.Height)
+	if config.Window.Height != 650 {
+		t.Errorf("expected window height 650, got %d", config.Window.Height)
 	}
 	if config.Audio.Volume != 1.0 {
 		t.Errorf("expected volume 1.0, got %f", config.Audio.Volume)
@@ -343,8 +343,8 @@ func TestConfigMigration(t *testing.T) {
 	if migrated.Audio.Volume != 1.0 {
 		t.Errorf("expected volume 1.0 after migration, got %f", migrated.Audio.Volume)
 	}
-	if migrated.Window.Width != 800 {
-		t.Errorf("expected width 800 after migration, got %d", migrated.Window.Width)
+	if migrated.Window.Width != 900 {
+		t.Errorf("expected width 900 after migration, got %d", migrated.Window.Width)
 	}
 	if migrated.Library.ViewMode != "icon" {
 		t.Errorf("expected view mode 'icon' after migration, got '%s'", migrated.Library.ViewMode)

@@ -66,6 +66,7 @@ type App struct {
 	// Window tracking for persistence and responsive layouts
 	windowX, windowY int
 	windowWidth      int
+	windowHeight     int
 	lastBuildWidth   int // Track width used for last UI build
 
 	// Screenshot pending flag (set in Update, processed in Draw)
@@ -176,27 +177,18 @@ func NewApp() (*App, error) {
 	// Set library on save state manager for slot persistence
 	app.saveStateManager.SetLibrary(library)
 
-	// Initialize screens
+	// Initialize screens and build initial UI
+	// Window dimensions are set by main before RunGame, so they're already correct
 	app.initScreens()
 	app.rebuildCurrentScreen()
-
-	// Restore window state from config
-	app.restoreWindowState()
 
 	return app, nil
 }
 
-// restoreWindowState restores window position and size from config
-func (a *App) restoreWindowState() {
-	// Restore window size
-	if a.config.Window.Width > 0 && a.config.Window.Height > 0 {
-		ebiten.SetWindowSize(a.config.Window.Width, a.config.Window.Height)
-	}
-
-	// Restore window position (only if explicitly set)
-	if a.config.Window.X != nil && a.config.Window.Y != nil {
-		ebiten.SetWindowPosition(*a.config.Window.X, *a.config.Window.Y)
-	}
+// GetWindowConfig returns the saved window dimensions and position from config.
+// This should be called before RunGame to set the initial window size.
+func (a *App) GetWindowConfig() (width, height int, x, y *int) {
+	return a.config.Window.Width, a.config.Window.Height, a.config.Window.X, a.config.Window.Y
 }
 
 // saveWindowState saves current window position and size to config
@@ -206,15 +198,17 @@ func (a *App) saveWindowState() {
 		return
 	}
 
-	// Get current window state
-	w, h := ebiten.WindowSize()
-	x, y := ebiten.WindowPosition()
+	// Don't save if we never got valid window dimensions
+	// (window size is tracked in Layout(), position in Update())
+	if a.windowWidth == 0 || a.windowHeight == 0 {
+		return
+	}
 
-	// Update config
-	a.config.Window.Width = w
-	a.config.Window.Height = h
-	a.config.Window.X = &x
-	a.config.Window.Y = &y
+	// Use tracked values (ebiten functions don't work after game loop ends)
+	a.config.Window.Width = a.windowWidth
+	a.config.Window.Height = a.windowHeight
+	a.config.Window.X = &a.windowX
+	a.config.Window.Y = &a.windowY
 
 	// Save to disk
 	storage.SaveConfig(a.config)
@@ -259,6 +253,10 @@ func (a *App) rebuildCurrentScreen() {
 
 // Update implements ebiten.Game
 func (a *App) Update() error {
+	// Track window position while game is running (for save on exit)
+	// Layout() handles width/height, but position must be queried here
+	a.windowX, a.windowY = ebiten.WindowPosition()
+
 	// Handle screenshot globally (F12 works everywhere)
 	// Set flag here, actual screenshot taken in Draw() where we have screen access
 	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
@@ -519,8 +517,9 @@ func (a *App) Draw(screen *ebiten.Image) {
 
 // Layout implements ebiten.Game
 func (a *App) Layout(outsideWidth, outsideHeight int) (int, int) {
-	// Store width for responsive layout calculations
+	// Store dimensions for responsive layout calculations and persistence
 	a.windowWidth = outsideWidth
+	a.windowHeight = outsideHeight
 	return outsideWidth, outsideHeight
 }
 
@@ -1047,13 +1046,9 @@ func (a *App) handleDeleteAndContinue() {
 
 // SaveAndClose saves config and library before exit
 func (a *App) SaveAndClose() {
-	// Save window position if we had one
-	// Note: Ebiten doesn't provide a way to get window position easily
-	// This would be implemented with platform-specific code
+	// Capture current window state before saving
+	a.saveWindowState()
 
-	if err := storage.SaveConfig(a.config); err != nil {
-		log.Printf("Failed to save config: %v", err)
-	}
 	if err := storage.SaveLibrary(a.library); err != nil {
 		log.Printf("Failed to save library: %v", err)
 	}

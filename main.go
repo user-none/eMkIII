@@ -76,7 +76,7 @@ func launchUI() {
 
 	// Set initial window size from config
 	// The App will handle restoring window position/size
-	ebiten.SetWindowSize(800, 600)
+	ebiten.SetWindowSize(900, 650)
 
 	if err := ebiten.RunGame(app); err != nil {
 		log.Fatal(err)

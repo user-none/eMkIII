@@ -84,10 +84,10 @@ func migrateConfig(config *Config) *Config {
 		config.Audio.Volume = 1.0
 	}
 	if config.Window.Width == 0 {
-		config.Window.Width = 800
+		config.Window.Width = 900
 	}
 	if config.Window.Height == 0 {
-		config.Window.Height = 600
+		config.Window.Height = 650
 	}
 	if config.Library.ViewMode == "" {
 		config.Library.ViewMode = "icon"

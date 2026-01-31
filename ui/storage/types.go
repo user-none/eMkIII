@@ -96,8 +96,8 @@ func DefaultConfig() *Config {
 		},
 		Input: InputConfig{},
 		Window: WindowConfig{
-			Width:  800,
-			Height: 600,
+			Width:  900,
+			Height: 650,
 			X:      nil,
 			Y:      nil,
 		},

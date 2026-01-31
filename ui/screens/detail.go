@@ -337,35 +337,7 @@ func (s *DetailScreen) loadBoxArtScaled(maxWidth, maxHeight int) *ebiten.Image {
 		return nil
 	}
 
-	// Scale image to fit within maxWidth x maxHeight
-	bounds := img.Bounds()
-	srcWidth := bounds.Dx()
-	srcHeight := bounds.Dy()
-
-	scaleX := float64(maxWidth) / float64(srcWidth)
-	scaleY := float64(maxHeight) / float64(srcHeight)
-	scale := scaleX
-	if scaleY < scaleX {
-		scale = scaleY
-	}
-
-	newWidth := int(float64(srcWidth) * scale)
-	newHeight := int(float64(srcHeight) * scale)
-	if newWidth < 1 {
-		newWidth = 1
-	}
-	if newHeight < 1 {
-		newHeight = 1
-	}
-
-	srcEbiten := ebiten.NewImageFromImage(img)
-	dst := ebiten.NewImage(newWidth, newHeight)
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(scale, scale)
-	op.Filter = ebiten.FilterLinear
-	dst.DrawImage(srcEbiten, op)
-
-	return dst
+	return style.ScaleImage(img, maxWidth, maxHeight)
 }
 
 // hasResumeState checks if a resume state exists for the current game

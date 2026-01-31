@@ -175,14 +175,6 @@ func (s *SettingsScreen) Build() *widget.Container {
 	return rootContainer
 }
 
-// truncatePath truncates a path to fit within maxChars, adding "..." if needed
-func truncatePath(path string, maxChars int) (truncated string, wasTruncated bool) {
-	if len(path) <= maxChars {
-		return path, false
-	}
-	// Keep the end of the path (most relevant part)
-	return "..." + path[len(path)-maxChars+3:], true
-}
 
 // buildLibrarySection creates the library settings section
 func (s *SettingsScreen) buildLibrarySection() *widget.Container {
@@ -338,7 +330,7 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 		for i, dir := range s.library.ScanDirectories {
 			idx := i
 			dirPath := dir.Path
-			displayPath, wasTruncated := truncatePath(dirPath, maxPathChars)
+			displayPath, wasTruncated := style.TruncateStart(dirPath, maxPathChars)
 
 			// Determine row background based on selection state
 			var rowBg = style.Background

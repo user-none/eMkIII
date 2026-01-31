@@ -861,7 +861,7 @@ func (s *LibraryScreen) buildGameCardSized(game *storage.GameEntry, cardWidth, c
 	if maxChars < 10 {
 		maxChars = 10
 	}
-	displayName := truncateString(game.DisplayName, maxChars)
+	displayName, _ := style.TruncateEnd(game.DisplayName, maxChars)
 	titleLabel := widget.NewText(
 		widget.TextOpts.Text(displayName, style.FontFace(), style.Text),
 		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionStart),
@@ -899,7 +899,7 @@ func (s *LibraryScreen) loadGameArtworkSized(crc32 string, maxWidth, maxHeight i
 		return getPlaceholderImageSized(maxWidth, maxHeight)
 	}
 
-	return scaleImage(img, maxWidth, maxHeight)
+	return style.ScaleImage(img, maxWidth, maxHeight)
 }
 
 // getPlaceholderImageSized returns a placeholder image of specific size
@@ -907,44 +907,6 @@ func getPlaceholderImageSized(width, height int) *ebiten.Image {
 	img := ebiten.NewImage(width, height)
 	img.Fill(style.Surface)
 	return img
-}
-
-// scaleImage scales an image to fit within maxWidth x maxHeight while preserving aspect ratio
-func scaleImage(src goimage.Image, maxWidth, maxHeight int) *ebiten.Image {
-	bounds := src.Bounds()
-	srcWidth := bounds.Dx()
-	srcHeight := bounds.Dy()
-
-	// Calculate scale to fit within max dimensions
-	scaleX := float64(maxWidth) / float64(srcWidth)
-	scaleY := float64(maxHeight) / float64(srcHeight)
-	scale := scaleX
-	if scaleY < scaleX {
-		scale = scaleY
-	}
-
-	// Calculate new dimensions
-	newWidth := int(float64(srcWidth) * scale)
-	newHeight := int(float64(srcHeight) * scale)
-
-	if newWidth < 1 {
-		newWidth = 1
-	}
-	if newHeight < 1 {
-		newHeight = 1
-	}
-
-	// Create source ebiten image
-	srcEbiten := ebiten.NewImageFromImage(src)
-
-	// Create destination image and draw scaled
-	dst := ebiten.NewImage(newWidth, newHeight)
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(scale, scale)
-	op.Filter = ebiten.FilterLinear
-	dst.DrawImage(srcEbiten, op)
-
-	return dst
 }
 
 // SaveScrollPosition saves the current scroll position before a rebuild
@@ -1096,12 +1058,3 @@ func formatPlayTime(seconds int64) string {
 	return fmt.Sprintf("%dm", minutes)
 }
 
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	if maxLen <= 3 {
-		return s[:maxLen]
-	}
-	return s[:maxLen-3] + "..."
-}

@@ -28,6 +28,12 @@ func NewErrorScreen(callback ScreenCallback, filename, filepath string, onDelete
 	}
 }
 
+// SetError updates the error details (used when transitioning between errors)
+func (s *ErrorScreen) SetError(filename, filepath string) {
+	s.filename = filename
+	s.filepath = filepath
+}
+
 // Build creates the error screen UI
 func (s *ErrorScreen) Build() *widget.Container {
 	rootContainer := widget.NewContainer(

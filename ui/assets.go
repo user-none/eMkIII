@@ -10,6 +10,7 @@ import (
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/user-none/emkiii/ui/style"
 )
 
 //go:embed assets/placeholder.png
@@ -28,7 +29,7 @@ func GetPlaceholderImage() *ebiten.Image {
 		log.Printf("Failed to decode placeholder image: %v", err)
 		// Return a solid color fallback
 		fallback := ebiten.NewImage(120, 90)
-		fallback.Fill(Theme.Surface)
+		fallback.Fill(style.Surface)
 		return fallback
 	}
 

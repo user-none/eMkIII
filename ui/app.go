@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ebitenui/ebitenui"
-	eimage "github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -153,7 +152,7 @@ func NewApp() (*App, error) {
 		app.config = storage.DefaultConfig()
 		app.library = storage.DefaultLibrary()
 		app.initScreens()
-		app.buildErrorScreen()
+		app.rebuildCurrentScreen()
 		return app, nil
 	}
 	app.config = config
@@ -167,7 +166,7 @@ func NewApp() (*App, error) {
 		app.errorFile = "library.json"
 		app.errorPath = libraryPath
 		app.initScreens()
-		app.buildErrorScreen()
+		app.rebuildCurrentScreen()
 		return app, nil
 	}
 	app.library = library
@@ -991,85 +990,6 @@ func (a *App) handleScanComplete(result ScanResult) {
 	}
 }
 
-// buildErrorScreen creates the error screen UI
-func (a *App) buildErrorScreen() {
-	rootContainer := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(eimage.NewNineSliceColor(Theme.Background)),
-		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
-	)
-
-	centerContent := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewRowLayout(
-			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Spacing(16),
-		)),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-				HorizontalPosition: widget.AnchorLayoutPositionCenter,
-				VerticalPosition:   widget.AnchorLayoutPositionCenter,
-			}),
-		),
-	)
-
-	titleLabel := widget.NewText(
-		widget.TextOpts.Text("Configuration Error", GetFontFace(), Theme.Text),
-		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
-	)
-	centerContent.AddChild(titleLabel)
-
-	msgText := fmt.Sprintf("The file \"%s\" is invalid or corrupted.", a.errorFile)
-	msgLabel := widget.NewText(
-		widget.TextOpts.Text(msgText, GetFontFace(), Theme.Text),
-		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
-	)
-	centerContent.AddChild(msgLabel)
-
-	helpLabel := widget.NewText(
-		widget.TextOpts.Text("You can delete the file and start fresh, or exit to manually fix the file.", GetFontFace(), Theme.TextSecondary),
-		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
-	)
-	centerContent.AddChild(helpLabel)
-
-	// Buttons container
-	buttonsContainer := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewRowLayout(
-			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
-			widget.RowLayoutOpts.Spacing(16),
-		)),
-	)
-
-	deleteButton := widget.NewButton(
-		widget.ButtonOpts.Image(NewButtonImage()),
-		widget.ButtonOpts.Text("Delete and Continue", GetFontFace(), &widget.ButtonTextColor{
-			Idle:     Theme.Text,
-			Disabled: Theme.TextSecondary,
-		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
-		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			a.handleDeleteAndContinue()
-		}),
-	)
-	buttonsContainer.AddChild(deleteButton)
-
-	exitButton := widget.NewButton(
-		widget.ButtonOpts.Image(NewButtonImage()),
-		widget.ButtonOpts.Text("Exit", GetFontFace(), &widget.ButtonTextColor{
-			Idle:     Theme.Text,
-			Disabled: Theme.TextSecondary,
-		}),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(12)),
-		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			log.Fatalf("Configuration error in %s", a.errorPath)
-		}),
-	)
-	buttonsContainer.AddChild(exitButton)
-
-	centerContent.AddChild(buttonsContainer)
-	rootContainer.AddChild(centerContent)
-
-	a.ui = &ebitenui.UI{Container: rootContainer}
-}
-
 // handleDeleteAndContinue handles the delete and continue button
 func (a *App) handleDeleteAndContinue() {
 	var err error
@@ -1090,7 +1010,8 @@ func (a *App) handleDeleteAndContinue() {
 			libraryPath, _ := storage.GetLibraryPath()
 			a.errorFile = "library.json"
 			a.errorPath = libraryPath
-			a.buildErrorScreen()
+			a.errorScreen.SetError("library.json", libraryPath)
+			a.rebuildCurrentScreen()
 			return
 		}
 		a.library = library

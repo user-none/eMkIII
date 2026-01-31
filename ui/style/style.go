@@ -64,6 +64,15 @@ func DisabledButtonImage() *widget.ButtonImage {
 	}
 }
 
+// ActiveButtonImage returns a button image based on active state.
+// Used for toggle buttons like view mode selectors and sidebar items.
+func ActiveButtonImage(active bool) *widget.ButtonImage {
+	if active {
+		return PrimaryButtonImage()
+	}
+	return ButtonImage()
+}
+
 // SliderButtonImage creates a slider handle button image
 func SliderButtonImage() *widget.ButtonImage {
 	return &widget.ButtonImage{

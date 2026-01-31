@@ -245,7 +245,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 	)
 
 	iconViewBtn := widget.NewButton(
-		widget.ButtonOpts.Image(s.getViewButtonImage(s.config.Library.ViewMode == "icon")),
+		widget.ButtonOpts.Image(style.ActiveButtonImage(s.config.Library.ViewMode == "icon")),
 		widget.ButtonOpts.Text("Icon", style.FontFace(), &widget.ButtonTextColor{
 			Idle:     style.Text,
 			Disabled: style.TextSecondary,
@@ -262,7 +262,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 	leftSection.AddChild(iconViewBtn)
 
 	listViewBtn := widget.NewButton(
-		widget.ButtonOpts.Image(s.getViewButtonImage(s.config.Library.ViewMode == "list")),
+		widget.ButtonOpts.Image(style.ActiveButtonImage(s.config.Library.ViewMode == "list")),
 		widget.ButtonOpts.Text("List", style.FontFace(), &widget.ButtonTextColor{
 			Idle:     style.Text,
 			Disabled: style.TextSecondary,
@@ -352,7 +352,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 		favText = "[*] Favorites"
 	}
 	favButton := widget.NewButton(
-		widget.ButtonOpts.Image(s.getViewButtonImage(s.config.Library.FavoritesFilter)),
+		widget.ButtonOpts.Image(style.ActiveButtonImage(s.config.Library.FavoritesFilter)),
 		widget.ButtonOpts.Text(favText, style.FontFace(), &widget.ButtonTextColor{
 			Idle:     style.Text,
 			Disabled: style.TextSecondary,
@@ -945,19 +945,6 @@ func scaleImage(src goimage.Image, maxWidth, maxHeight int) *ebiten.Image {
 	dst.DrawImage(srcEbiten, op)
 
 	return dst
-}
-
-// getViewButtonImage returns button image based on active state
-func (s *LibraryScreen) getViewButtonImage(active bool) *widget.ButtonImage {
-	if active {
-		return &widget.ButtonImage{
-			Idle:     image.NewNineSliceColor(style.Primary),
-			Hover:    image.NewNineSliceColor(style.PrimaryHover),
-			Pressed:  image.NewNineSliceColor(style.Primary),
-			Disabled: image.NewNineSliceColor(style.Border),
-		}
-	}
-	return style.ButtonImage()
 }
 
 // SaveScrollPosition saves the current scroll position before a rebuild

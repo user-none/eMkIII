@@ -127,7 +127,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 
 	// Library section button
 	libraryBtn := widget.NewButton(
-		widget.ButtonOpts.Image(s.getSidebarButtonImage(s.selectedSection == 0)),
+		widget.ButtonOpts.Image(style.ActiveButtonImage(s.selectedSection == 0)),
 		widget.ButtonOpts.Text("Library", style.FontFace(), &widget.ButtonTextColor{
 			Idle:     style.Text,
 			Disabled: style.TextSecondary,
@@ -492,19 +492,6 @@ func (s *SettingsScreen) onAddDirectoryClick() {
 		// Trigger auto-scan after adding directory
 		s.pendingScan = true
 	}()
-}
-
-// getSidebarButtonImage returns the appropriate button image for sidebar items
-func (s *SettingsScreen) getSidebarButtonImage(active bool) *widget.ButtonImage {
-	if active {
-		return &widget.ButtonImage{
-			Idle:     image.NewNineSliceColor(style.Primary),
-			Hover:    image.NewNineSliceColor(style.PrimaryHover),
-			Pressed:  image.NewNineSliceColor(style.Primary),
-			Disabled: image.NewNineSliceColor(style.Border),
-		}
-	}
-	return style.ButtonImage()
 }
 
 // OnEnter is called when entering the settings screen

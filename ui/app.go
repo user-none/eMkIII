@@ -44,8 +44,8 @@ type App struct {
 	saveStateManager  *SaveStateManager
 	screenshotManager *ScreenshotManager
 
-	// Scanner
-	activeScanner *Scanner
+	// Scan manager
+	scanManager *ScanManager
 
 	// Error state
 	errorFile        string
@@ -157,6 +157,21 @@ func NewApp() (*App, error) {
 	// Initialize screens and build initial UI
 	// Window dimensions are set by main before RunGame, so they're already correct
 	app.initScreens()
+
+	// Initialize scan manager (needs scanScreen reference)
+	app.scanManager = NewScanManager(
+		app.library,
+		app.scanScreen,
+		func() { app.rebuildCurrentScreen() }, // onProgress
+		func(msg string) { // onComplete
+			app.state = StateSettings
+			app.rebuildCurrentScreen()
+			if msg != "" {
+				app.notification.ShowDefault(msg)
+			}
+		},
+	)
+
 	app.rebuildCurrentScreen()
 
 	return app, nil
@@ -254,10 +269,11 @@ func (a *App) Update() error {
 		return err
 	case StateScanProgress:
 		a.handleGamepadUI()
-		err := a.updateScanProgress()
+		a.ui.Update()
+		a.scanManager.Update()
 		// Clear focus changed flag - no scroll containers in scan screen
 		a.gamepadNav.focusChanged = false
-		return err
+		return nil
 	case StateSettings:
 		a.handleGamepadUI()
 		a.ui.Update()
@@ -440,9 +456,7 @@ func (a *App) handleGamepadBack() {
 		a.SwitchToLibrary()
 	case StateScanProgress:
 		// Cancel scan and return to settings
-		if a.activeScanner != nil {
-			a.activeScanner.Cancel()
-		}
+		a.scanManager.Cancel()
 		// StateLibrary and StateError have no back action
 	}
 }
@@ -529,20 +543,10 @@ func (a *App) SwitchToScanProgress(rescanAll bool) {
 	a.previousState = a.state
 	a.state = StateScanProgress
 
-	// Create and start scanner
-	a.activeScanner = NewScanner(
-		a.library.ScanDirectories,
-		a.library.ExcludedPaths,
-		a.library.Games,
-		rescanAll,
-	)
-
-	a.scanScreen.SetScanner(a.activeScanner)
+	// Start scan via manager
+	a.scanManager.Start(rescanAll)
 	a.scanScreen.OnEnter()
 	a.rebuildCurrentScreen()
-
-	// Start scanner in background
-	go a.activeScanner.Run()
 }
 
 // LaunchGame starts the emulator with the specified game
@@ -576,78 +580,6 @@ func (a *App) RequestRebuild() {
 // GetPlaceholderImageData returns the raw embedded placeholder image data
 func (a *App) GetPlaceholderImageData() []byte {
 	return placeholderImageData
-}
-
-// updateScanProgress handles the scan progress screen updates
-func (a *App) updateScanProgress() error {
-	a.ui.Update()
-
-	if a.activeScanner == nil {
-		return nil
-	}
-
-	// Non-blocking read from progress channel
-	select {
-	case progress := <-a.activeScanner.Progress():
-		// Convert ui.ScanProgress to screens.ScanProgress
-		a.scanScreen.UpdateProgress(screens.ScanProgress{
-			Phase:           int(progress.Phase),
-			Progress:        progress.Progress,
-			GamesFound:      progress.GamesFound,
-			ArtworkTotal:    progress.ArtworkTotal,
-			ArtworkComplete: progress.ArtworkComplete,
-			StatusText:      progress.StatusText,
-		})
-		// Rebuild UI to reflect progress changes
-		a.rebuildCurrentScreen()
-	default:
-		// No update this frame
-	}
-
-	// Check for completion
-	select {
-	case result := <-a.activeScanner.Done():
-		a.handleScanComplete(result)
-	default:
-		// Still running
-	}
-
-	// Handle cancel - scanner.Cancel is already called by the screen's button handler
-
-	return nil
-}
-
-// handleScanComplete processes scan results
-func (a *App) handleScanComplete(result ScanResult) {
-	// Merge discovered games into library
-	for crc, game := range a.activeScanner.Games() {
-		a.library.Games[crc] = game
-	}
-
-	// Save updated library
-	if err := storage.SaveLibrary(a.library); err != nil {
-		log.Printf("Failed to save library: %v", err)
-	}
-
-	// Prepare notification message
-	var msg string
-	if result.Cancelled {
-		msg = "" // No notification on cancel
-	} else if len(result.Errors) > 0 {
-		msg = result.Errors[0].Error()
-	} else if result.NewGames > 0 {
-		msg = fmt.Sprintf("Found %d new games", result.NewGames)
-	} else {
-		msg = "Library up to date"
-	}
-
-	// Return to settings with notification
-	a.activeScanner = nil
-	a.state = StateSettings
-	a.rebuildCurrentScreen()
-	if msg != "" {
-		a.notification.ShowDefault(msg)
-	}
 }
 
 // handleDeleteAndContinue handles the delete and continue button
@@ -705,6 +637,25 @@ func (a *App) handleDeleteAndContinue() {
 
 	// Reinitialize screens with fresh data
 	a.initScreens()
+
+	// Initialize or update scan manager (needs scanScreen reference)
+	if a.scanManager == nil {
+		a.scanManager = NewScanManager(
+			a.library,
+			a.scanScreen,
+			func() { a.rebuildCurrentScreen() },
+			func(msg string) {
+				a.state = StateSettings
+				a.rebuildCurrentScreen()
+				if msg != "" {
+					a.notification.ShowDefault(msg)
+				}
+			},
+		)
+	} else {
+		a.scanManager.SetLibrary(a.library)
+		a.scanManager.SetScanScreen(a.scanScreen)
+	}
 
 	// Proceed to library screen
 	a.state = StateLibrary

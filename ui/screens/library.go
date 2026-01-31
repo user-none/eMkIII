@@ -19,6 +19,8 @@ import (
 
 // LibraryScreen displays the game library
 type LibraryScreen struct {
+	BaseScreen // Embedded for focus restoration
+
 	callback ScreenCallback
 	library  *storage.Library
 	config   *storage.Config
@@ -33,33 +35,23 @@ type LibraryScreen struct {
 	iconScrollTop   float64 // Scroll position for icon view
 	listScrollTop   float64 // Scroll position for list view
 
-	// Widget references for scroll preservation
-	scrollContainer     *widget.ScrollContainer // icon view
-	vSlider             *widget.Slider          // icon view
-	listScrollContainer *widget.ScrollContainer // list view
-	listVSlider         *widget.Slider          // list view
-
-	// Button references for focus restoration (maps CRC to button)
-	gameButtons map[string]*widget.Button
-
-	// CRC of game to restore focus to after rebuild
-	pendingFocusCRC string
-
-	// Toolbar button references for focus restoration
-	toolbarButtons map[string]*widget.Button
-
-	// Key of toolbar button to restore focus to after rebuild
-	pendingToolbarFocus string
+	// Widget references for scroll preservation (dual view mode)
+	iconScrollContainer *widget.ScrollContainer
+	iconVSlider         *widget.Slider
+	listScrollContainer *widget.ScrollContainer
+	listVSlider         *widget.Slider
 }
 
 // NewLibraryScreen creates a new library screen
 func NewLibraryScreen(callback ScreenCallback, library *storage.Library, config *storage.Config) *LibraryScreen {
-	return &LibraryScreen{
+	s := &LibraryScreen{
 		callback:      callback,
 		library:       library,
 		config:        config,
 		selectedIndex: 0,
 	}
+	s.InitBase()
+	return s
 }
 
 // SetLibrary updates the library reference
@@ -74,9 +66,8 @@ func (s *LibraryScreen) SetConfig(config *storage.Config) {
 
 // Build creates the library screen UI
 func (s *LibraryScreen) Build() *widget.Container {
-	// Initialize button maps for focus restoration
-	s.gameButtons = make(map[string]*widget.Button)
-	s.toolbarButtons = make(map[string]*widget.Button)
+	// Clear button references for fresh build
+	s.ClearFocusButtons()
 
 	// Get sorted games
 	s.games = s.library.GetGamesSorted(s.config.Library.SortBy, s.config.Library.FavoritesFilter)
@@ -150,11 +141,11 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.config.Library.ViewMode = "icon"
 			storage.SaveConfig(s.config)
-			s.pendingToolbarFocus = "icon"
+			s.SetPendingFocus("toolbar-icon")
 			s.callback.RequestRebuild()
 		}),
 	)
-	s.toolbarButtons["icon"] = iconViewBtn
+	s.RegisterFocusButton("toolbar-icon", iconViewBtn)
 	leftSection.AddChild(iconViewBtn)
 
 	listViewBtn := widget.NewButton(
@@ -164,11 +155,11 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.config.Library.ViewMode = "list"
 			storage.SaveConfig(s.config)
-			s.pendingToolbarFocus = "list"
+			s.SetPendingFocus("toolbar-list")
 			s.callback.RequestRebuild()
 		}),
 	)
-	s.toolbarButtons["list"] = listViewBtn
+	s.RegisterFocusButton("toolbar-list", listViewBtn)
 	leftSection.AddChild(listViewBtn)
 
 	toolbar.AddChild(leftSection)
@@ -229,11 +220,11 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 			currentSortIdx = (currentSortIdx + 1) % len(sortOptions)
 			s.config.Library.SortBy = sortValues[currentSortIdx]
 			storage.SaveConfig(s.config)
-			s.pendingToolbarFocus = "sort"
+			s.SetPendingFocus("toolbar-sort")
 			s.callback.RequestRebuild()
 		}),
 	)
-	s.toolbarButtons["sort"] = sortButton
+	s.RegisterFocusButton("toolbar-sort", sortButton)
 	centerContent.AddChild(sortButton)
 
 	// Favorites button
@@ -248,11 +239,11 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.config.Library.FavoritesFilter = !s.config.Library.FavoritesFilter
 			storage.SaveConfig(s.config)
-			s.pendingToolbarFocus = "favorites"
+			s.SetPendingFocus("toolbar-favorites")
 			s.callback.RequestRebuild()
 		}),
 	)
-	s.toolbarButtons["favorites"] = favButton
+	s.RegisterFocusButton("toolbar-favorites", favButton)
 	centerContent.AddChild(favButton)
 
 	centerSection.AddChild(centerContent)
@@ -384,13 +375,13 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 					s.listScrollTop = s.listScrollContainer.ScrollTop
 				}
 				s.listSelectedCRC = gameCRC
-				s.pendingFocusCRC = gameCRC // Remember for focus restoration
+				s.SetPendingFocus("game-" + gameCRC)
 				s.callback.SwitchToDetail(gameCRC)
 			}),
 		)
 
 		// Store button reference for focus restoration
-		s.gameButtons[gameCRC] = rowButton
+		s.RegisterFocusButton("game-"+gameCRC, rowButton)
 
 		// Stack: button at bottom (shows background), row content on top (transparent)
 		rowWrapper := widget.NewContainer(
@@ -533,8 +524,8 @@ func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
 	})
 
 	// Store references for scroll preservation
-	s.scrollContainer = scrollContainer
-	s.vSlider = vSlider
+	s.iconScrollContainer = scrollContainer
+	s.iconVSlider = vSlider
 
 	// Restore icon view scroll position if we have one
 	if s.iconScrollTop > 0 {
@@ -579,16 +570,16 @@ func (s *LibraryScreen) buildGameCardSized(game *storage.GameEntry, cardWidth, c
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			// Save scroll position and selected game before navigating
 			s.iconSelectedCRC = gameCRC
-			s.pendingFocusCRC = gameCRC // Remember for focus restoration
-			if s.scrollContainer != nil {
-				s.iconScrollTop = s.scrollContainer.ScrollTop
+			s.SetPendingFocus("game-" + gameCRC)
+			if s.iconScrollContainer != nil {
+				s.iconScrollTop = s.iconScrollContainer.ScrollTop
 			}
 			s.callback.SwitchToDetail(gameCRC)
 		}),
 	)
 
 	// Store button reference for focus restoration
-	s.gameButtons[gameCRC] = artButton
+	s.RegisterFocusButton("game-"+gameCRC, artButton)
 
 	cardContent.AddChild(artButton)
 
@@ -663,8 +654,8 @@ func (s *LibraryScreen) getPlaceholderImageSized(width, height int) *ebiten.Imag
 // This should be called before rebuildCurrentScreen
 func (s *LibraryScreen) SaveScrollPosition() {
 	if s.config.Library.ViewMode == "icon" {
-		if s.scrollContainer != nil {
-			s.iconScrollTop = s.scrollContainer.ScrollTop
+		if s.iconScrollContainer != nil {
+			s.iconScrollTop = s.iconScrollContainer.ScrollTop
 		}
 	} else {
 		if s.listScrollContainer != nil {
@@ -679,24 +670,15 @@ func (s *LibraryScreen) OnEnter() {
 	s.games = s.library.GetGamesSorted(s.config.Library.SortBy, s.config.Library.FavoritesFilter)
 }
 
-// GetPendingFocusButton returns the button that should receive focus after rebuild
-// Returns nil if no pending focus or button not found
-func (s *LibraryScreen) GetPendingFocusButton() *widget.Button {
-	// Check toolbar focus first (higher priority for toolbar actions)
-	if s.pendingToolbarFocus != "" {
-		return s.toolbarButtons[s.pendingToolbarFocus]
+// isGameButton returns true if the button is a game button (not a toolbar button)
+func (s *LibraryScreen) isGameButton(btn *widget.Button) bool {
+	// Game buttons have keys starting with "game-"
+	for key, b := range s.focusButtons {
+		if b == btn && len(key) > 5 && key[:5] == "game-" {
+			return true
+		}
 	}
-	// Then check game button focus
-	if s.pendingFocusCRC == "" {
-		return nil
-	}
-	return s.gameButtons[s.pendingFocusCRC]
-}
-
-// ClearPendingFocus clears all pending focus state
-func (s *LibraryScreen) ClearPendingFocus() {
-	s.pendingFocusCRC = ""
-	s.pendingToolbarFocus = ""
+	return false
 }
 
 // EnsureFocusedVisible scrolls the view to ensure the focused widget is visible
@@ -708,16 +690,8 @@ func (s *LibraryScreen) EnsureFocusedVisible(focused widget.Focuser) {
 
 	// Check if this is a game button (not toolbar)
 	// Only game buttons should trigger scrolling
-	isGameButton := false
-	if btn, ok := focused.(*widget.Button); ok {
-		for _, gameBtn := range s.gameButtons {
-			if gameBtn == btn {
-				isGameButton = true
-				break
-			}
-		}
-	}
-	if !isGameButton {
+	btn, ok := focused.(*widget.Button)
+	if !ok || !s.isGameButton(btn) {
 		return
 	}
 
@@ -725,8 +699,8 @@ func (s *LibraryScreen) EnsureFocusedVisible(focused widget.Focuser) {
 	var scrollContainer *widget.ScrollContainer
 	var vSlider *widget.Slider
 	if s.config.Library.ViewMode == "icon" {
-		scrollContainer = s.scrollContainer
-		vSlider = s.vSlider
+		scrollContainer = s.iconScrollContainer
+		vSlider = s.iconVSlider
 	} else {
 		scrollContainer = s.listScrollContainer
 		vSlider = s.listVSlider

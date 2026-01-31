@@ -14,44 +14,27 @@ import (
 
 // SettingsScreen displays application settings
 type SettingsScreen struct {
+	BaseScreen // Embedded for focus restoration
+
 	callback        ScreenCallback
 	library         *storage.Library
 	config          *storage.Config
 	selectedSection int
 	selectedDirs    map[int]bool // Multi-select: indices of selected directories
 	pendingScan     bool         // True when a directory was added and scan should start
-
-	// Button references for focus restoration
-	folderButtons     map[int]*widget.Button
-	pendingFocusIndex int // Index to restore focus to after rebuild
 }
 
 // NewSettingsScreen creates a new settings screen
 func NewSettingsScreen(callback ScreenCallback, library *storage.Library, config *storage.Config) *SettingsScreen {
-	return &SettingsScreen{
-		callback:          callback,
-		library:           library,
-		config:            config,
-		selectedSection:   0,
-		selectedDirs:      make(map[int]bool),
-		folderButtons:     make(map[int]*widget.Button),
-		pendingFocusIndex: -1,
+	s := &SettingsScreen{
+		callback:        callback,
+		library:         library,
+		config:          config,
+		selectedSection: 0,
+		selectedDirs:    make(map[int]bool),
 	}
-}
-
-// GetPendingFocusButton returns the button that should receive focus after rebuild
-func (s *SettingsScreen) GetPendingFocusButton() *widget.Button {
-	if s.pendingFocusIndex >= 0 {
-		if btn, ok := s.folderButtons[s.pendingFocusIndex]; ok {
-			return btn
-		}
-	}
-	return nil
-}
-
-// ClearPendingFocus clears the pending focus index
-func (s *SettingsScreen) ClearPendingFocus() {
-	s.pendingFocusIndex = -1
+	s.InitBase()
+	return s
 }
 
 // HasPendingScan returns true if a scan should be triggered
@@ -268,7 +251,7 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 	maxPathChars := 70
 
 	// Clear button references for fresh build
-	s.folderButtons = make(map[int]*widget.Button)
+	s.ClearFocusButtons()
 
 	// Create list content container
 	listContent := widget.NewContainer(
@@ -364,13 +347,13 @@ func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget 
 					} else {
 						s.selectedDirs[idx] = true
 					}
-					s.pendingFocusIndex = idx
+					s.SetPendingFocus(fmt.Sprintf("folder-%d", idx))
 					s.callback.RequestRebuild()
 				}),
 			)
 
 			// Store button reference for focus restoration
-			s.folderButtons[idx] = rowButton
+			s.RegisterFocusButton(fmt.Sprintf("folder-%d", idx), rowButton)
 
 			// Stack button and content
 			rowWrapper := widget.NewContainer(

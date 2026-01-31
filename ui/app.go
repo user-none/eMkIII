@@ -59,8 +59,9 @@ type App struct {
 	activeScanner *Scanner
 
 	// Error state
-	errorFile string
-	errorPath string
+	errorFile        string
+	errorPath        string
+	configLoadFailed bool // True if config.json failed to load (don't overwrite on exit)
 
 	// Window tracking for persistence and responsive layouts
 	windowX, windowY int
@@ -149,6 +150,7 @@ func NewApp() (*App, error) {
 		app.state = StateError
 		app.errorFile = "config.json"
 		app.errorPath = configPath
+		app.configLoadFailed = true // Don't overwrite the file on exit
 		app.config = storage.DefaultConfig()
 		app.library = storage.DefaultLibrary()
 		app.initScreens()
@@ -199,6 +201,11 @@ func (a *App) restoreWindowState() {
 
 // saveWindowState saves current window position and size to config
 func (a *App) saveWindowState() {
+	// Don't overwrite config if it failed to load (user may want to fix it manually)
+	if a.configLoadFailed {
+		return
+	}
+
 	// Get current window state
 	w, h := ebiten.WindowSize()
 	x, y := ebiten.WindowPosition()

@@ -110,6 +110,17 @@ func PrimaryTextButton(text string, padding int, handler func(*widget.ButtonClic
 	)
 }
 
+// ToggleButton creates a button that visually indicates an active/inactive state.
+// Use for view mode toggles, filters, and other binary state buttons.
+func ToggleButton(text string, active bool, handler func(*widget.ButtonClickedEventArgs)) *widget.Button {
+	return widget.NewButton(
+		widget.ButtonOpts.Image(ActiveButtonImage(active)),
+		widget.ButtonOpts.Text(text, FontFace(), ButtonTextColor()),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(ButtonPaddingSmall)),
+		widget.ButtonOpts.ClickedHandler(handler),
+	)
+}
+
 // TooltipContent creates a tooltip container with consistent styling.
 // Use for showing full text when content is truncated.
 func TooltipContent(text string) *widget.Container {

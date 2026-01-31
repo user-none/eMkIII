@@ -134,31 +134,21 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 		)),
 	)
 
-	iconViewBtn := widget.NewButton(
-		widget.ButtonOpts.Image(style.ActiveButtonImage(s.config.Library.ViewMode == "icon")),
-		widget.ButtonOpts.Text("Icon", style.FontFace(), style.ButtonTextColor()),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
-		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			s.config.Library.ViewMode = "icon"
-			storage.SaveConfig(s.config)
-			s.SetPendingFocus("toolbar-icon")
-			s.callback.RequestRebuild()
-		}),
-	)
+	iconViewBtn := style.ToggleButton("Icon", s.config.Library.ViewMode == "icon", func(args *widget.ButtonClickedEventArgs) {
+		s.config.Library.ViewMode = "icon"
+		storage.SaveConfig(s.config)
+		s.SetPendingFocus("toolbar-icon")
+		s.callback.RequestRebuild()
+	})
 	s.RegisterFocusButton("toolbar-icon", iconViewBtn)
 	leftSection.AddChild(iconViewBtn)
 
-	listViewBtn := widget.NewButton(
-		widget.ButtonOpts.Image(style.ActiveButtonImage(s.config.Library.ViewMode == "list")),
-		widget.ButtonOpts.Text("List", style.FontFace(), style.ButtonTextColor()),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
-		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			s.config.Library.ViewMode = "list"
-			storage.SaveConfig(s.config)
-			s.SetPendingFocus("toolbar-list")
-			s.callback.RequestRebuild()
-		}),
-	)
+	listViewBtn := style.ToggleButton("List", s.config.Library.ViewMode == "list", func(args *widget.ButtonClickedEventArgs) {
+		s.config.Library.ViewMode = "list"
+		storage.SaveConfig(s.config)
+		s.SetPendingFocus("toolbar-list")
+		s.callback.RequestRebuild()
+	})
 	s.RegisterFocusButton("toolbar-list", listViewBtn)
 	leftSection.AddChild(listViewBtn)
 
@@ -232,17 +222,12 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 	if s.config.Library.FavoritesFilter {
 		favText = "[*] Favorites"
 	}
-	favButton := widget.NewButton(
-		widget.ButtonOpts.Image(style.ActiveButtonImage(s.config.Library.FavoritesFilter)),
-		widget.ButtonOpts.Text(favText, style.FontFace(), style.ButtonTextColor()),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
-		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-			s.config.Library.FavoritesFilter = !s.config.Library.FavoritesFilter
-			storage.SaveConfig(s.config)
-			s.SetPendingFocus("toolbar-favorites")
-			s.callback.RequestRebuild()
-		}),
-	)
+	favButton := style.ToggleButton(favText, s.config.Library.FavoritesFilter, func(args *widget.ButtonClickedEventArgs) {
+		s.config.Library.FavoritesFilter = !s.config.Library.FavoritesFilter
+		storage.SaveConfig(s.config)
+		s.SetPendingFocus("toolbar-favorites")
+		s.callback.RequestRebuild()
+	})
 	s.RegisterFocusButton("toolbar-favorites", favButton)
 	centerContent.AddChild(favButton)
 

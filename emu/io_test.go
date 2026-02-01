@@ -25,15 +25,15 @@ func TestIO_ControllerInput(t *testing.T) {
 	// Test individual buttons (active low - 0 = pressed)
 	testCases := []struct {
 		up, down, left, right, btn1, btn2 bool
-		expectedPort1                      uint8
+		expectedPort1                     uint8
 	}{
-		{true, false, false, false, false, false, 0xFE}, // Up: bit 0 clear
-		{false, true, false, false, false, false, 0xFD}, // Down: bit 1 clear
-		{false, false, true, false, false, false, 0xFB}, // Left: bit 2 clear
-		{false, false, false, true, false, false, 0xF7}, // Right: bit 3 clear
-		{false, false, false, false, true, false, 0xEF}, // Button 1: bit 4 clear
-		{false, false, false, false, false, true, 0xDF}, // Button 2: bit 5 clear
-		{true, false, true, false, true, false, 0xEA},   // Up + Left + Btn1
+		{true, false, false, false, false, false, 0xFE},  // Up: bit 0 clear
+		{false, true, false, false, false, false, 0xFD},  // Down: bit 1 clear
+		{false, false, true, false, false, false, 0xFB},  // Left: bit 2 clear
+		{false, false, false, true, false, false, 0xF7},  // Right: bit 3 clear
+		{false, false, false, false, true, false, 0xEF},  // Button 1: bit 4 clear
+		{false, false, false, false, false, true, 0xDF},  // Button 2: bit 5 clear
+		{true, false, true, false, true, false, 0xEA},    // Up + Left + Btn1
 		{false, false, false, false, false, false, 0xFF}, // All released
 	}
 
@@ -230,8 +230,8 @@ func TestIO_ControllerP2Input(t *testing.T) {
 	// P2 Button 2: Port2 bit 3 clear (0xF7)
 	testCases := []struct {
 		up, down, left, right, btn1, btn2 bool
-		expectedPort1                      uint8
-		expectedPort2                      uint8
+		expectedPort1                     uint8
+		expectedPort2                     uint8
 	}{
 		{true, false, false, false, false, false, 0xBF, 0xFF},  // Up: Port1 bit 6 clear
 		{false, true, false, false, false, false, 0x7F, 0xFF},  // Down: Port1 bit 7 clear

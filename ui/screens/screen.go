@@ -1,0 +1,28 @@
+//go:build !libretro
+
+package screens
+
+import (
+	"github.com/ebitenui/ebitenui/widget"
+)
+
+// ScreenCallback provides callbacks for screen navigation
+type ScreenCallback interface {
+	SwitchToLibrary()
+	SwitchToDetail(gameCRC string)
+	SwitchToSettings()
+	SwitchToScanProgress(rescanAll bool)
+	LaunchGame(gameCRC string, resume bool)
+	Exit()
+	GetWindowWidth() int             // For responsive layout calculations
+	RequestRebuild()                 // Request UI rebuild after state changes
+	GetPlaceholderImageData() []byte // Get raw placeholder image data for missing artwork
+}
+
+// FocusRestorer is implemented by screens that support focus restoration after rebuilds
+type FocusRestorer interface {
+	// GetPendingFocusButton returns the button that should receive focus after rebuild
+	GetPendingFocusButton() *widget.Button
+	// ClearPendingFocus clears the pending focus state
+	ClearPendingFocus()
+}

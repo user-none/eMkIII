@@ -377,7 +377,7 @@ func TestVDP_CodeRegisterValues(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		vdp.WriteControl(0x00)       // First byte (don't care for this test)
+		vdp.WriteControl(0x00)          // First byte (don't care for this test)
 		vdp.WriteControl(tc.secondByte) // Second byte with code
 
 		if got := vdp.GetCodeReg(); got != tc.expected {
@@ -458,10 +458,10 @@ func TestVDP_VCounter_NTSC192(t *testing.T) {
 		{100, 100},
 		{191, 191},
 		{192, 192},
-		{218, 218},    // Last normal line
-		{219, 213},    // Jump: 219 - 6 = 213
-		{234, 228},    // 234 - 6 = 228
-		{261, 255},    // Last line: 261 - 6 = 255
+		{218, 218}, // Last normal line
+		{219, 213}, // Jump: 219 - 6 = 213
+		{234, 228}, // 234 - 6 = 228
+		{261, 255}, // Last line: 261 - 6 = 255
 	}
 
 	for _, tc := range testCases {
@@ -490,9 +490,9 @@ func TestVDP_VCounter_NTSC224(t *testing.T) {
 	}{
 		{0, 0},
 		{223, 223},
-		{234, 234},    // Last normal line
-		{235, 229},    // Jump: 235 - 6 = 229
-		{261, 255},    // Last line
+		{234, 234}, // Last normal line
+		{235, 229}, // Jump: 235 - 6 = 229
+		{261, 255}, // Last line
 	}
 
 	for _, tc := range testCases {
@@ -516,10 +516,10 @@ func TestVDP_VCounter_PAL192(t *testing.T) {
 		{0, 0},
 		{100, 100},
 		{191, 191},
-		{242, 242},    // Last normal line
-		{243, 186},    // Jump: 243 - 57 = 186
-		{280, 223},    // 280 - 57 = 223
-		{312, 255},    // Last line: 312 - 57 = 255
+		{242, 242}, // Last normal line
+		{243, 186}, // Jump: 243 - 57 = 186
+		{280, 223}, // 280 - 57 = 223
+		{312, 255}, // Last line: 312 - 57 = 255
 	}
 
 	for _, tc := range testCases {
@@ -548,9 +548,9 @@ func TestVDP_VCounter_PAL224(t *testing.T) {
 	}{
 		{0, 0},
 		{223, 223},
-		{255, 255},    // Before jump
-		{259, 202},    // Jump: 259 - 57 = 202
-		{312, 255},    // Last line
+		{255, 255}, // Before jump
+		{259, 202}, // Jump: 259 - 57 = 202
+		{312, 255}, // Last line
 	}
 
 	for _, tc := range testCases {

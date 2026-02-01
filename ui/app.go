@@ -1,0 +1,575 @@
+//go:build !libretro
+
+package ui
+
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/ebitenui/ebitenui"
+	"github.com/ebitenui/ebitenui/widget"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/user-none/emkiii/ui/screens"
+	"github.com/user-none/emkiii/ui/storage"
+)
+
+// App is the main application struct that implements ebiten.Game
+type App struct {
+	ui *ebitenui.UI
+
+	// State management
+	state         AppState
+	previousState AppState
+
+	// Data
+	config  *storage.Config
+	library *storage.Library
+
+	// Screens
+	libraryScreen  *screens.LibraryScreen
+	detailScreen   *screens.DetailScreen
+	settingsScreen *screens.SettingsScreen
+	scanScreen     *screens.ScanProgressScreen
+	errorScreen    *screens.ErrorScreen
+
+	// Gameplay (emulation, input, save states, pause menu)
+	gameplay *GameplayManager
+
+	// UI managers
+	notification      *Notification
+	saveStateManager  *SaveStateManager
+	screenshotManager *ScreenshotManager
+
+	// Scan manager
+	scanManager *ScanManager
+
+	// Error state
+	errorFile        string
+	errorPath        string
+	configLoadFailed bool // True if config.json failed to load (don't overwrite on exit)
+
+	// Window tracking for persistence and responsive layouts
+	windowX, windowY int
+	windowWidth      int
+	windowHeight     int
+	lastBuildWidth   int // Track width used for last UI build
+
+	// Screenshot pending flag (set in Update, processed in Draw)
+	screenshotPending bool
+
+	// Input manager for UI navigation
+	inputManager *InputManager
+}
+
+// NewApp creates and initializes the application
+func NewApp() (*App, error) {
+	app := &App{
+		state: StateLibrary,
+	}
+
+	// Ensure directory structure exists
+	if err := storage.EnsureDirectories(); err != nil {
+		return nil, fmt.Errorf("failed to create directories: %w", err)
+	}
+
+	// Create config/library files if missing
+	if err := storage.CreateConfigIfMissing(); err != nil {
+		log.Printf("Warning: failed to create config: %v", err)
+	}
+	if err := storage.CreateLibraryIfMissing(); err != nil {
+		log.Printf("Warning: failed to create library: %v", err)
+	}
+
+	// Start RDB download in background if missing (non-blocking)
+	if !RDBExists() {
+		go func() {
+			metadata := NewMetadataManager()
+			if err := metadata.DownloadRDB(); err != nil {
+				log.Printf("Background RDB download failed: %v", err)
+			}
+		}()
+	}
+
+	// Initialize UI managers
+	app.notification = NewNotification()
+	app.saveStateManager = NewSaveStateManager(app.notification)
+	app.screenshotManager = NewScreenshotManager(app.notification)
+	app.inputManager = NewInputManager()
+
+	// Load config
+	config, err := storage.LoadConfig()
+	if err != nil {
+		// JSON parse error - show error screen
+		configPath, _ := storage.GetConfigPath()
+		app.state = StateError
+		app.errorFile = "config.json"
+		app.errorPath = configPath
+		app.configLoadFailed = true // Don't overwrite the file on exit
+		app.config = storage.DefaultConfig()
+		app.library = storage.DefaultLibrary()
+		app.initScreens()
+		app.rebuildCurrentScreen()
+		return app, nil
+	}
+	app.config = config
+
+	// Load library
+	library, err := storage.LoadLibrary()
+	if err != nil {
+		// JSON parse error - show error screen
+		libraryPath, _ := storage.GetLibraryPath()
+		app.state = StateError
+		app.errorFile = "library.json"
+		app.errorPath = libraryPath
+		app.initScreens()
+		app.rebuildCurrentScreen()
+		return app, nil
+	}
+	app.library = library
+
+	// Set library on save state manager for slot persistence
+	app.saveStateManager.SetLibrary(library)
+
+	// Initialize gameplay manager with callbacks
+	app.gameplay = NewGameplayManager(
+		app.saveStateManager,
+		app.notification,
+		app.library,
+		app.config,
+		func() { app.SwitchToLibrary() }, // onExitToLibrary
+		func() { app.Exit() },            // onExitApp
+	)
+
+	// Initialize screens and build initial UI
+	// Window dimensions are set by main before RunGame, so they're already correct
+	app.initScreens()
+
+	// Initialize scan manager (needs scanScreen reference)
+	app.scanManager = NewScanManager(
+		app.library,
+		app.scanScreen,
+		func() { app.rebuildCurrentScreen() }, // onProgress
+		func(msg string) { // onComplete
+			app.state = StateSettings
+			app.rebuildCurrentScreen()
+			if msg != "" {
+				app.notification.ShowDefault(msg)
+			}
+		},
+	)
+
+	app.rebuildCurrentScreen()
+
+	return app, nil
+}
+
+// GetWindowConfig returns the saved window dimensions and position from config.
+// This should be called before RunGame to set the initial window size.
+func (a *App) GetWindowConfig() (width, height int, x, y *int) {
+	return a.config.Window.Width, a.config.Window.Height, a.config.Window.X, a.config.Window.Y
+}
+
+// saveWindowState saves current window position and size to config
+func (a *App) saveWindowState() {
+	// Don't overwrite config if it failed to load (user may want to fix it manually)
+	if a.configLoadFailed {
+		return
+	}
+
+	// Don't save if we never got valid window dimensions
+	// (window size is tracked in Layout(), position in Update())
+	if a.windowWidth == 0 || a.windowHeight == 0 {
+		return
+	}
+
+	// Use tracked values (ebiten functions don't work after game loop ends)
+	a.config.Window.Width = a.windowWidth
+	a.config.Window.Height = a.windowHeight
+	a.config.Window.X = &a.windowX
+	a.config.Window.Y = &a.windowY
+
+	// Save to disk
+	storage.SaveConfig(a.config)
+}
+
+// initScreens creates all screen instances
+func (a *App) initScreens() {
+	a.libraryScreen = screens.NewLibraryScreen(a, a.library, a.config)
+	a.detailScreen = screens.NewDetailScreen(a, a.library, a.config)
+	a.settingsScreen = screens.NewSettingsScreen(a, a.library, a.config)
+	a.scanScreen = screens.NewScanProgressScreen(a)
+	a.errorScreen = screens.NewErrorScreen(a, a.errorFile, a.errorPath, a.handleDeleteAndContinue)
+}
+
+// rebuildCurrentScreen rebuilds the UI for the current state
+func (a *App) rebuildCurrentScreen() {
+	var container *widget.Container
+
+	switch a.state {
+	case StateLibrary:
+		// Save scroll position before rebuilding
+		a.libraryScreen.SaveScrollPosition()
+		a.libraryScreen.SetLibrary(a.library)
+		a.libraryScreen.SetConfig(a.config)
+		container = a.libraryScreen.Build()
+	case StateDetail:
+		container = a.detailScreen.Build()
+	case StateSettings:
+		container = a.settingsScreen.Build()
+	case StateScanProgress:
+		container = a.scanScreen.Build()
+	case StateError:
+		container = a.errorScreen.Build()
+	default:
+		// For StatePlaying, no UI container needed
+		return
+	}
+
+	a.ui = &ebitenui.UI{Container: container}
+	a.lastBuildWidth = a.windowWidth // Track width for responsive rebuild detection
+}
+
+// Update implements ebiten.Game
+func (a *App) Update() error {
+	// Track window position while game is running (for save on exit)
+	// Layout() handles width/height, but position must be queried here
+	a.windowX, a.windowY = ebiten.WindowPosition()
+
+	// Poll input manager for global keys (F12 screenshot)
+	if a.inputManager.Update() {
+		a.screenshotPending = true
+	}
+
+	// Check for window resize that needs UI rebuild (for responsive layouts)
+	// Rebuild when width changes in icon mode (or if never built with real width)
+	if a.state == StateLibrary && a.config.Library.ViewMode == "icon" {
+		if a.windowWidth > 0 && a.windowWidth != a.lastBuildWidth {
+			a.rebuildCurrentScreen()
+		}
+	}
+
+	switch a.state {
+	case StatePlaying:
+		_, err := a.gameplay.Update()
+		return err
+	case StateScanProgress:
+		nav := a.processUIInput()
+		a.ui.Update()
+		a.scanManager.Update()
+		// No scroll containers in scan screen
+		_ = nav
+		return nil
+	case StateSettings:
+		nav := a.processUIInput()
+		a.ui.Update()
+		// Check if state changed during ui.Update (e.g., user navigated away)
+		if a.state != StateSettings {
+			return nil
+		}
+		// Settings has its own scroll handling
+		_ = nav
+		a.restorePendingFocus(a.settingsScreen)
+		// Check if settings screen triggered a scan (after adding directory)
+		if a.settingsScreen.HasPendingScan() {
+			a.settingsScreen.ClearPendingScan()
+			a.SwitchToScanProgress(false)
+		}
+	case StateLibrary:
+		nav := a.processUIInput()
+		a.ui.Update()
+		// Check if state changed during ui.Update (e.g., user clicked a game)
+		if a.state != StateLibrary {
+			return nil
+		}
+		a.restorePendingFocus(a.libraryScreen)
+		if nav.FocusChanged {
+			a.ensureFocusedVisible()
+		}
+	default:
+		// StateDetail, StateError
+		nav := a.processUIInput()
+		prevState := a.state
+		a.ui.Update()
+		// Check if state changed during ui.Update (e.g., user clicked Back)
+		if a.state != prevState {
+			return nil
+		}
+		if nav.FocusChanged {
+			a.ensureFocusedVisible()
+		}
+	}
+	return nil
+}
+
+// restorePendingFocus restores focus to a pending button if one exists
+func (a *App) restorePendingFocus(screen screens.FocusRestorer) {
+	btn := screen.GetPendingFocusButton()
+	if btn != nil {
+		btn.Focus(true)
+		screen.ClearPendingFocus()
+	}
+}
+
+// processUIInput polls gamepad input via InputManager and applies UI actions.
+// Returns the navigation result for focus scroll handling.
+func (a *App) processUIInput() UINavigation {
+	if a.ui == nil {
+		return UINavigation{}
+	}
+
+	nav := a.inputManager.GetUINavigation()
+
+	// Apply navigation direction
+	if nav.Direction == 1 {
+		a.ui.ChangeFocus(widget.FOCUS_PREVIOUS)
+	} else if nav.Direction == 2 {
+		a.ui.ChangeFocus(widget.FOCUS_NEXT)
+	}
+
+	// A/Cross button activates focused widget
+	if nav.Activate {
+		if focused := a.ui.GetFocusedWidget(); focused != nil {
+			if btn, ok := focused.(*widget.Button); ok {
+				btn.Click()
+			}
+		}
+	}
+
+	// B/Circle button for back navigation
+	if nav.Back {
+		a.handleGamepadBack()
+	}
+
+	// Start button opens settings from library
+	if nav.OpenSettings && a.state == StateLibrary {
+		a.SwitchToSettings()
+	}
+
+	return nav
+}
+
+// handleGamepadBack handles B button press for back navigation
+func (a *App) handleGamepadBack() {
+	switch a.state {
+	case StateDetail:
+		a.SwitchToLibrary()
+	case StateSettings:
+		a.SwitchToLibrary()
+	case StateScanProgress:
+		// Cancel scan and return to settings
+		a.scanManager.Cancel()
+		// StateLibrary and StateError have no back action
+	}
+}
+
+// ensureFocusedVisible scrolls the current screen to keep the focused widget visible
+func (a *App) ensureFocusedVisible() {
+	focused := a.ui.GetFocusedWidget()
+	if focused == nil {
+		return
+	}
+
+	// Call the appropriate screen's scroll method
+	switch a.state {
+	case StateLibrary:
+		a.libraryScreen.EnsureFocusedVisible(focused)
+		// Other screens can be added here as needed
+	}
+}
+
+// Draw implements ebiten.Game
+func (a *App) Draw(screen *ebiten.Image) {
+	switch a.state {
+	case StatePlaying:
+		a.gameplay.Draw(screen)
+	default:
+		a.ui.Draw(screen)
+	}
+
+	// Draw notification overlay (all screens)
+	a.notification.Draw(screen)
+
+	// Take screenshot if pending (after everything is drawn)
+	if a.screenshotPending {
+		a.screenshotPending = false
+		gameCRC := a.gameplay.CurrentGameCRC()
+		if err := a.screenshotManager.TakeScreenshot(screen, gameCRC); err != nil {
+			log.Printf("Screenshot failed: %v", err)
+		}
+	}
+}
+
+// Layout implements ebiten.Game
+func (a *App) Layout(outsideWidth, outsideHeight int) (int, int) {
+	// Store dimensions for responsive layout calculations and persistence
+	a.windowWidth = outsideWidth
+	a.windowHeight = outsideHeight
+	return outsideWidth, outsideHeight
+}
+
+// ScreenCallback implementations
+
+// SwitchToLibrary transitions to the library screen
+func (a *App) SwitchToLibrary() {
+	a.notification.Clear()
+	a.previousState = a.state
+	a.state = StateLibrary
+	a.libraryScreen.OnEnter()
+	a.rebuildCurrentScreen()
+	// Focus restoration is handled by the Update loop on the next frame
+}
+
+// SwitchToDetail transitions to the detail screen
+func (a *App) SwitchToDetail(gameCRC string) {
+	a.notification.Clear()
+	a.previousState = a.state
+	a.state = StateDetail
+	a.detailScreen.SetGame(gameCRC)
+	a.detailScreen.OnEnter()
+	a.rebuildCurrentScreen()
+}
+
+// SwitchToSettings transitions to the settings screen
+func (a *App) SwitchToSettings() {
+	a.notification.Clear()
+	a.previousState = a.state
+	a.state = StateSettings
+	a.settingsScreen.OnEnter()
+	a.rebuildCurrentScreen()
+}
+
+// SwitchToScanProgress transitions to the scan progress screen
+func (a *App) SwitchToScanProgress(rescanAll bool) {
+	a.notification.Clear()
+	a.previousState = a.state
+	a.state = StateScanProgress
+
+	// Start scan via manager
+	a.scanManager.Start(rescanAll)
+	a.scanScreen.OnEnter()
+	a.rebuildCurrentScreen()
+}
+
+// LaunchGame starts the emulator with the specified game
+func (a *App) LaunchGame(gameCRC string, resume bool) {
+	if a.gameplay.Launch(gameCRC, resume) {
+		a.previousState = a.state
+		a.state = StatePlaying
+	}
+}
+
+// Exit closes the application
+func (a *App) Exit() {
+	// Save window state before exiting
+	a.saveWindowState()
+
+	// Clean exit using os.Exit to avoid log.Fatal's stack trace
+	os.Exit(0)
+}
+
+// GetWindowWidth returns the current window width for responsive layouts
+func (a *App) GetWindowWidth() int {
+	return a.windowWidth
+}
+
+// RequestRebuild triggers a UI rebuild for the current screen
+// Focus restoration is handled in the Update loop after ui.Update()
+func (a *App) RequestRebuild() {
+	a.rebuildCurrentScreen()
+}
+
+// GetPlaceholderImageData returns the raw embedded placeholder image data
+func (a *App) GetPlaceholderImageData() []byte {
+	return placeholderImageData
+}
+
+// handleDeleteAndContinue handles the delete and continue button
+func (a *App) handleDeleteAndContinue() {
+	var err error
+
+	if a.errorFile == "config.json" {
+		if err = storage.DeleteConfig(); err != nil {
+			log.Printf("Failed to delete config: %v", err)
+		}
+		a.config = storage.DefaultConfig()
+		if err = storage.SaveConfig(a.config); err != nil {
+			log.Printf("Failed to save config: %v", err)
+		}
+
+		// Now try loading library
+		library, err := storage.LoadLibrary()
+		if err != nil {
+			// Library is also corrupt
+			libraryPath, _ := storage.GetLibraryPath()
+			a.errorFile = "library.json"
+			a.errorPath = libraryPath
+			a.errorScreen.SetError("library.json", libraryPath)
+			a.rebuildCurrentScreen()
+			return
+		}
+		a.library = library
+	} else if a.errorFile == "library.json" {
+		if err = storage.DeleteLibrary(); err != nil {
+			log.Printf("Failed to delete library: %v", err)
+		}
+		a.library = storage.DefaultLibrary()
+		if err = storage.SaveLibrary(a.library); err != nil {
+			log.Printf("Failed to save library: %v", err)
+		}
+	}
+
+	// Update save state manager with new library
+	a.saveStateManager.SetLibrary(a.library)
+
+	// Initialize or update gameplay manager
+	if a.gameplay == nil {
+		a.gameplay = NewGameplayManager(
+			a.saveStateManager,
+			a.notification,
+			a.library,
+			a.config,
+			func() { a.SwitchToLibrary() },
+			func() { a.Exit() },
+		)
+	} else {
+		a.gameplay.SetLibrary(a.library)
+		a.gameplay.SetConfig(a.config)
+	}
+
+	// Reinitialize screens with fresh data
+	a.initScreens()
+
+	// Initialize or update scan manager (needs scanScreen reference)
+	if a.scanManager == nil {
+		a.scanManager = NewScanManager(
+			a.library,
+			a.scanScreen,
+			func() { a.rebuildCurrentScreen() },
+			func(msg string) {
+				a.state = StateSettings
+				a.rebuildCurrentScreen()
+				if msg != "" {
+					a.notification.ShowDefault(msg)
+				}
+			},
+		)
+	} else {
+		a.scanManager.SetLibrary(a.library)
+		a.scanManager.SetScanScreen(a.scanScreen)
+	}
+
+	// Proceed to library screen
+	a.state = StateLibrary
+	a.rebuildCurrentScreen()
+}
+
+// SaveAndClose saves config and library before exit
+func (a *App) SaveAndClose() {
+	// Capture current window state before saving
+	a.saveWindowState()
+
+	if err := storage.SaveLibrary(a.library); err != nil {
+		log.Printf("Failed to save library: %v", err)
+	}
+}

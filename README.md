@@ -16,10 +16,13 @@ ROMs default to Sega mapper with NTSC timing.
 ## Build and Run Commands
 
 ```bash
-# Build the emulator (standalone Ebiten/SDL version)
+# Build the emulator
 go build
 
-# Run with a ROM file (auto-detects region from 357-game database)
+# Launch standalone UI (game library, settings, save states)
+go run main.go
+
+# Direct emulator mode (bypasses UI, loads ROM directly)
 go run main.go -rom <path-to-rom>
 
 # Override region detection manually
@@ -33,7 +36,8 @@ go run main.go -rom <path-to-rom> -crop-border
 go test ./...
 
 # After building:
-./emkiii -rom <path-to-rom>
+./emkiii                                        # Launch UI
+./emkiii -rom <path-to-rom>                     # Direct mode
 ./emkiii -rom <path-to-rom> -region pal -crop-border
 
 # Build libretro core (for RetroArch and other frontends)
@@ -44,6 +48,8 @@ go build -tags libretro -buildmode=c-shared -o emkiii_libretro.dylib ./libretro/
 
 ## Controls
 
+### Direct Mode (`-rom` flag)
+
 **Keyboard:**
 - **Movement:** W (up), A (left), S (down), D (right)
 - **Buttons:** J (Button 1), K (Button 2)
@@ -52,12 +58,88 @@ go build -tags libretro -buildmode=c-shared -o emkiii_libretro.dylib ./libretro/
 - **Movement:** D-pad or left analog stick
 - **Buttons:** A/Cross (Button 1), B/Circle (Button 2)
 
+### Standalone UI
+
+All direct mode controls plus:
+
+**Gameplay:**
+- **SMS Pause:** Enter (hardware pause button, triggers NMI)
+
+**System Controls:**
+- **Pause Menu:** ESC (during gameplay)
+- **Save State:** F1
+- **Load State:** F3
+- **Next Slot:** F2
+- **Previous Slot:** Shift+F2
+- **Screenshot:** F12
+
+**Pause Menu Navigation:**
+- **Keyboard:** Arrow Up/Down, Enter to select, ESC to resume
+- **Gamepad:** D-pad, A/Cross to select, B/Circle or Start to resume
+
+## Standalone UI
+
+When launched without a `-rom` argument, the emulator opens a standalone UI:
+
+- **Game Library:** Browse games in icon or list view with sorting (title, last played, play time) and favorites filtering
+- **ROM Scanning:** Add ROM folders, scan for games with automatic metadata lookup from libretro database
+- **Game Details:** View box art, metadata (developer, publisher, genre, release date), Play/Resume options
+- **Save States:** 10 manual slots per game (F1/F2/F3), auto-save every 5 seconds, resume support
+- **Screenshots:** F12 captures to screenshots directory
+- **Play Time Tracking:** Automatic per-game tracking
+- **Window Persistence:** Window size and position restored on launch
+
+### Data Location
+
+| OS | Path |
+|----|------|
+| macOS | `~/Library/Application Support/emkiii/` |
+| Linux | `~/.config/emkiii/` |
+| Windows | `%APPDATA%\emkiii\` |
+
+### Directory Structure
+
+```
+{data}/
+├── config.json          # Application settings
+├── library.json         # Game library and metadata
+├── metadata/sms.rdb     # Downloaded game database
+├── saves/{crc32}/       # Per-game save states and SRAM
+├── artwork/{crc32}/     # Per-game box art
+└── screenshots/         # Screenshots
+```
+
 ## Architecture
 
-The emulator uses Ebiten for windowing/rendering, koron-go/z80 for CPU emulation, and SDL2 for audio output.
+The emulator uses Ebiten for windowing/rendering, koron-go/z80 for CPU emulation, SDL2 for audio output, and ebitenui for the standalone UI.
+
+The standalone UI follows a manager pattern with clear separation of concerns:
+- `App` - Main application, implements `ebiten.Game`, owns screens and managers
+- `GameplayManager` - Emulator lifecycle, input handling, auto-save, play time tracking
+- `InputManager` - UI navigation with gamepad repeat support
+- `ScanManager` - ROM scanning orchestration and library updates
 
 **Package structure:**
-- `main.go` - Entry point, CLI flag handling (`-rom`, `-region`, `-crop-border`), Ebiten game loop initialization
+- `main.go` - Entry point; launches UI by default, or direct emulator with `-rom` flag
+- `ui/` - Standalone UI application:
+  - `app.go` - Main application struct, screen management, Ebiten game loop
+  - `state.go` - AppState enum (Library, Detail, Settings, etc.)
+  - `gameplay.go` - GameplayManager: emulator lifecycle, input, auto-save, play time tracking
+  - `input.go` - InputManager: UI navigation with gamepad repeat support
+  - `scan_manager.go` - ScanManager: ROM scanning orchestration
+  - `screens/` - Library, Detail, Settings, Scan Progress, Error screens
+    - `base.go` - BaseScreen: common scroll/focus management for screens
+  - `pausemenu.go` - In-game pause overlay with keyboard/gamepad navigation
+  - `savestate.go` - Save state management (10 slots per game, auto-save)
+  - `screenshot.go` - Screenshot capture (F12)
+  - `notification.go` - On-screen notifications
+  - `scanner.go` - ROM discovery and metadata lookup
+  - `metadata.go` - RDB download and artwork fetching
+  - `storage/` - Config and library JSON persistence
+  - `style/` - Theme colors, widget builders, constants, utility functions
+  - `rdb/` - RDB parser for game metadata lookup
+- `cli/` - CLI runner for direct ROM launch mode:
+  - `runner.go` - Ebiten game wrapper for direct emulation (bypasses UI)
 - `emu/` - All emulation components:
   - `emulator.go` - Core `EmulatorBase` struct orchestrating CPU/VDP/PSG/Memory, frame timing, scanline execution
   - `emulator_ebiten.go` - Standalone build: Ebiten rendering, SDL2 audio, keyboard/gamepad input, resizable window
@@ -98,10 +180,13 @@ framebuffer to screen.
 ## Dependencies
 
 - `github.com/hajimehoshi/ebiten/v2` - Windowing, rendering, input
+- `github.com/ebitenui/ebitenui` - Retained-mode UI widgets
+- `github.com/sqweek/dialog` - Native OS file picker dialogs
 - `github.com/koron-go/z80` - Z80 CPU emulation
 - `github.com/veandco/go-sdl2` - Audio output
 - `github.com/bodgit/sevenzip` - 7z archive support
 - `github.com/nwaples/rardecode/v2` - RAR archive support
+- `golang.org/x/image` - Font rendering
 
 ## Implementation Status
 
@@ -116,6 +201,7 @@ framebuffer to screen.
 | Input | Complete | Keyboard (WASD + JK) and gamepad (D-pad/stick + A/B) for P1 controller |
 | Region | Complete | Auto-detection via CRC32 database (357 games), manual override with `-region` flag |
 | Libretro | Complete | Full core implementation with region/crop options, works with RetroArch |
+| Standalone UI | Complete | Library management, save states (10 slots + auto-save), screenshots, play time tracking |
 | Tests | Complete | Unit tests for I/O, memory, VDP, PSG, region timing, ROM loading, and libretro |
 
 ## Unsupported Functionality

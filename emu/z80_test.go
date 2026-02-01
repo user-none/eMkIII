@@ -9,7 +9,7 @@ import (
 // mockIO implements z80.IO for testing
 type mockIO struct{}
 
-func (m *mockIO) In(addr uint8) uint8   { return 0 }
+func (m *mockIO) In(addr uint8) uint8     { return 0 }
 func (m *mockIO) Out(addr uint8, v uint8) {}
 
 // TestCycleZ80_NewCycleZ80 tests creating a new Z80 wrapper
@@ -97,9 +97,9 @@ func TestCycleZ80_ClearInterrupt(t *testing.T) {
 // TestCycleZ80_BaseCycles tests base opcode cycle counts
 func TestCycleZ80_BaseCycles(t *testing.T) {
 	testCases := []struct {
-		name    string
-		opcode  uint8
-		cycles  int
+		name   string
+		opcode uint8
+		cycles int
 	}{
 		{"NOP", 0x00, 4},
 		{"LD BC,nn", 0x01, 10},
@@ -175,11 +175,11 @@ func TestCycleZ80_CBPrefixCycles(t *testing.T) {
 		{"RRC B", 0x08, 8},
 		{"RRC (HL)", 0x0E, 15},
 		{"BIT 0,B", 0x40, 8},
-		{"BIT 0,(HL)", 0x46, 15},  // Table uses 15 for all CB (HL) ops
+		{"BIT 0,(HL)", 0x46, 15}, // Table uses 15 for all CB (HL) ops
 		{"SET 0,B", 0xC0, 8},
-		{"SET 0,(HL)", 0xC6, 12},  // Table shows 12 for SET/RES (HL) in rows 8-F
+		{"SET 0,(HL)", 0xC6, 12}, // Table shows 12 for SET/RES (HL) in rows 8-F
 		{"RES 0,B", 0x80, 8},
-		{"RES 0,(HL)", 0x86, 12},  // Table shows 12 for SET/RES (HL) in rows 8-F
+		{"RES 0,(HL)", 0x86, 12}, // Table shows 12 for SET/RES (HL) in rows 8-F
 	}
 
 	for _, tc := range testCases {
@@ -800,7 +800,7 @@ func TestCycleZ80_InterruptServiceTime(t *testing.T) {
 	cpu := NewCycleZ80(mem, io)
 	cpu.cpu.SP = 0xDFF0
 	cpu.cpu.IFF1 = true // Enable interrupts
-	cpu.cpu.IM = 1       // IM1 mode
+	cpu.cpu.IM = 1      // IM1 mode
 
 	// Set pending interrupt
 	cpu.SetInterrupt(z80.IM1Interrupt())

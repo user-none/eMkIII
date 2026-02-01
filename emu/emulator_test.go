@@ -45,21 +45,21 @@ func TestEmulator_TimingCalculations(t *testing.T) {
 	testCases := []struct {
 		region   Region
 		expected struct {
-			fps              int
-			scanlines        int
-			cpuClock         int
-			cyclesPerFrame   int
-			cyclesPerLine    int
+			fps            int
+			scanlines      int
+			cpuClock       int
+			cyclesPerFrame int
+			cyclesPerLine  int
 		}
 	}{
 		{
 			region: RegionNTSC,
 			expected: struct {
-				fps              int
-				scanlines        int
-				cpuClock         int
-				cyclesPerFrame   int
-				cyclesPerLine    int
+				fps            int
+				scanlines      int
+				cpuClock       int
+				cyclesPerFrame int
+				cyclesPerLine  int
 			}{
 				fps:            60,
 				scanlines:      262,
@@ -71,11 +71,11 @@ func TestEmulator_TimingCalculations(t *testing.T) {
 		{
 			region: RegionPAL,
 			expected: struct {
-				fps              int
-				scanlines        int
-				cpuClock         int
-				cyclesPerFrame   int
-				cyclesPerLine    int
+				fps            int
+				scanlines      int
+				cpuClock       int
+				cyclesPerFrame int
+				cyclesPerLine  int
 			}{
 				fps:            50,
 				scanlines:      313,
@@ -202,9 +202,9 @@ func TestEmulator_PSGIntegration(t *testing.T) {
 	psg := NewPSG(timing.CPUClockHz, 48000, 2000)
 
 	// Write a tone to channel 0
-	psg.Write(0x80 | 0x0F)      // Channel 0 tone, low nibble
-	psg.Write(0x10)             // High 6 bits
-	psg.Write(0x90 | 0x00)      // Channel 0 volume = 0 (max)
+	psg.Write(0x80 | 0x0F) // Channel 0 tone, low nibble
+	psg.Write(0x10)        // High 6 bits
+	psg.Write(0x90 | 0x00) // Channel 0 volume = 0 (max)
 
 	// Generate some samples
 	cyclesPerScanline := (timing.CPUClockHz / timing.FPS) / timing.Scanlines

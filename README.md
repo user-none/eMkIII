@@ -113,12 +113,22 @@ When launched without a `-rom` argument, the emulator opens a standalone UI:
 
 The emulator uses Ebiten for windowing/rendering, koron-go/z80 for CPU emulation, SDL2 for audio output, and ebitenui for the standalone UI.
 
+The standalone UI follows a manager pattern with clear separation of concerns:
+- `App` - Main application, implements `ebiten.Game`, owns screens and managers
+- `GameplayManager` - Emulator lifecycle, input handling, auto-save, play time tracking
+- `InputManager` - UI navigation with gamepad repeat support
+- `ScanManager` - ROM scanning orchestration and library updates
+
 **Package structure:**
 - `main.go` - Entry point; launches UI by default, or direct emulator with `-rom` flag
 - `ui/` - Standalone UI application:
   - `app.go` - Main application struct, screen management, Ebiten game loop
   - `state.go` - AppState enum (Library, Detail, Settings, etc.)
+  - `gameplay.go` - GameplayManager: emulator lifecycle, input, auto-save, play time tracking
+  - `input.go` - InputManager: UI navigation with gamepad repeat support
+  - `scan_manager.go` - ScanManager: ROM scanning orchestration
   - `screens/` - Library, Detail, Settings, Scan Progress, Error screens
+    - `base.go` - BaseScreen: common scroll/focus management for screens
   - `pausemenu.go` - In-game pause overlay with keyboard/gamepad navigation
   - `savestate.go` - Save state management (10 slots per game, auto-save)
   - `screenshot.go` - Screenshot capture (F12)
@@ -126,7 +136,7 @@ The emulator uses Ebiten for windowing/rendering, koron-go/z80 for CPU emulation
   - `scanner.go` - ROM discovery and metadata lookup
   - `metadata.go` - RDB download and artwork fetching
   - `storage/` - Config and library JSON persistence
-  - `style/` - Theme colors, widget builders, utility functions
+  - `style/` - Theme colors, widget builders, constants, utility functions
   - `rdb/` - RDB parser for game metadata lookup
 - `cli/` - CLI runner for direct ROM launch mode:
   - `runner.go` - Ebiten game wrapper for direct emulation (bypasses UI)

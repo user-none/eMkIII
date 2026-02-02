@@ -26,10 +26,7 @@ func NewMemory(rom []byte) *Memory {
 		rom: make([]uint8, len(rom)),
 	}
 	copy(m.rom, rom)
-	// Default bank mapping: slots map to banks 0, 1, 2
-	m.bankSlot[0] = 0
-	m.bankSlot[1] = 1
-	m.bankSlot[2] = 2
+
 	// Calculate bank mask based on ROM size (number of 16KB banks)
 	// Round up to next power of 2 for proper wrapping
 	bankCount := (len(rom) + 0x3FFF) / 0x4000
@@ -45,6 +42,17 @@ func NewMemory(rom []byte) *Memory {
 
 	// Detect mapper type
 	m.mapper = detectMapper(rom)
+
+	// Default bank mapping depends on mapper type
+	// Sega mapper: slots map to banks 0, 1, 2
+	// Codemasters mapper: slots map to banks 0, 1, 0 (slot 2 starts at bank 0)
+	m.bankSlot[0] = 0
+	m.bankSlot[1] = 1
+	if m.mapper == MapperCodemasters {
+		m.bankSlot[2] = 0
+	} else {
+		m.bankSlot[2] = 2
+	}
 
 	return m
 }

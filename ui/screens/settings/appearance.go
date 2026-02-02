@@ -101,7 +101,7 @@ func (a *AppearanceSection) buildThemeCard(theme style.Theme, focus types.FocusM
 		widget.ButtonOpts.Text(themeName, style.FontFace(), style.ButtonTextColor()),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingMedium)),
 		widget.ButtonOpts.WidgetOpts(
-			widget.WidgetOpts.MinSize(80, 0),
+			widget.WidgetOpts.MinSize(120, 0),
 			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
 				VerticalPosition: widget.GridLayoutPositionCenter,
 			}),

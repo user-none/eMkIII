@@ -131,8 +131,21 @@ var (
 		Black:         color.NRGBA{0x07, 0x20, 0x07, 0xff},
 	}
 
+	ThemeHighContrast = Theme{
+		Name:          "High Contrast",
+		Background:    color.NRGBA{0x00, 0x00, 0x00, 0xff}, // Pure black
+		Surface:       color.NRGBA{0x40, 0x40, 0x40, 0xff}, // Medium gray - button bg
+		Primary:       color.NRGBA{0x00, 0x80, 0xff, 0xff}, // Bright blue
+		PrimaryHover:  color.NRGBA{0x40, 0xa0, 0xff, 0xff}, // Lighter blue
+		Text:          color.NRGBA{0xff, 0xff, 0xff, 0xff}, // Pure white
+		TextSecondary: color.NRGBA{0xcc, 0xcc, 0xcc, 0xff}, // Light gray
+		Accent:        color.NRGBA{0xff, 0xff, 0x00, 0xff}, // Yellow for favorites
+		Border:        color.NRGBA{0x66, 0x66, 0x66, 0xff}, // Medium gray (disabled bg)
+		Black:         color.NRGBA{0x00, 0x00, 0x00, 0xff},
+	}
+
 	// AvailableThemes lists all themes for UI selection
-	AvailableThemes = []Theme{ThemeDefault, ThemeDark, ThemeLight, ThemeRetro, ThemePink, ThemeHotPink, ThemeGreenLCD}
+	AvailableThemes = []Theme{ThemeDefault, ThemeDark, ThemeLight, ThemeRetro, ThemePink, ThemeHotPink, ThemeGreenLCD, ThemeHighContrast}
 
 	// CurrentThemeName tracks the active theme name
 	CurrentThemeName = "Default"

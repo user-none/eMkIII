@@ -605,7 +605,7 @@ func (s *SettingsScreen) buildThemePreview(theme style.Theme) *widget.Container 
 
 	// Info text
 	info := widget.NewText(
-		widget.TextOpts.Text("Developer: Studio Name  •  2024", style.FontFace(), theme.TextSecondary),
+		widget.TextOpts.Text("Developer: Studio Name", style.FontFace(), theme.TextSecondary),
 	)
 	contentPanel.AddChild(info)
 
@@ -655,17 +655,16 @@ func (s *SettingsScreen) buildThemePreview(theme style.Theme) *widget.Container 
 	secondaryBtn.AddChild(secondaryBtnText)
 	buttonRow.AddChild(secondaryBtn)
 
-	// Accent indicator (like a favorite star)
-	accentBox := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(theme.Accent)),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.MinSize(20, 20),
+	// Accent indicator (favorite star like in the UI)
+	accentText := widget.NewText(
+		widget.TextOpts.Text("*", style.FontFace(), theme.Accent),
+		widget.TextOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
 				Position: widget.RowLayoutPositionCenter,
 			}),
 		),
 	)
-	buttonRow.AddChild(accentBox)
+	buttonRow.AddChild(accentText)
 
 	contentPanel.AddChild(buttonRow)
 	preview.AddChild(contentPanel)

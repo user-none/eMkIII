@@ -187,7 +187,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 
 // OnEnter is called when entering the settings screen
 func (s *SettingsScreen) OnEnter() {
-	// Nothing to do
+	s.SetPendingFocus("section-library") // Always defaults to Library section when entering
 }
 
 // EnsureFocusedVisible scrolls the theme list to keep the focused widget visible

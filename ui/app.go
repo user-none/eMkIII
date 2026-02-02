@@ -166,6 +166,8 @@ func NewApp() (*App, error) {
 		},
 	)
 
+	// Call OnEnter for initial screen (sets default focus)
+	app.libraryScreen.OnEnter()
 	app.rebuildCurrentScreen()
 
 	return app, nil
@@ -296,12 +298,21 @@ func (a *App) Update() error {
 		if nav.FocusChanged {
 			a.ensureFocusedVisible()
 		}
+	case StateDetail:
+		nav := a.processUIInput()
+		a.ui.Update()
+		if a.state != StateDetail {
+			return nil
+		}
+		a.restorePendingFocus(a.detailScreen)
+		if nav.FocusChanged {
+			a.ensureFocusedVisible()
+		}
 	default:
-		// StateDetail, StateError
+		// StateError only
 		nav := a.processUIInput()
 		prevState := a.state
 		a.ui.Update()
-		// Check if state changed during ui.Update (e.g., user clicked Back)
 		if a.state != prevState {
 			return nil
 		}

@@ -18,6 +18,8 @@ import (
 
 // DetailScreen displays game information and launch options
 type DetailScreen struct {
+	BaseScreen // Embedded for focus restoration
+
 	callback ScreenCallback
 	library  *storage.Library
 	config   *storage.Config
@@ -26,11 +28,13 @@ type DetailScreen struct {
 
 // NewDetailScreen creates a new detail screen
 func NewDetailScreen(callback ScreenCallback, library *storage.Library, config *storage.Config) *DetailScreen {
-	return &DetailScreen{
+	s := &DetailScreen{
 		callback: callback,
 		library:  library,
 		config:   config,
 	}
+	s.InitBase()
+	return s
 }
 
 // SetGame sets the game to display
@@ -40,6 +44,8 @@ func (s *DetailScreen) SetGame(gameCRC string) {
 
 // Build creates the detail screen UI
 func (s *DetailScreen) Build() *widget.Container {
+	s.ClearFocusButtons()
+
 	rootContainer := widget.NewContainer(
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Background)),
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
@@ -233,6 +239,7 @@ func (s *DetailScreen) Build() *widget.Container {
 		playButton := style.PrimaryTextButton("Play", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
 			s.callback.LaunchGame(s.game.CRC32, false)
 		})
+		s.RegisterFocusButton("play", playButton)
 		buttonContainer.AddChild(playButton)
 
 		// Resume button (enabled only if resume state exists)
@@ -259,6 +266,7 @@ func (s *DetailScreen) Build() *widget.Container {
 			storage.SaveLibrary(s.library)
 			s.callback.SwitchToLibrary()
 		})
+		s.RegisterFocusButton("remove", removeButton)
 		buttonContainer.AddChild(removeButton)
 	}
 
@@ -317,7 +325,11 @@ func (s *DetailScreen) hasResumeState() bool {
 
 // OnEnter is called when entering the detail screen
 func (s *DetailScreen) OnEnter() {
-	// Nothing specific to do
+	if s.game != nil && !s.game.Missing {
+		s.SetPendingFocus("play")
+	} else {
+		s.SetPendingFocus("remove")
+	}
 }
 
 // createMetadataLabel creates a text label with optional truncation and tooltip

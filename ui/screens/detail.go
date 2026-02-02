@@ -270,6 +270,7 @@ func (s *DetailScreen) Build() *widget.Container {
 	favButton := style.TextButton(favText, 12, func(args *widget.ButtonClickedEventArgs) {
 		s.game.Favorite = !s.game.Favorite
 		storage.SaveLibrary(s.library)
+		s.callback.RequestRebuild()
 	})
 	buttonContainer.AddChild(favButton)
 

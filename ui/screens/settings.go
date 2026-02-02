@@ -49,6 +49,9 @@ func (s *SettingsScreen) ClearPendingScan() {
 
 // Build creates the settings screen UI
 func (s *SettingsScreen) Build() *widget.Container {
+	// Clear button references for fresh build
+	s.ClearFocusButtons()
+
 	// Use GridLayout for the root to properly constrain sizes
 	rootContainer := widget.NewContainer(
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Background)),
@@ -110,12 +113,35 @@ func (s *SettingsScreen) Build() *widget.Container {
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.selectedSection = 0
+			s.SetPendingFocus("section-library")
+			s.callback.RequestRebuild()
 		}),
 		widget.ButtonOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
 		),
 	)
+	s.RegisterFocusButton("section-library", libraryBtn)
 	sidebar.AddChild(libraryBtn)
+
+	// Appearance section button
+	appearanceBtn := widget.NewButton(
+		widget.ButtonOpts.Image(style.ActiveButtonImage(s.selectedSection == 1)),
+		widget.ButtonOpts.Text("Appearance", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
+		}),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			s.selectedSection = 1
+			s.SetPendingFocus("section-appearance")
+			s.callback.RequestRebuild()
+		}),
+		widget.ButtonOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
+		),
+	)
+	s.RegisterFocusButton("section-appearance", appearanceBtn)
+	sidebar.AddChild(appearanceBtn)
 
 	// Future sections (disabled) - use containers instead of buttons so they're not focusable
 	sidebar.AddChild(style.DisabledSidebarItem("Video*"))
@@ -139,9 +165,11 @@ func (s *SettingsScreen) Build() *widget.Container {
 		)),
 	)
 
-	// Library section content
+	// Section content
 	if s.selectedSection == 0 {
 		contentArea.AddChild(s.buildLibrarySection())
+	} else if s.selectedSection == 1 {
+		contentArea.AddChild(s.buildAppearanceSection())
 	}
 
 	mainContent.AddChild(contentArea)
@@ -249,9 +277,6 @@ func (s *SettingsScreen) buildLibrarySection() *widget.Container {
 // buildFolderList creates a selectable folder list with scrolling
 func (s *SettingsScreen) buildFolderList() widget.PreferredSizeLocateableWidget {
 	maxPathChars := 70
-
-	// Clear button references for fresh build
-	s.ClearFocusButtons()
 
 	// Create list content container
 	listContent := widget.NewContainer(
@@ -399,6 +424,55 @@ func (s *SettingsScreen) onAddDirectoryClick() {
 		// Trigger auto-scan after adding directory
 		s.pendingScan = true
 	}()
+}
+
+// buildAppearanceSection creates the appearance settings section
+func (s *SettingsScreen) buildAppearanceSection() *widget.Container {
+	section := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
+		)),
+	)
+
+	// Theme label
+	themeLabel := widget.NewText(
+		widget.TextOpts.Text("Theme", style.FontFace(), style.Text),
+	)
+	section.AddChild(themeLabel)
+
+	// Theme buttons row
+	themeRow := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
+			widget.RowLayoutOpts.Spacing(style.ButtonPaddingMedium),
+		)),
+	)
+
+	for _, theme := range style.AvailableThemes {
+		themeName := theme.Name
+		isActive := s.config.Theme == themeName
+		focusKey := fmt.Sprintf("theme-%s", themeName)
+
+		themeBtn := widget.NewButton(
+			widget.ButtonOpts.Image(style.ActiveButtonImage(isActive)),
+			widget.ButtonOpts.Text(themeName, style.FontFace(), style.ButtonTextColor()),
+			widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingMedium)),
+			widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+				s.config.Theme = themeName
+				style.ApplyThemeByName(themeName)
+				storage.SaveConfig(s.config)
+				s.SetPendingFocus(fmt.Sprintf("theme-%s", themeName))
+				s.callback.RequestRebuild()
+			}),
+		)
+		s.RegisterFocusButton(focusKey, themeBtn)
+		themeRow.AddChild(themeBtn)
+	}
+
+	section.AddChild(themeRow)
+
+	return section
 }
 
 // OnEnter is called when entering the settings screen

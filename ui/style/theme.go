@@ -11,7 +11,7 @@ import (
 	"golang.org/x/image/font/basicfont"
 )
 
-// Theme colors
+// Theme colors (package-level variables updated by ApplyTheme)
 var (
 	Background    = color.NRGBA{0x1a, 0x1a, 0x2e, 0xff} // Dark blue-gray
 	Surface       = color.NRGBA{0x25, 0x25, 0x3a, 0xff} // Slightly lighter
@@ -23,6 +23,120 @@ var (
 	Border        = color.NRGBA{0x3a, 0x3a, 0x5a, 0xff}
 	Black         = color.NRGBA{0x00, 0x00, 0x00, 0xff}
 )
+
+// Theme holds all color values for a UI theme
+type Theme struct {
+	Name          string
+	Background    color.NRGBA
+	Surface       color.NRGBA
+	Primary       color.NRGBA
+	PrimaryHover  color.NRGBA
+	Text          color.NRGBA
+	TextSecondary color.NRGBA
+	Accent        color.NRGBA
+	Border        color.NRGBA
+	Black         color.NRGBA
+}
+
+// Predefined themes
+var (
+	ThemeDefault = Theme{
+		Name:          "Default",
+		Background:    color.NRGBA{0x1a, 0x1a, 0x2e, 0xff}, // Dark blue-gray
+		Surface:       color.NRGBA{0x25, 0x25, 0x3a, 0xff},
+		Primary:       color.NRGBA{0x4a, 0x4a, 0x8a, 0xff}, // Muted purple
+		PrimaryHover:  color.NRGBA{0x5a, 0x5a, 0x9a, 0xff},
+		Text:          color.NRGBA{0xff, 0xff, 0xff, 0xff},
+		TextSecondary: color.NRGBA{0xaa, 0xaa, 0xaa, 0xff},
+		Accent:        color.NRGBA{0xff, 0xd7, 0x00, 0xff}, // Gold
+		Border:        color.NRGBA{0x3a, 0x3a, 0x5a, 0xff},
+		Black:         color.NRGBA{0x00, 0x00, 0x00, 0xff},
+	}
+
+	ThemeDark = Theme{
+		Name:          "Dark",
+		Background:    color.NRGBA{0x0a, 0x0a, 0x0a, 0xff}, // Pure black
+		Surface:       color.NRGBA{0x1a, 0x1a, 0x1a, 0xff},
+		Primary:       color.NRGBA{0x1e, 0x40, 0x7a, 0xff}, // Blue
+		PrimaryHover:  color.NRGBA{0x2a, 0x50, 0x8a, 0xff},
+		Text:          color.NRGBA{0xff, 0xff, 0xff, 0xff},
+		TextSecondary: color.NRGBA{0x88, 0x88, 0x88, 0xff},
+		Accent:        color.NRGBA{0x00, 0xc8, 0x53, 0xff}, // Green
+		Border:        color.NRGBA{0x2a, 0x2a, 0x2a, 0xff},
+		Black:         color.NRGBA{0x00, 0x00, 0x00, 0xff},
+	}
+
+	ThemeLight = Theme{
+		Name:          "Light",
+		Background:    color.NRGBA{0xe8, 0xe8, 0xe8, 0xff}, // Light gray
+		Surface:       color.NRGBA{0xf5, 0xf5, 0xf5, 0xff},
+		Primary:       color.NRGBA{0x1a, 0x56, 0xdb, 0xff}, // Blue
+		PrimaryHover:  color.NRGBA{0x2a, 0x66, 0xeb, 0xff},
+		Text:          color.NRGBA{0x1a, 0x1a, 0x1a, 0xff}, // Dark text
+		TextSecondary: color.NRGBA{0x66, 0x66, 0x66, 0xff},
+		Accent:        color.NRGBA{0xe6, 0x5c, 0x00, 0xff}, // Orange
+		Border:        color.NRGBA{0xcc, 0xcc, 0xcc, 0xff},
+		Black:         color.NRGBA{0x00, 0x00, 0x00, 0xff},
+	}
+
+	ThemeRetro = Theme{
+		Name:          "Retro",
+		Background:    color.NRGBA{0x1c, 0x1c, 0x1c, 0xff}, // Charcoal
+		Surface:       color.NRGBA{0x28, 0x28, 0x28, 0xff},
+		Primary:       color.NRGBA{0x8b, 0x00, 0x00, 0xff}, // Dark red
+		PrimaryHover:  color.NRGBA{0xab, 0x20, 0x20, 0xff},
+		Text:          color.NRGBA{0xd0, 0xd0, 0xd0, 0xff},
+		TextSecondary: color.NRGBA{0x80, 0x80, 0x80, 0xff},
+		Accent:        color.NRGBA{0x00, 0xaa, 0x00, 0xff}, // Green
+		Border:        color.NRGBA{0x3c, 0x3c, 0x3c, 0xff},
+		Black:         color.NRGBA{0x00, 0x00, 0x00, 0xff},
+	}
+
+	// AvailableThemes lists all themes for UI selection
+	AvailableThemes = []Theme{ThemeDefault, ThemeDark, ThemeLight, ThemeRetro}
+
+	// CurrentThemeName tracks the active theme name
+	CurrentThemeName = "Default"
+)
+
+// GetThemeByName returns theme by name, or ThemeDefault if not found
+func GetThemeByName(name string) Theme {
+	for _, t := range AvailableThemes {
+		if t.Name == name {
+			return t
+		}
+	}
+	return ThemeDefault
+}
+
+// IsValidThemeName returns true if the name matches a known theme
+func IsValidThemeName(name string) bool {
+	for _, t := range AvailableThemes {
+		if t.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// ApplyTheme updates package-level color variables from a theme
+func ApplyTheme(theme Theme) {
+	Background = theme.Background
+	Surface = theme.Surface
+	Primary = theme.Primary
+	PrimaryHover = theme.PrimaryHover
+	Text = theme.Text
+	TextSecondary = theme.TextSecondary
+	Accent = theme.Accent
+	Border = theme.Border
+	Black = theme.Black
+	CurrentThemeName = theme.Name
+}
+
+// ApplyThemeByName applies theme by name with fallback to Default
+func ApplyThemeByName(name string) {
+	ApplyTheme(GetThemeByName(name))
+}
 
 // fontFace is the cached font face
 var fontFace text.Face

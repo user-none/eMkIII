@@ -95,6 +95,9 @@ func migrateConfig(config *Config) *Config {
 	if config.Library.SortBy == "" {
 		config.Library.SortBy = "title"
 	}
+	if config.Theme == "" {
+		config.Theme = "Default"
+	}
 
 	return config
 }

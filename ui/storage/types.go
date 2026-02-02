@@ -3,6 +3,7 @@ package storage
 // Config represents the application configuration stored in config.json
 type Config struct {
 	Version int          `json:"version"`
+	Theme   string       `json:"theme"` // Theme name: "Default", "Dark", "Light", "Retro"
 	Video   VideoConfig  `json:"video"`
 	Audio   AudioConfig  `json:"audio"`
 	Window  WindowConfig `json:"window"`
@@ -81,6 +82,7 @@ type GameSettings struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Version: 1,
+		Theme:   "Default",
 		Video: VideoConfig{
 			CropBorder: false,
 		},

@@ -12,6 +12,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/user-none/emkiii/ui/screens"
 	"github.com/user-none/emkiii/ui/storage"
+	"github.com/user-none/emkiii/ui/style"
 )
 
 // App is the main application struct that implements ebiten.Game
@@ -113,6 +114,12 @@ func NewApp() (*App, error) {
 		return app, nil
 	}
 	app.config = config
+
+	// Validate and apply theme
+	if !style.IsValidThemeName(app.config.Theme) {
+		app.config.Theme = "Default"
+	}
+	style.ApplyThemeByName(app.config.Theme)
 
 	// Load library
 	library, err := storage.LoadLibrary()

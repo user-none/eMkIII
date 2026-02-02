@@ -47,44 +47,49 @@ func (im *InputManager) Update() (screenshotRequested bool) {
 }
 
 // GetUINavigation returns the current UI navigation state.
-// This handles gamepad D-pad/analog stick with repeat navigation,
+// This handles keyboard arrow keys and gamepad D-pad/analog stick with repeat navigation,
 // and A/B/Start button presses.
 func (im *InputManager) GetUINavigation() UINavigation {
 	result := UINavigation{}
 
-	gamepadIDs := ebiten.AppendGamepadIDs(nil)
-	if len(gamepadIDs) == 0 {
-		// No gamepad - reset navigation state
-		im.direction = 0
-		im.repeatDelay = style.NavStartInterval
-		return result
-	}
-
-	// Use first connected gamepad
-	id := gamepadIDs[0]
-
-	// Determine current navigation direction from D-pad and analog stick
+	// Navigation direction flags - keyboard and gamepad both contribute
 	navPrev := false
 	navNext := false
 
-	// D-pad
-	if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftTop) ||
-		ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftLeft) {
+	// Keyboard navigation (arrow keys with repeat)
+	if ebiten.IsKeyPressed(ebiten.KeyArrowUp) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
 		navPrev = true
 	}
-	if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftBottom) ||
-		ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftRight) {
+	if ebiten.IsKeyPressed(ebiten.KeyArrowDown) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
 		navNext = true
 	}
 
-	// Analog stick (UI uses 0.5 threshold)
-	axisY := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickVertical)
-	axisX := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickHorizontal)
-	if axisY < -0.5 || axisX < -0.5 {
-		navPrev = true
-	}
-	if axisY > 0.5 || axisX > 0.5 {
-		navNext = true
+	// Gamepad navigation (if connected)
+	gamepadIDs := ebiten.AppendGamepadIDs(nil)
+	var gamepadID ebiten.GamepadID
+	hasGamepad := len(gamepadIDs) > 0
+	if hasGamepad {
+		gamepadID = gamepadIDs[0]
+
+		// D-pad
+		if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftTop) ||
+			ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftLeft) {
+			navPrev = true
+		}
+		if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftBottom) ||
+			ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftRight) {
+			navNext = true
+		}
+
+		// Analog stick (0.5 threshold for UI)
+		axisY := ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickVertical)
+		axisX := ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickHorizontal)
+		if axisY < -0.5 || axisX < -0.5 {
+			navPrev = true
+		}
+		if axisY > 0.5 || axisX > 0.5 {
+			navNext = true
+		}
 	}
 
 	// Determine desired direction (prev takes priority if both pressed)
@@ -131,14 +136,23 @@ func (im *InputManager) GetUINavigation() UINavigation {
 
 	result.FocusChanged = im.focusChanged
 
-	// A/Cross button activates focused widget
-	result.Activate = inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightBottom)
+	// Activate: A button (gamepad only - Enter/Space handled by ebitenui)
+	if hasGamepad {
+		result.Activate = inpututil.IsStandardGamepadButtonJustPressed(gamepadID, ebiten.StandardGamepadButtonRightBottom)
+	}
 
-	// B/Circle button for back navigation
-	result.Back = inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightRight)
+	// Back: ESC (keyboard) or B button (gamepad)
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		result.Back = true
+	}
+	if hasGamepad && inpututil.IsStandardGamepadButtonJustPressed(gamepadID, ebiten.StandardGamepadButtonRightRight) {
+		result.Back = true
+	}
 
-	// Start button for settings
-	result.OpenSettings = inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonCenterRight)
+	// Open Settings: Start button only (gamepad)
+	if hasGamepad {
+		result.OpenSettings = inpututil.IsStandardGamepadButtonJustPressed(gamepadID, ebiten.StandardGamepadButtonCenterRight)
+	}
 
 	return result
 }

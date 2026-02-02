@@ -74,6 +74,14 @@ func (b *BaseScreen) SetPendingFocus(key string) {
 	b.pendingFocus = key
 }
 
+// SetDefaultFocus sets the pending focus only if no focus is currently pending.
+// Use this in OnEnter() to set initial focus without overriding restored focus.
+func (b *BaseScreen) SetDefaultFocus(key string) {
+	if b.pendingFocus == "" {
+		b.pendingFocus = key
+	}
+}
+
 // GetPendingFocusButton returns the button that should receive focus after rebuild.
 // Returns nil if no pending focus or button not found.
 func (b *BaseScreen) GetPendingFocusButton() *widget.Button {

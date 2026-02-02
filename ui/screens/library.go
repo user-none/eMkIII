@@ -244,6 +244,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 		widget.ButtonOpts.Text("Settings", style.FontFace(), style.ButtonTextColor()),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			s.SetPendingFocus("toolbar-settings")
 			s.callback.SwitchToSettings()
 		}),
 		widget.ButtonOpts.WidgetOpts(
@@ -252,6 +253,7 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 			}),
 		),
 	)
+	s.RegisterFocusButton("toolbar-settings", settingsButton)
 	rightSection.AddChild(settingsButton)
 
 	toolbar.AddChild(rightSection)
@@ -651,8 +653,8 @@ func (s *LibraryScreen) SaveScrollPosition() {
 
 // OnEnter is called when entering the library screen
 func (s *LibraryScreen) OnEnter() {
-	// Refresh games list
 	s.games = s.library.GetGamesSorted(s.config.Library.SortBy, s.config.Library.FavoritesFilter)
+	s.SetDefaultFocus("toolbar-icon") // Only sets if no pending focus (preserves game selection when returning)
 }
 
 // isGameButton returns true if the button is a game button (not a toolbar button)

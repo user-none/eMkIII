@@ -12,6 +12,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/user-none/emkiii/ui/screens"
 	"github.com/user-none/emkiii/ui/storage"
+	"github.com/user-none/emkiii/ui/style"
 )
 
 // App is the main application struct that implements ebiten.Game
@@ -114,6 +115,12 @@ func NewApp() (*App, error) {
 	}
 	app.config = config
 
+	// Validate and apply theme
+	if !style.IsValidThemeName(app.config.Theme) {
+		app.config.Theme = "Default"
+	}
+	style.ApplyThemeByName(app.config.Theme)
+
 	// Load library
 	library, err := storage.LoadLibrary()
 	if err != nil {
@@ -159,6 +166,8 @@ func NewApp() (*App, error) {
 		},
 	)
 
+	// Call OnEnter for initial screen (sets default focus)
+	app.libraryScreen.OnEnter()
 	app.rebuildCurrentScreen()
 
 	return app, nil
@@ -216,6 +225,8 @@ func (a *App) rebuildCurrentScreen() {
 	case StateDetail:
 		container = a.detailScreen.Build()
 	case StateSettings:
+		// Save scroll position before rebuilding
+		a.settingsScreen.SaveScrollPosition()
 		container = a.settingsScreen.Build()
 	case StateScanProgress:
 		container = a.scanScreen.Build()
@@ -267,9 +278,10 @@ func (a *App) Update() error {
 		if a.state != StateSettings {
 			return nil
 		}
-		// Settings has its own scroll handling
-		_ = nav
 		a.restorePendingFocus(a.settingsScreen)
+		if nav.FocusChanged {
+			a.ensureFocusedVisible()
+		}
 		// Check if settings screen triggered a scan (after adding directory)
 		if a.settingsScreen.HasPendingScan() {
 			a.settingsScreen.ClearPendingScan()
@@ -286,12 +298,21 @@ func (a *App) Update() error {
 		if nav.FocusChanged {
 			a.ensureFocusedVisible()
 		}
+	case StateDetail:
+		nav := a.processUIInput()
+		a.ui.Update()
+		if a.state != StateDetail {
+			return nil
+		}
+		a.restorePendingFocus(a.detailScreen)
+		if nav.FocusChanged {
+			a.ensureFocusedVisible()
+		}
 	default:
-		// StateDetail, StateError
+		// StateError only
 		nav := a.processUIInput()
 		prevState := a.state
 		a.ui.Update()
-		// Check if state changed during ui.Update (e.g., user clicked Back)
 		if a.state != prevState {
 			return nil
 		}
@@ -374,7 +395,8 @@ func (a *App) ensureFocusedVisible() {
 	switch a.state {
 	case StateLibrary:
 		a.libraryScreen.EnsureFocusedVisible(focused)
-		// Other screens can be added here as needed
+	case StateSettings:
+		a.settingsScreen.EnsureFocusedVisible(focused)
 	}
 }
 

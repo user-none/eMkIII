@@ -223,6 +223,8 @@ func (a *App) rebuildCurrentScreen() {
 	case StateDetail:
 		container = a.detailScreen.Build()
 	case StateSettings:
+		// Save scroll position before rebuilding
+		a.settingsScreen.SaveScrollPosition()
 		container = a.settingsScreen.Build()
 	case StateScanProgress:
 		container = a.scanScreen.Build()
@@ -274,9 +276,10 @@ func (a *App) Update() error {
 		if a.state != StateSettings {
 			return nil
 		}
-		// Settings has its own scroll handling
-		_ = nav
 		a.restorePendingFocus(a.settingsScreen)
+		if nav.FocusChanged {
+			a.ensureFocusedVisible()
+		}
 		// Check if settings screen triggered a scan (after adding directory)
 		if a.settingsScreen.HasPendingScan() {
 			a.settingsScreen.ClearPendingScan()
@@ -381,7 +384,8 @@ func (a *App) ensureFocusedVisible() {
 	switch a.state {
 	case StateLibrary:
 		a.libraryScreen.EnsureFocusedVisible(focused)
-		// Other screens can be added here as needed
+	case StateSettings:
+		a.settingsScreen.EnsureFocusedVisible(focused)
 	}
 }
 

@@ -457,13 +457,16 @@ func (s *SettingsScreen) buildAppearanceSection() *widget.Container {
 	}
 
 	// Wrap in scrollable container using existing style helper
-	_, _, scrollWrapper := style.ScrollableContainer(style.ScrollableOpts{
+	scrollContainer, vSlider, scrollWrapper := style.ScrollableContainer(style.ScrollableOpts{
 		Content:     themeListContent,
 		BgColor:     style.Background,
 		BorderColor: style.Border,
 		Spacing:     0,
 		Padding:     style.SmallSpacing,
 	})
+	s.SetScrollWidgets(scrollContainer, vSlider)
+	// Restore scroll position after rebuild
+	s.RestoreScrollPosition()
 	section.AddChild(scrollWrapper)
 
 	return section
@@ -675,4 +678,10 @@ func (s *SettingsScreen) buildThemePreview(theme style.Theme) *widget.Container 
 // OnEnter is called when entering the settings screen
 func (s *SettingsScreen) OnEnter() {
 	// Nothing to do
+}
+
+// EnsureFocusedVisible scrolls the theme list to keep the focused widget visible
+func (s *SettingsScreen) EnsureFocusedVisible(focused widget.Focuser) {
+	// Use the base implementation - all theme buttons should trigger scrolling
+	s.BaseScreen.EnsureFocusedVisible(focused, nil)
 }

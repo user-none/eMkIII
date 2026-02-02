@@ -92,8 +92,47 @@ var (
 		Black:         color.NRGBA{0x00, 0x00, 0x00, 0xff},
 	}
 
+	ThemePink = Theme{
+		Name:          "Pink",
+		Background:    color.NRGBA{0x1a, 0x0a, 0x1a, 0xff}, // Very dark magenta
+		Surface:       color.NRGBA{0x3a, 0x1a, 0x3a, 0xff},
+		Primary:       color.NRGBA{0xc0, 0x10, 0x70, 0xff}, // Darker pink
+		PrimaryHover:  color.NRGBA{0xff, 0x14, 0x93, 0xff},
+		Text:          color.NRGBA{0xff, 0xfa, 0xfc, 0xff}, // Bright white-pink
+		TextSecondary: color.NRGBA{0xff, 0x99, 0xcc, 0xff}, // Light pink
+		Accent:        color.NRGBA{0xff, 0x00, 0xff, 0xff}, // Magenta
+		Border:        color.NRGBA{0x5a, 0x2a, 0x5a, 0xff},
+		Black:         color.NRGBA{0x00, 0x00, 0x00, 0xff},
+	}
+
+	ThemeHotPink = Theme{
+		Name:          "Hot Pink",
+		Background:    color.NRGBA{0x4d, 0x15, 0x3d, 0xff}, // Brighter dark pink
+		Surface:       color.NRGBA{0x70, 0x25, 0x58, 0xff}, // Brighter medium pink
+		Primary:       color.NRGBA{0xff, 0x33, 0x99, 0xff}, // Brighter neon pink
+		PrimaryHover:  color.NRGBA{0xff, 0x66, 0xb2, 0xff},
+		Text:          color.NRGBA{0xff, 0xff, 0xff, 0xff}, // White
+		TextSecondary: color.NRGBA{0xff, 0xb3, 0xda, 0xff}, // Brighter light pink
+		Accent:        color.NRGBA{0xff, 0x44, 0xff, 0xff}, // Brighter magenta
+		Border:        color.NRGBA{0x99, 0x33, 0x77, 0xff},
+		Black:         color.NRGBA{0x00, 0x00, 0x00, 0xff},
+	}
+
+	ThemeGreenLCD = Theme{
+		Name:          "Green LCD",
+		Background:    color.NRGBA{0x07, 0x20, 0x07, 0xff}, // Very dark green
+		Surface:       color.NRGBA{0x0f, 0x38, 0x0f, 0xff}, // Dark green
+		Primary:       color.NRGBA{0x30, 0x62, 0x30, 0xff}, // Mid green
+		PrimaryHover:  color.NRGBA{0x4a, 0x7c, 0x4a, 0xff},
+		Text:          color.NRGBA{0x9b, 0xbc, 0x0f, 0xff}, // Bright yellow-green
+		TextSecondary: color.NRGBA{0x5a, 0x7a, 0x0f, 0xff}, // Dimmer green
+		Accent:        color.NRGBA{0xc0, 0xe0, 0x30, 0xff}, // Bright lime
+		Border:        color.NRGBA{0x20, 0x50, 0x20, 0xff},
+		Black:         color.NRGBA{0x07, 0x20, 0x07, 0xff},
+	}
+
 	// AvailableThemes lists all themes for UI selection
-	AvailableThemes = []Theme{ThemeDefault, ThemeDark, ThemeLight, ThemeRetro}
+	AvailableThemes = []Theme{ThemeDefault, ThemeDark, ThemeLight, ThemeRetro, ThemePink, ThemeHotPink, ThemeGreenLCD}
 
 	// CurrentThemeName tracks the active theme name
 	CurrentThemeName = "Default"

@@ -13,6 +13,9 @@ const (
 	// Cycle at which line counter decrements and line interrupt may fire
 	// On real hardware, this happens around cycle 8-10 into the scanline
 	LineInterruptCycle = 8
+	// Cycle at which CRAM is latched for rendering
+	// After line interrupt (cycle 8) has time to run, giving handlers ~6 cycles to modify CRAM
+	CRAMLatchCycle = 14
 )
 
 // hCounterTable maps CPU cycle offset (0-227) to H-counter value (0-255)
@@ -81,6 +84,7 @@ func GetHCounterForCycle(cycle int) uint8 {
 type VDP struct {
 	vram           [0x4000]uint8 // 16KB VRAM
 	cram           [0x20]uint8   // 32 bytes CRAM (palette)
+	cramLatch      [0x20]uint8   // Latched CRAM for rendering (latched at CRAMLatchCycle)
 	register       [16]uint8     // VDP registers
 	addr           uint16        // Current VRAM/CRAM address
 	addrLatch      uint8         // First byte of control write
@@ -266,9 +270,9 @@ func (v *VDP) WriteData(value uint8) {
 	v.addr = (v.addr + 1) & 0x3FFF
 }
 
-// cramToColor converts a CRAM entry to RGBA
+// cramToColor converts a CRAM entry to RGBA using the latched CRAM values
 func (v *VDP) cramToColor(index uint8) color.RGBA {
-	c := v.cram[index&0x1F]
+	c := v.cramLatch[index&0x1F]
 	r := (c >> 0) & 0x03
 	g := (c >> 2) & 0x03
 	b := (c >> 4) & 0x03
@@ -310,6 +314,12 @@ func (v *VDP) SetVCounter(line uint16) {
 // Any writes to Register 9 during active display are buffered until next frame
 func (v *VDP) LatchVScrollForFrame() {
 	v.vScrollLatch = v.register[9]
+}
+
+// LatchCRAM latches the CRAM palette for rendering
+// Called at CRAMLatchCycle into each scanline, after line interrupt handlers have had time to modify CRAM
+func (v *VDP) LatchCRAM() {
+	copy(v.cramLatch[:], v.cram[:])
 }
 
 // UpdateLineCounter updates the line interrupt counter

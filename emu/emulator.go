@@ -108,6 +108,7 @@ func (e *EmulatorBase) runScanlines() []float32 {
 		// Flags to track per-scanline interrupt triggers
 		vblankChecked := false
 		lineInterruptChecked := false
+		cramLatched := false
 		isVBlankLine := (i == activeHeight)
 
 		scanlineCycles := 0
@@ -128,6 +129,12 @@ func (e *EmulatorBase) runScanlines() []float32 {
 				e.vdp.UpdateLineCounter()
 				lineInterruptChecked = true
 				e.checkAndSetInterrupt()
+			}
+
+			// Latch CRAM at cycle 14 (after line interrupt handler can modify it)
+			if !cramLatched && scanlineProgress >= CRAMLatchCycle {
+				e.vdp.LatchCRAM()
+				cramLatched = true
 			}
 
 			e.vdp.SetHCounter(GetHCounterForCycle(scanlineProgress))
@@ -290,6 +297,7 @@ func (e *EmulatorBase) SerializeSize() int {
 		1 + // ramControl
 		0x4000 + // VRAM (16KB)
 		0x20 + // CRAM (32 bytes)
+		0x20 + // CRAM latch (32 bytes)
 		16 + // VDP registers
 		2 + // addr
 		4 + // addrLatch, writeLatch, codeReg, readBuffer
@@ -598,6 +606,10 @@ func (e *EmulatorBase) serializeVDP(data []byte, offset int) int {
 	copy(data[offset:], e.vdp.cram[:])
 	offset += len(e.vdp.cram)
 
+	// CRAM latch (32 bytes)
+	copy(data[offset:], e.vdp.cramLatch[:])
+	offset += len(e.vdp.cramLatch)
+
 	// Registers (16 bytes)
 	copy(data[offset:], e.vdp.register[:])
 	offset += len(e.vdp.register)
@@ -666,6 +678,10 @@ func (e *EmulatorBase) deserializeVDP(data []byte, offset int) int {
 	// CRAM (32 bytes)
 	copy(e.vdp.cram[:], data[offset:offset+len(e.vdp.cram)])
 	offset += len(e.vdp.cram)
+
+	// CRAM latch (32 bytes)
+	copy(e.vdp.cramLatch[:], data[offset:offset+len(e.vdp.cramLatch)])
+	offset += len(e.vdp.cramLatch)
 
 	// Registers (16 bytes)
 	copy(e.vdp.register[:], data[offset:offset+len(e.vdp.register)])

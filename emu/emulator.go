@@ -142,6 +142,13 @@ func (e *EmulatorBase) runScanlines() []float32 {
 			executedCycles += cycles
 			scanlineCycles += cycles
 
+			// Check if VDP register write requires interrupt state update.
+			// SMS interrupt line is level-triggered, so enabling interrupts via
+			// register write should immediately assert pending interrupts.
+			if e.vdp.InterruptCheckRequired() {
+				e.checkAndSetInterrupt()
+			}
+
 			// Update interrupt state only when VDP status was read (level-triggered).
 			// Reading status clears flags, which should de-assert the interrupt line.
 			if e.vdp.StatusWasRead() {
@@ -307,6 +314,7 @@ func (e *EmulatorBase) SerializeSize() int {
 		2 + // lineCounter
 		1 + // lineIntPending
 		4 + // hScrollLatch, reg2Latch, reg7Latch, vScrollLatch
+		1 + // interruptCheckRequired
 		45 + // PSG state
 		2 // Input ports
 }
@@ -666,6 +674,14 @@ func (e *EmulatorBase) serializeVDP(data []byte, offset int) int {
 	data[offset] = e.vdp.vScrollLatch
 	offset++
 
+	// interruptCheckRequired (1 byte)
+	if e.vdp.interruptCheckRequired {
+		data[offset] = 1
+	} else {
+		data[offset] = 0
+	}
+	offset++
+
 	return offset
 }
 
@@ -729,6 +745,10 @@ func (e *EmulatorBase) deserializeVDP(data []byte, offset int) int {
 	e.vdp.reg7Latch = data[offset]
 	offset++
 	e.vdp.vScrollLatch = data[offset]
+	offset++
+
+	// interruptCheckRequired (1 byte)
+	e.vdp.interruptCheckRequired = data[offset] != 0
 	offset++
 
 	return offset

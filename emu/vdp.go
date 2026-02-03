@@ -108,7 +108,8 @@ type VDP struct {
 	totalScanlines int // 262 for NTSC, 313 for PAL
 
 	// Interrupt state tracking
-	statusWasRead bool // Set when status register is read (flags cleared)
+	statusWasRead          bool // Set when status register is read (flags cleared)
+	interruptCheckRequired bool // Set when reg0/reg1 written, requiring interrupt state update
 }
 
 // Palette scale: 2-bit SMS color to 8-bit RGB
@@ -216,6 +217,17 @@ func (v *VDP) StatusWasRead() bool {
 	return false
 }
 
+// InterruptCheckRequired returns and clears the interrupt check flag.
+// Set when reg0 or reg1 is written (interrupt enable bits may have changed).
+// Used by emulator to update interrupt state after register writes.
+func (v *VDP) InterruptCheckRequired() bool {
+	if v.interruptCheckRequired {
+		v.interruptCheckRequired = false
+		return true
+	}
+	return false
+}
+
 // WriteControl handles the two-write control port sequence
 func (v *VDP) WriteControl(value uint8) {
 	if !v.writeLatch {
@@ -238,6 +250,11 @@ func (v *VDP) WriteControl(value uint8) {
 			regNum := value & 0x0F
 			if regNum < 16 {
 				v.register[regNum] = v.addrLatch
+				// Interrupt enable bits are in reg0 bit 4 (line) and reg1 bit 5 (frame)
+				// Writing to these registers may require interrupt state update
+				if regNum == 0 || regNum == 1 {
+					v.interruptCheckRequired = true
+				}
 			}
 		case 3: // CRAM write setup
 			// CRAM write mode

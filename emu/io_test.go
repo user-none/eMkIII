@@ -180,16 +180,19 @@ func TestIO_VDPDataRead(t *testing.T) {
 	vdp.WriteControl(0x00) // Low address = 0
 	vdp.WriteControl(0x40) // High address = 0, code = 1 (VRAM write)
 	vdp.WriteData(0xAB)
+	vdp.WriteData(0xCD) // Write a second byte
 
 	// Set up for VRAM read
 	vdp.WriteControl(0x00) // Low address = 0
 	vdp.WriteControl(0x00) // High address = 0, code = 0 (VRAM read)
 
-	// Read via I/O port - first read returns pre-fetched byte
-	// Second read should return the data we wrote
-	io.In(0xBE) // Discard pre-fetch
-	if got := io.In(0x80); got != 0xAB {
-		t.Errorf("VRAM read via $80: expected 0xAB, got 0x%02X", got)
+	// Read via I/O port - first read returns pre-fetched byte at address 0
+	if got := io.In(0xBE); got != 0xAB {
+		t.Errorf("VRAM read via $BE: expected 0xAB, got 0x%02X", got)
+	}
+	// Second read returns byte at address 1
+	if got := io.In(0x80); got != 0xCD {
+		t.Errorf("VRAM read via $80: expected 0xCD, got 0x%02X", got)
 	}
 }
 

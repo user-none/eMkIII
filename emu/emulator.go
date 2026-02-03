@@ -298,7 +298,7 @@ func (e *EmulatorBase) SerializeSize() int {
 		1 + // hCounter
 		2 + // lineCounter
 		1 + // lineIntPending
-		3 + // hScrollLatch, reg2Latch, vScrollLatch
+		4 + // hScrollLatch, reg2Latch, reg7Latch, vScrollLatch
 		45 + // PSG state
 		2 // Input ports
 }
@@ -644,10 +644,12 @@ func (e *EmulatorBase) serializeVDP(data []byte, offset int) int {
 	}
 	offset++
 
-	// Latched values (3 bytes)
+	// Latched values (4 bytes)
 	data[offset] = e.vdp.hScrollLatch
 	offset++
 	data[offset] = e.vdp.reg2Latch
+	offset++
+	data[offset] = e.vdp.reg7Latch
 	offset++
 	data[offset] = e.vdp.vScrollLatch
 	offset++
@@ -703,10 +705,12 @@ func (e *EmulatorBase) deserializeVDP(data []byte, offset int) int {
 	e.vdp.lineIntPending = data[offset] != 0
 	offset++
 
-	// Latched values (3 bytes)
+	// Latched values (4 bytes)
 	e.vdp.hScrollLatch = data[offset]
 	offset++
 	e.vdp.reg2Latch = data[offset]
+	offset++
+	e.vdp.reg7Latch = data[offset]
 	offset++
 	e.vdp.vScrollLatch = data[offset]
 	offset++

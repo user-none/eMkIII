@@ -97,6 +97,7 @@ type VDP struct {
 	// Per-scanline latched values
 	hScrollLatch uint8 // Latched hScroll for current scanline (per-scanline)
 	reg2Latch    uint8 // Latched register 2 (name table base) for current scanline
+	reg7Latch    uint8 // Latched backdrop color index for current scanline
 	// Per-frame latched values (latched once at start of frame during VBlank)
 	vScrollLatch uint8 // Latched vScroll for entire frame (per-frame, NOT per-scanline)
 	// Region info for V-counter calculation
@@ -300,6 +301,7 @@ func (v *VDP) SetVCounter(line uint16) {
 	// Latch per-scanline values (hScroll can be changed mid-frame for raster effects)
 	v.hScrollLatch = v.register[8]
 	v.reg2Latch = v.register[2]
+	v.reg7Latch = v.register[7]
 	// NOTE: vScroll is NOT latched here - it's latched once per frame via LatchVScrollForFrame()
 }
 
@@ -347,8 +349,8 @@ func (v *VDP) RenderScanline() {
 
 	// Check if display is enabled (register 1, bit 6)
 	if v.register[1]&0x40 == 0 {
-		// Display disabled - fill with backdrop color
-		bgColor := v.cramToColor(16 + (v.register[7] & 0x0F))
+		// Display disabled - fill with backdrop color (using latched reg7)
+		bgColor := v.cramToColor(16 + (v.reg7Latch & 0x0F))
 		for x := 0; x < ScreenWidth; x++ {
 			v.framebuffer.SetRGBA(x, int(line), bgColor)
 		}
@@ -361,7 +363,7 @@ func (v *VDP) RenderScanline() {
 
 	// Left column blank (register 0 bit 5) - mask first 8 pixels with backdrop
 	if v.register[0]&0x20 != 0 {
-		bgColor := v.cramToColor(16 + (v.register[7] & 0x0F))
+		bgColor := v.cramToColor(16 + (v.reg7Latch & 0x0F))
 		for x := 0; x < 8; x++ {
 			v.framebuffer.SetRGBA(x, int(line), bgColor)
 		}

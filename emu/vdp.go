@@ -7,14 +7,8 @@ import (
 
 // VDP timing constants (in CPU cycles within a scanline)
 const (
-	// Cycle at which V-counter is updated (approximately mid-scanline during H-blank)
-	VCounterUpdateCycle = 110
-	// Cycle at which line interrupt is checked
-	LineInterruptCycle = 8
 	// Cycle at which VBlank interrupt is triggered
 	VBlankInterruptCycle = 0
-	// Cycle at which rendering occurs (end of active display area)
-	RenderCycle = 170
 )
 
 // hCounterTable maps CPU cycle offset (0-227) to H-counter value (0-255)
@@ -244,9 +238,8 @@ func (v *VDP) WriteControl(value uint8) {
 
 // ReadData returns data from VRAM
 func (v *VDP) ReadData() uint8 {
-	// Note: Some documentation says data port access clears the control latch,
-	// but not clearing it here seems to help with games that have tight
-	// interrupt handler timing
+	// Data port access clears the control write latch (matches real hardware)
+	v.writeLatch = false
 	data := v.readBuffer
 	v.addr = (v.addr + 1) & 0x3FFF
 	v.readBuffer = v.vram[v.addr&0x3FFF]
@@ -255,7 +248,8 @@ func (v *VDP) ReadData() uint8 {
 
 // WriteData writes to VRAM or CRAM depending on code register
 func (v *VDP) WriteData(value uint8) {
-	// Note: Not clearing writeLatch here to avoid corrupting control port sequences
+	// Data port access clears the control write latch (matches real hardware)
+	v.writeLatch = false
 	if v.codeReg == 3 {
 		// CRAM write
 		cramAddr := v.addr & 0x1F

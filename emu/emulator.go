@@ -75,6 +75,15 @@ func initEmulatorBase(rom []byte, region Region) EmulatorBase {
 	}
 }
 
+// checkAndSetInterrupt updates CPU interrupt state based on VDP pending interrupts
+func (e *EmulatorBase) checkAndSetInterrupt() {
+	if e.vdp.InterruptPending() {
+		e.cpu.SetInterrupt(z80.IM1Interrupt())
+	} else {
+		e.cpu.ClearInterrupt()
+	}
+}
+
 // runScanlines executes one frame of CPU/VDP/PSG emulation and returns audio samples
 func (e *EmulatorBase) runScanlines() []float32 {
 	activeHeight := e.vdp.ActiveHeight()
@@ -101,6 +110,8 @@ func (e *EmulatorBase) runScanlines() []float32 {
 		vblankChecked := false
 		isVBlankLine := (i == activeHeight)
 
+		e.checkAndSetInterrupt()
+
 		scanlineCycles := 0
 		for executedCycles < targetCycles {
 			scanlineProgress := executedCycles - prevTargetCycles
@@ -110,11 +121,7 @@ func (e *EmulatorBase) runScanlines() []float32 {
 				e.vdp.SetVBlank()
 				vblankChecked = true
 				// Check interrupt state after VBlank trigger
-				if e.vdp.InterruptPending() {
-					e.cpu.SetInterrupt(z80.IM1Interrupt())
-				} else {
-					e.cpu.ClearInterrupt()
-				}
+				e.checkAndSetInterrupt()
 			}
 
 			// Check line interrupt at cycle 8
@@ -122,17 +129,19 @@ func (e *EmulatorBase) runScanlines() []float32 {
 				e.vdp.UpdateLineCounter()
 				lineIntChecked = true
 				// Check interrupt state after line counter update
-				if e.vdp.InterruptPending() {
-					e.cpu.SetInterrupt(z80.IM1Interrupt())
-				} else {
-					e.cpu.ClearInterrupt()
-				}
+				e.checkAndSetInterrupt()
 			}
 
 			e.vdp.SetHCounter(GetHCounterForCycle(scanlineProgress))
 			cycles := e.cpu.Step()
 			executedCycles += cycles
 			scanlineCycles += cycles
+
+			// Update interrupt state only when VDP status was read (level-triggered).
+			// Reading status clears flags, which should de-assert the interrupt line.
+			if e.vdp.StatusWasRead() {
+				e.checkAndSetInterrupt()
+			}
 		}
 
 		// Handle any interrupt checks that didn't trigger during short scanlines

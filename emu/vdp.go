@@ -103,6 +103,9 @@ type VDP struct {
 	vScrollLatch uint8 // Latched vScroll for entire frame (per-frame, NOT per-scanline)
 	// Region info for V-counter calculation
 	totalScanlines int // 262 for NTSC, 313 for PAL
+
+	// Interrupt state tracking
+	statusWasRead bool // Set when status register is read (flags cleared)
 }
 
 // Palette scale: 2-bit SMS color to 8-bit RGB
@@ -196,7 +199,18 @@ func (v *VDP) ReadControl() uint8 {
 	v.status &^= 0xE0 // Clear bits 7, 6, 5
 	v.lineIntPending = false
 	v.writeLatch = false // Clear address latch (matches real hardware)
+	v.statusWasRead = true // Signal that interrupt state needs updating
 	return status
+}
+
+// StatusWasRead returns and clears the status-read flag.
+// Used by emulator to update interrupt state only when needed.
+func (v *VDP) StatusWasRead() bool {
+	if v.statusWasRead {
+		v.statusWasRead = false
+		return true
+	}
+	return false
 }
 
 // WriteControl handles the two-write control port sequence

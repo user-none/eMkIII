@@ -8,7 +8,8 @@ import (
 // VDP timing constants (in CPU cycles within a scanline)
 const (
 	// Cycle at which VBlank interrupt is triggered
-	VBlankInterruptCycle = 0
+	// Real hardware fires VBlank slightly after scanline start
+	VBlankInterruptCycle = 4
 	// Cycle at which line counter decrements and line interrupt may fire
 	// On real hardware, this happens around cycle 8-10 into the scanline
 	LineInterruptCycle = 8

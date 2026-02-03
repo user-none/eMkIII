@@ -50,7 +50,8 @@ func (c *CycleZ80) GetIM() int {
 // TriggerNMI triggers a non-maskable interrupt.
 // On the SMS, this is connected to the Pause button.
 // The NMI pushes PC to stack and jumps to 0x0066.
-func (c *CycleZ80) TriggerNMI() {
+// Returns 11 T-states consumed by the NMI response.
+func (c *CycleZ80) TriggerNMI() int {
 	// NMI is edge-triggered and non-maskable
 	// It disables interrupts (IFF1=0) and jumps to 0x0066
 	c.cpu.IFF1 = false
@@ -63,6 +64,9 @@ func (c *CycleZ80) TriggerNMI() {
 	c.cpu.PC = 0x0066
 	// Wake from HALT if halted
 	c.cpu.HALT = false
+	// NMI response takes 11 T-states on Z80
+	return 11
+
 }
 
 // Step executes one instruction and returns the number of T-states (cycles) consumed.

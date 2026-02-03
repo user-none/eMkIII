@@ -347,8 +347,9 @@ func TestEmulator_VDPLineCounter(t *testing.T) {
 	vdp.WriteControl(0x05) // Reload value = 5
 	vdp.WriteControl(0x8A)
 
-	// Simulate VBlank scanline to initialize counter
-	vdp.SetVCounter(192)
+	// Per SMS VDP hardware: counter reloads on lines 193+ (not 192)
+	// Line 192 still decrements, use line 193 for initialization
+	vdp.SetVCounter(193)
 	vdp.UpdateLineCounter()
 
 	// Counter should be 5

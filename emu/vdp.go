@@ -350,8 +350,13 @@ func (v *VDP) LatchPerLineRegisters() {
 func (v *VDP) UpdateLineCounter() {
 	activeHeight := uint16(v.ActiveHeight())
 
-	if v.vCounter < activeHeight {
-		// Active display - decrement counter
+	// Per SMS VDP hardware documentation:
+	// - Counter decrements on lines 0 through activeHeight (inclusive)
+	// - Counter reloads on lines (activeHeight+1) through end of frame
+	// For 192-line mode: decrement on 0-192, reload on 193-261
+	// For 224-line mode: decrement on 0-224, reload on 225-261
+	if v.vCounter <= activeHeight {
+		// Active display + first VBlank line - decrement counter
 		v.lineCounter--
 		if v.lineCounter < 0 {
 			// Counter underflow - reload and set interrupt pending
@@ -359,9 +364,8 @@ func (v *VDP) UpdateLineCounter() {
 			v.lineIntPending = true
 		}
 	} else {
-		// VBlank period - reload counter from register 10 every scanline
-		// Per SMS VDP hardware, the line counter is continuously reloaded during vblank
-		// No line interrupts are generated during vblank
+		// VBlank period (after first line) - reload counter from register 10
+		// No line interrupts are generated during this period
 		v.lineCounter = int16(v.register[10])
 	}
 }

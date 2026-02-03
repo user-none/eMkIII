@@ -220,9 +220,10 @@ func TestVDP_LineCounterBehavior(t *testing.T) {
 	vdp.WriteControl(0x05) // Value = 5
 	vdp.WriteControl(0x8A) // Register 10
 
-	// First, simulate a VBlank scanline to properly initialize the counter
-	// During VBlank, the counter is reloaded from register 10 every scanline
-	vdp.SetVCounter(192) // VBlank starts at line 192 in default 192-line mode
+	// Per SMS VDP hardware: counter reloads on lines 193+ (not 192)
+	// Line 192 still decrements (it's the first VBlank line but still counts)
+	// Use line 193 to properly initialize the counter via reload
+	vdp.SetVCounter(193)
 	vdp.UpdateLineCounter()
 
 	// Now counter should be 5 (from register 10)
@@ -601,8 +602,8 @@ func TestVDP_LineCounter_Getter(t *testing.T) {
 	vdp.WriteControl(0x0A)
 	vdp.WriteControl(0x8A) // Register 10 = 10
 
-	// Initialize via VBlank
-	vdp.SetVCounter(192)
+	// Initialize via VBlank (line 193+, since line 192 still decrements)
+	vdp.SetVCounter(193)
 	vdp.UpdateLineCounter()
 
 	if got := vdp.GetLineCounter(); got != 10 {
@@ -623,8 +624,8 @@ func TestVDP_GetLineIntPending(t *testing.T) {
 	vdp.WriteControl(0x00) // Counter reload = 0
 	vdp.WriteControl(0x8A)
 
-	// VBlank to initialize
-	vdp.SetVCounter(192)
+	// VBlank to initialize (line 193+, since line 192 still decrements)
+	vdp.SetVCounter(193)
 	vdp.UpdateLineCounter()
 
 	// Active line should trigger underflow

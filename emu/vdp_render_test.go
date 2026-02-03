@@ -28,6 +28,7 @@ func TestVDP_RenderScanline_DisplayDisabled(t *testing.T) {
 	// Set scanline
 	vdp.SetVCounter(0)
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 
 	// Render
 	vdp.RenderScanline()
@@ -99,6 +100,7 @@ func TestVDP_RenderScanline_LeftColumnBlank(t *testing.T) {
 
 	vdp.SetVCounter(0)
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	// First 8 pixels should be backdrop color
@@ -138,6 +140,7 @@ func TestVDP_cramToColor(t *testing.T) {
 
 		// Latch CRAM before reading (cramToColor uses latched values)
 		vdp.LatchCRAM()
+		vdp.LatchPerLineRegisters()
 
 		c := vdp.cramToColor(0)
 		if c != tc.expected {
@@ -193,6 +196,7 @@ func TestVDP_RenderBackground_BasicTile(t *testing.T) {
 	vdp.SetVCounter(0)
 	vdp.LatchVScrollForFrame()
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	// First 8 pixels should be green (from our tile)
@@ -249,6 +253,7 @@ func TestVDP_RenderBackground_HorizontalFlip(t *testing.T) {
 	vdp.SetVCounter(0)
 	vdp.LatchVScrollForFrame()
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	fb := vdp.Framebuffer()
@@ -328,6 +333,7 @@ func TestVDP_RenderBackground_VerticalFlip(t *testing.T) {
 	vdp.SetVCounter(0)
 	vdp.LatchVScrollForFrame()
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	fb := vdp.Framebuffer()
@@ -382,6 +388,7 @@ func TestVDP_RenderBackground_PaletteSelect(t *testing.T) {
 	vdp.SetVCounter(0)
 	vdp.LatchVScrollForFrame()
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	fb := vdp.Framebuffer()
@@ -453,6 +460,7 @@ func TestVDP_RenderSprites_BasicSprite(t *testing.T) {
 	vdp.SetVCounter(10)
 	vdp.LatchVScrollForFrame()
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	fb := vdp.Framebuffer()
@@ -517,6 +525,7 @@ func TestVDP_RenderSprites_Collision(t *testing.T) {
 	vdp.SetVCounter(10)
 	vdp.LatchVScrollForFrame()
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	// Check collision flag (status bit 5)
@@ -577,6 +586,7 @@ func TestVDP_RenderSprites_Overflow(t *testing.T) {
 	vdp.SetVCounter(10)
 	vdp.LatchVScrollForFrame()
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	// Check overflow flag (status bit 6)
@@ -642,6 +652,7 @@ func TestVDP_RenderSprites_Height16(t *testing.T) {
 	vdp.SetVCounter(10)
 	vdp.LatchVScrollForFrame()
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	fb := vdp.Framebuffer()
@@ -657,6 +668,7 @@ func TestVDP_RenderSprites_Height16(t *testing.T) {
 	// Render line 18 (bottom half of sprite, line 8 of the 16-line sprite)
 	vdp.SetVCounter(18)
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	greenColor := color.RGBA{R: 0, G: 255, B: 0, A: 255}
@@ -715,6 +727,7 @@ func TestVDP_RenderSprites_Terminator(t *testing.T) {
 	vdp.SetVCounter(10)
 	vdp.LatchVScrollForFrame()
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	fb := vdp.Framebuffer()
@@ -779,6 +792,7 @@ func TestVDP_RenderSprites_Zoom(t *testing.T) {
 	vdp.SetVCounter(10)
 	vdp.LatchVScrollForFrame()
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	fb := vdp.Framebuffer()
@@ -838,6 +852,7 @@ func TestVDP_RenderSprites_SpriteShift(t *testing.T) {
 	vdp.SetVCounter(10)
 	vdp.LatchVScrollForFrame()
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	fb := vdp.Framebuffer()
@@ -912,6 +927,7 @@ func TestVDP_RenderBackground_Priority(t *testing.T) {
 	vdp.SetVCounter(0)
 	vdp.LatchVScrollForFrame()
 	vdp.LatchCRAM()
+	vdp.LatchPerLineRegisters()
 	vdp.RenderScanline()
 
 	fb := vdp.Framebuffer()

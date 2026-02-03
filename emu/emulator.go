@@ -131,9 +131,10 @@ func (e *EmulatorBase) runScanlines() []float32 {
 				e.checkAndSetInterrupt()
 			}
 
-			// Latch CRAM at cycle 14 (after line interrupt handler can modify it)
+			// Latch CRAM and per-line registers at cycle 14 (after line interrupt handler can modify them)
 			if !cramLatched && scanlineProgress >= CRAMLatchCycle {
 				e.vdp.LatchCRAM()
+				e.vdp.LatchPerLineRegisters()
 				cramLatched = true
 			}
 

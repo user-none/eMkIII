@@ -315,15 +315,12 @@ func (v *VDP) InterruptPending() bool {
 	return frameInt || lineInt
 }
 
-// SetVCounter updates the current scanline and latches per-scanline values
+// SetVCounter updates the current scanline
 // This is called at the START of each scanline, BEFORE the CPU runs
+// NOTE: Per-scanline register latching (hScroll, reg2, reg7) is done separately
+// via LatchPerLineRegisters() AFTER line interrupts have had a chance to modify them
 func (v *VDP) SetVCounter(line uint16) {
 	v.vCounter = line
-	// Latch per-scanline values (hScroll can be changed mid-frame for raster effects)
-	v.hScrollLatch = v.register[8]
-	v.reg2Latch = v.register[2]
-	v.reg7Latch = v.register[7]
-	// NOTE: vScroll is NOT latched here - it's latched once per frame via LatchVScrollForFrame()
 }
 
 // LatchVScrollForFrame latches the vertical scroll register once per frame
@@ -337,6 +334,15 @@ func (v *VDP) LatchVScrollForFrame() {
 // Called at CRAMLatchCycle into each scanline, after line interrupt handlers have had time to modify CRAM
 func (v *VDP) LatchCRAM() {
 	copy(v.cramLatch[:], v.cram[:])
+}
+
+// LatchPerLineRegisters latches per-scanline registers (hScroll, reg2, reg7)
+// Called at CRAMLatchCycle, AFTER line interrupts have had a chance to modify registers
+// This ensures that register changes made in line interrupt handlers take effect on the current line
+func (v *VDP) LatchPerLineRegisters() {
+	v.hScrollLatch = v.register[8]
+	v.reg2Latch = v.register[2]
+	v.reg7Latch = v.register[7]
 }
 
 // UpdateLineCounter updates the line interrupt counter

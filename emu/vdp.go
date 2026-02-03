@@ -248,8 +248,8 @@ func (v *VDP) ReadData() uint8 {
 	// but not clearing it here seems to help with games that have tight
 	// interrupt handler timing
 	data := v.readBuffer
-	v.readBuffer = v.vram[v.addr&0x3FFF]
 	v.addr = (v.addr + 1) & 0x3FFF
+	v.readBuffer = v.vram[v.addr&0x3FFF]
 	return data
 }
 

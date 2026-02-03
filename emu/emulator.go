@@ -107,10 +107,8 @@ func (e *EmulatorBase) runScanlines() []float32 {
 
 		// Flags to track per-scanline interrupt triggers
 		vblankChecked := false
+		lineInterruptChecked := false
 		isVBlankLine := (i == activeHeight)
-
-		e.vdp.UpdateLineCounter()
-		e.checkAndSetInterrupt()
 
 		scanlineCycles := 0
 		for executedCycles < targetCycles {
@@ -121,6 +119,14 @@ func (e *EmulatorBase) runScanlines() []float32 {
 				e.vdp.SetVBlank()
 				vblankChecked = true
 				// Check interrupt state after VBlank trigger
+				e.checkAndSetInterrupt()
+			}
+
+			// Line counter decrements at LineInterruptCycle (~cycle 8)
+			// This is when line interrupts fire on real hardware
+			if !lineInterruptChecked && scanlineProgress >= LineInterruptCycle {
+				e.vdp.UpdateLineCounter()
+				lineInterruptChecked = true
 				e.checkAndSetInterrupt()
 			}
 
@@ -138,6 +144,11 @@ func (e *EmulatorBase) runScanlines() []float32 {
 
 		if !vblankChecked && isVBlankLine {
 			e.vdp.SetVBlank()
+		}
+
+		// Ensure line counter is updated even for short scanlines
+		if !lineInterruptChecked {
+			e.vdp.UpdateLineCounter()
 		}
 
 		if i < activeHeight {

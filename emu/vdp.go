@@ -9,6 +9,9 @@ import (
 const (
 	// Cycle at which VBlank interrupt is triggered
 	VBlankInterruptCycle = 0
+	// Cycle at which line counter decrements and line interrupt may fire
+	// On real hardware, this happens around cycle 8-10 into the scanline
+	LineInterruptCycle = 8
 )
 
 // hCounterTable maps CPU cycle offset (0-227) to H-counter value (0-255)
@@ -192,7 +195,7 @@ func (v *VDP) ReadControl() uint8 {
 	// Clear VBlank, overflow, collision flags on read
 	v.status &^= 0xE0 // Clear bits 7, 6, 5
 	v.lineIntPending = false
-	v.writeLatch = false // Clear address latch (matches real hardware)
+	v.writeLatch = false   // Clear address latch (matches real hardware)
 	v.statusWasRead = true // Signal that interrupt state needs updating
 	return status
 }

@@ -16,10 +16,34 @@ var crtShaderSrc []byte
 //go:embed shaders/scanlines.kage
 var scanlinesShaderSrc []byte
 
+//go:embed shaders/bloom.kage
+var bloomShaderSrc []byte
+
+//go:embed shaders/lcd.kage
+var lcdShaderSrc []byte
+
+//go:embed shaders/colorbleed.kage
+var colorbleedShaderSrc []byte
+
+//go:embed shaders/dotmatrix.kage
+var dotmatrixShaderSrc []byte
+
+//go:embed shaders/ntsc.kage
+var ntscShaderSrc []byte
+
+//go:embed shaders/gamma.kage
+var gammaShaderSrc []byte
+
 // shaderSources maps shader IDs to their Kage source code
 var shaderSources = map[string][]byte{
-	"crt":       crtShaderSrc,
-	"scanlines": scanlinesShaderSrc,
+	"crt":        crtShaderSrc,
+	"scanlines":  scanlinesShaderSrc,
+	"bloom":      bloomShaderSrc,
+	"lcd":        lcdShaderSrc,
+	"colorbleed": colorbleedShaderSrc,
+	"dotmatrix":  dotmatrixShaderSrc,
+	"ntsc":       ntscShaderSrc,
+	"gamma":      gammaShaderSrc,
 }
 
 // Manager handles shader compilation, caching, and application
@@ -27,8 +51,9 @@ type Manager struct {
 	// Compiled shader cache
 	shaders map[string]*ebiten.Shader
 
-	// Intermediate buffer for shader chaining
-	buffer *ebiten.Image
+	// Intermediate buffers for shader chaining (ping-pong)
+	bufferA *ebiten.Image
+	bufferB *ebiten.Image
 }
 
 // NewManager creates a new shader manager
@@ -70,18 +95,31 @@ func (m *Manager) PreloadShaders(ids []string) {
 	}
 }
 
-// getOrCreateBuffer returns a buffer matching the given dimensions
-func (m *Manager) getOrCreateBuffer(width, height int) *ebiten.Image {
-	if m.buffer != nil {
-		bw, bh := m.buffer.Bounds().Dx(), m.buffer.Bounds().Dy()
-		if bw == width && bh == height {
-			return m.buffer
+// ensureBuffers creates or resizes the ping-pong buffers to match dimensions
+func (m *Manager) ensureBuffers(width, height int) {
+	// Check if bufferA needs (re)creation
+	if m.bufferA != nil {
+		bw, bh := m.bufferA.Bounds().Dx(), m.bufferA.Bounds().Dy()
+		if bw != width || bh != height {
+			m.bufferA.Deallocate()
+			m.bufferA = nil
 		}
-		// Size changed, dispose old buffer
-		m.buffer.Deallocate()
 	}
-	m.buffer = ebiten.NewImage(width, height)
-	return m.buffer
+	if m.bufferA == nil {
+		m.bufferA = ebiten.NewImage(width, height)
+	}
+
+	// Check if bufferB needs (re)creation
+	if m.bufferB != nil {
+		bw, bh := m.bufferB.Bounds().Dx(), m.bufferB.Bounds().Dy()
+		if bw != width || bh != height {
+			m.bufferB.Deallocate()
+			m.bufferB = nil
+		}
+	}
+	if m.bufferB == nil {
+		m.bufferB = ebiten.NewImage(width, height)
+	}
 }
 
 // ApplyShaders draws src to dst with the specified shader chain applied.
@@ -129,23 +167,28 @@ func (m *Manager) ApplyShaders(dst, src *ebiten.Image, shaderIDs []string) bool 
 		return true
 	}
 
-	// Multiple shaders - chain through intermediate buffer
-	buffer := m.getOrCreateBuffer(srcW, srcH)
+	// Multiple shaders - chain through ping-pong buffers
+	m.ensureBuffers(srcW, srcH)
 
-	// First shader: src -> buffer
-	buffer.Clear()
-	op := &ebiten.DrawRectShaderOptions{}
-	op.Images[0] = src
-	buffer.DrawRectShader(srcW, srcH, validShaders[0], op)
+	// Track current input for each pass
+	currentInput := src
+	buffers := [2]*ebiten.Image{m.bufferA, m.bufferB}
 
-	// Middle shaders: ping-pong between src-copy and buffer
-	// For simplicity with 2 shaders (our current case), we go straight to dst
-	// For more shaders, we'd need a second buffer for ping-pong
+	for i, shader := range validShaders {
+		op := &ebiten.DrawRectShaderOptions{}
+		op.Images[0] = currentInput
 
-	// Last shader: buffer -> dst
-	op = &ebiten.DrawRectShaderOptions{}
-	op.Images[0] = buffer
-	dst.DrawRectShader(srcW, srcH, validShaders[len(validShaders)-1], op)
+		if i == len(validShaders)-1 {
+			// Last shader writes to destination
+			dst.DrawRectShader(srcW, srcH, shader, op)
+		} else {
+			// Intermediate shaders write to ping-pong buffer
+			outputBuffer := buffers[i%2]
+			outputBuffer.Clear()
+			outputBuffer.DrawRectShader(srcW, srcH, shader, op)
+			currentInput = outputBuffer
+		}
+	}
 
 	return true
 }

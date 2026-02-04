@@ -34,16 +34,44 @@ var ntscShaderSrc []byte
 //go:embed shaders/gamma.kage
 var gammaShaderSrc []byte
 
+//go:embed shaders/halation.kage
+var halationShaderSrc []byte
+
+//go:embed shaders/rfnoise.kage
+var rfnoiseShaderSrc []byte
+
+//go:embed shaders/rollingband.kage
+var rollingbandShaderSrc []byte
+
+//go:embed shaders/vhs.kage
+var vhsShaderSrc []byte
+
+//go:embed shaders/interlace.kage
+var interlaceShaderSrc []byte
+
+//go:embed shaders/monochrome.kage
+var monochromeShaderSrc []byte
+
+//go:embed shaders/sepia.kage
+var sepiaShaderSrc []byte
+
 // shaderSources maps shader IDs to their Kage source code
 var shaderSources = map[string][]byte{
-	"crt":        crtShaderSrc,
-	"scanlines":  scanlinesShaderSrc,
-	"bloom":      bloomShaderSrc,
-	"lcd":        lcdShaderSrc,
-	"colorbleed": colorbleedShaderSrc,
-	"dotmatrix":  dotmatrixShaderSrc,
-	"ntsc":       ntscShaderSrc,
-	"gamma":      gammaShaderSrc,
+	"crt":         crtShaderSrc,
+	"scanlines":   scanlinesShaderSrc,
+	"bloom":       bloomShaderSrc,
+	"lcd":         lcdShaderSrc,
+	"colorbleed":  colorbleedShaderSrc,
+	"dotmatrix":   dotmatrixShaderSrc,
+	"ntsc":        ntscShaderSrc,
+	"gamma":       gammaShaderSrc,
+	"halation":    halationShaderSrc,
+	"rfnoise":     rfnoiseShaderSrc,
+	"rollingband": rollingbandShaderSrc,
+	"vhs":         vhsShaderSrc,
+	"interlace":   interlaceShaderSrc,
+	"monochrome":  monochromeShaderSrc,
+	"sepia":       sepiaShaderSrc,
 }
 
 // specialEffects lists effect IDs that appear in the shader menu
@@ -68,6 +96,9 @@ type Manager struct {
 
 	// Ghosting buffer for phosphor persistence (persistent across frames)
 	ghostingBuffer *ebiten.Image
+
+	// Frame counter for animated shaders
+	frame int
 }
 
 // NewManager creates a new shader manager
@@ -75,6 +106,16 @@ func NewManager() *Manager {
 	return &Manager{
 		shaders: make(map[string]*ebiten.Shader),
 	}
+}
+
+// IncrementFrame advances the frame counter for animated shaders
+func (m *Manager) IncrementFrame() {
+	m.frame++
+}
+
+// Frame returns the current frame count
+func (m *Manager) Frame() int {
+	return m.frame
 }
 
 // LoadShader compiles and caches a shader by ID
@@ -263,10 +304,16 @@ func (m *Manager) ApplyShaders(dst, src *ebiten.Image, shaderIDs []string) bool 
 
 	srcW, srcH := effectiveInput.Bounds().Dx(), effectiveInput.Bounds().Dy()
 
+	// Uniforms for animated shaders
+	uniforms := map[string]interface{}{
+		"Time": float32(m.frame),
+	}
+
 	// Single shader case - draw directly to destination
 	if len(validShaders) == 1 {
 		op := &ebiten.DrawRectShaderOptions{}
 		op.Images[0] = effectiveInput
+		op.Uniforms = uniforms
 		dst.DrawRectShader(srcW, srcH, validShaders[0], op)
 		return true
 	}
@@ -282,6 +329,7 @@ func (m *Manager) ApplyShaders(dst, src *ebiten.Image, shaderIDs []string) bool 
 	for i, shader := range validShaders {
 		op := &ebiten.DrawRectShaderOptions{}
 		op.Images[0] = currentInput
+		op.Uniforms = uniforms
 
 		if i == len(validShaders)-1 {
 			// Last shader writes to destination

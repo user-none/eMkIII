@@ -413,6 +413,9 @@ func (a *App) ensureFocusedVisible() {
 
 // Draw implements ebiten.Game
 func (a *App) Draw(screen *ebiten.Image) {
+	// Advance frame counter for animated shaders
+	a.shaderManager.IncrementFrame()
+
 	// Determine which shaders to apply based on state and application mode
 	shaderIDs := a.getActiveShaders()
 

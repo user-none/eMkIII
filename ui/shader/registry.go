@@ -56,4 +56,39 @@ var AvailableShaders = []ShaderInfo{
 		Name:        "CRT Gamma",
 		Description: "Non-linear brightness curve of CRT displays",
 	},
+	{
+		ID:          "halation",
+		Name:        "Halation",
+		Description: "Light bleeding behind CRT glass",
+	},
+	{
+		ID:          "rfnoise",
+		Name:        "RF Noise",
+		Description: "Subtle static grain from RF connection",
+	},
+	{
+		ID:          "rollingband",
+		Name:        "Rolling Band",
+		Description: "Scrolling dark band for bad reception look",
+	},
+	{
+		ID:          "vhs",
+		Name:        "VHS Distortion",
+		Description: "Wobble and tracking artifacts like VHS tape",
+	},
+	{
+		ID:          "interlace",
+		Name:        "Interlace",
+		Description: "Alternating scanline fields for 480i look",
+	},
+	{
+		ID:          "monochrome",
+		Name:        "Monochrome",
+		Description: "Black and white conversion",
+	},
+	{
+		ID:          "sepia",
+		Name:        "Sepia",
+		Description: "Warm brownish tint like old photographs",
+	},
 }

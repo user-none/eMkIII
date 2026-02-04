@@ -8,11 +8,18 @@ type Config struct {
 	Audio   AudioConfig  `json:"audio"`
 	Window  WindowConfig `json:"window"`
 	Library LibraryView  `json:"library"`
+	Shaders ShaderConfig `json:"shaders"`
 }
 
 // VideoConfig contains video-related settings
 type VideoConfig struct {
 	CropBorder bool `json:"cropBorder"`
+}
+
+// ShaderConfig contains shader effect settings
+type ShaderConfig struct {
+	UIShaders   []string `json:"uiShaders"`   // Ordered list of shader IDs for UI context
+	GameShaders []string `json:"gameShaders"` // Ordered list of shader IDs for Game context
 }
 
 // AudioConfig contains audio-related settings
@@ -100,6 +107,10 @@ func DefaultConfig() *Config {
 			ViewMode:        "icon",
 			SortBy:          "title",
 			FavoritesFilter: false,
+		},
+		Shaders: ShaderConfig{
+			UIShaders:   []string{},
+			GameShaders: []string{},
 		},
 	}
 }

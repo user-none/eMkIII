@@ -1,0 +1,56 @@
+//kage:unit pixels
+
+package main
+
+// CRT shader with barrel distortion, RGB separation, and vignette
+
+func Fragment(dstPos vec4, srcPos vec2, color vec4) vec4 {
+	origin, size := imageSrcRegionOnTexture()
+
+	// Normalize coordinates to 0-1 range centered at 0.5
+	uv := (srcPos - origin) / size
+
+	// Center coordinates for distortion (-0.5 to 0.5)
+	centered := uv - 0.5
+
+	// Barrel distortion - subtle curve (strength 0.1)
+	distortion := 0.1
+	r2 := dot(centered, centered)
+	distorted := centered * (1.0 + distortion * r2)
+
+	// Convert back to texture coordinates
+	distortedUV := distorted + 0.5
+
+	// Check bounds - return black if outside
+	if distortedUV.x < 0.0 || distortedUV.x > 1.0 || distortedUV.y < 0.0 || distortedUV.y > 1.0 {
+		return vec4(0.0, 0.0, 0.0, 1.0)
+	}
+
+	// Convert back to texture space
+	texCoord := distortedUV * size + origin
+
+	// RGB separation (chromatic aberration) - subtle offset
+	separation := 0.5 // pixels
+	redOffset := vec2(separation, 0.0)
+	blueOffset := vec2(-separation, 0.0)
+
+	// Sample each color channel with offset
+	redCoord := texCoord + redOffset
+	blueCoord := texCoord + blueOffset
+
+	// Clamp coordinates to valid region
+	redCoord = clamp(redCoord, origin, origin + size - 1.0)
+	blueCoord = clamp(blueCoord, origin, origin + size - 1.0)
+
+	r := imageSrc0At(redCoord).r
+	g := imageSrc0At(texCoord).g
+	b := imageSrc0At(blueCoord).b
+	a := imageSrc0At(texCoord).a
+
+	// Vignette effect - darken edges
+	vignetteStrength := 0.3
+	vignette := 1.0 - vignetteStrength * r2 * 2.0
+	vignette = clamp(vignette, 0.0, 1.0)
+
+	return vec4(r * vignette, g * vignette, b * vignette, a)
+}

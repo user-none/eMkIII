@@ -11,6 +11,7 @@ import (
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/user-none/emkiii/ui/screens"
+	"github.com/user-none/emkiii/ui/shader"
 	"github.com/user-none/emkiii/ui/storage"
 	"github.com/user-none/emkiii/ui/style"
 )
@@ -61,6 +62,10 @@ type App struct {
 
 	// Input manager for UI navigation
 	inputManager *InputManager
+
+	// Shader manager for visual effects
+	shaderManager *shader.Manager
+	shaderBuffer  *ebiten.Image // Intermediate buffer for shader rendering
 }
 
 // NewApp creates and initializes the application
@@ -97,6 +102,7 @@ func NewApp() (*App, error) {
 	app.saveStateManager = NewSaveStateManager(app.notification)
 	app.screenshotManager = NewScreenshotManager(app.notification)
 	app.inputManager = NewInputManager()
+	app.shaderManager = shader.NewManager()
 
 	// Load config
 	config, err := storage.LoadConfig()
@@ -109,6 +115,7 @@ func NewApp() (*App, error) {
 		app.configLoadFailed = true // Don't overwrite the file on exit
 		app.config = storage.DefaultConfig()
 		app.library = storage.DefaultLibrary()
+		app.preloadConfiguredShaders()
 		app.initScreens()
 		app.rebuildCurrentScreen()
 		return app, nil
@@ -129,6 +136,7 @@ func NewApp() (*App, error) {
 		app.state = StateError
 		app.errorFile = "library.json"
 		app.errorPath = libraryPath
+		app.preloadConfiguredShaders()
 		app.initScreens()
 		app.rebuildCurrentScreen()
 		return app, nil
@@ -147,6 +155,9 @@ func NewApp() (*App, error) {
 		func() { app.SwitchToLibrary() }, // onExitToLibrary
 		func() { app.Exit() },            // onExitApp
 	)
+
+	// Preload configured shaders
+	app.preloadConfiguredShaders()
 
 	// Initialize screens and build initial UI
 	// Window dimensions are set by main before RunGame, so they're already correct
@@ -402,15 +413,36 @@ func (a *App) ensureFocusedVisible() {
 
 // Draw implements ebiten.Game
 func (a *App) Draw(screen *ebiten.Image) {
-	switch a.state {
-	case StatePlaying:
-		a.gameplay.Draw(screen)
-	default:
-		a.ui.Draw(screen)
-	}
+	// Determine which shaders to apply based on state and application mode
+	shaderIDs := a.getActiveShaders()
 
-	// Draw notification overlay (all screens)
-	a.notification.Draw(screen)
+	if len(shaderIDs) == 0 {
+		// No shaders - direct draw (current behavior)
+		switch a.state {
+		case StatePlaying:
+			a.gameplay.Draw(screen)
+		default:
+			a.ui.Draw(screen)
+		}
+		a.notification.Draw(screen)
+	} else {
+		// With shaders - draw to intermediate buffer, then apply shaders
+		sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
+		buffer := a.getOrCreateShaderBuffer(sw, sh)
+		buffer.Clear()
+
+		switch a.state {
+		case StatePlaying:
+			a.gameplay.Draw(buffer)
+		default:
+			a.ui.Draw(buffer)
+		}
+		// Notification drawn before shader so it gets the effect
+		a.notification.Draw(buffer)
+
+		// Apply shader chain to final screen
+		a.shaderManager.ApplyShaders(screen, buffer, shaderIDs)
+	}
 
 	// Take screenshot if pending (after everything is drawn)
 	if a.screenshotPending {
@@ -594,4 +626,44 @@ func (a *App) SaveAndClose() {
 	if err := storage.SaveLibrary(a.library); err != nil {
 		log.Printf("Failed to save library: %v", err)
 	}
+}
+
+// preloadConfiguredShaders loads all shaders referenced in config
+func (a *App) preloadConfiguredShaders() {
+	allShaders := make(map[string]bool)
+	for _, id := range a.config.Shaders.UIShaders {
+		allShaders[id] = true
+	}
+	for _, id := range a.config.Shaders.GameShaders {
+		allShaders[id] = true
+	}
+
+	ids := make([]string, 0, len(allShaders))
+	for id := range allShaders {
+		ids = append(ids, id)
+	}
+	a.shaderManager.PreloadShaders(ids)
+}
+
+// getActiveShaders returns the shader IDs to apply for the current state
+func (a *App) getActiveShaders() []string {
+	switch a.state {
+	case StatePlaying:
+		return a.config.Shaders.GameShaders
+	default:
+		return a.config.Shaders.UIShaders
+	}
+}
+
+// getOrCreateShaderBuffer returns a buffer matching the given dimensions
+func (a *App) getOrCreateShaderBuffer(width, height int) *ebiten.Image {
+	if a.shaderBuffer != nil {
+		bw, bh := a.shaderBuffer.Bounds().Dx(), a.shaderBuffer.Bounds().Dy()
+		if bw == width && bh == height {
+			return a.shaderBuffer
+		}
+		a.shaderBuffer.Deallocate()
+	}
+	a.shaderBuffer = ebiten.NewImage(width, height)
+	return a.shaderBuffer
 }

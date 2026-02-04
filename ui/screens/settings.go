@@ -20,6 +20,7 @@ type SettingsScreen struct {
 	// Encapsulated sections
 	library    *settings.LibrarySection
 	appearance *settings.AppearanceSection
+	video      *settings.VideoSection
 }
 
 // NewSettingsScreen creates a new settings screen
@@ -29,6 +30,7 @@ func NewSettingsScreen(callback ScreenCallback, library *storage.Library, config
 		selectedSection: 0,
 		library:         settings.NewLibrarySection(callback, library),
 		appearance:      settings.NewAppearanceSection(callback, config),
+		video:           settings.NewVideoSection(callback, config),
 	}
 	s.InitBase()
 	return s
@@ -49,9 +51,10 @@ func (s *SettingsScreen) SetLibrary(library *storage.Library) {
 	s.library.SetLibrary(library)
 }
 
-// SetConfig updates the config reference in the appearance section
+// SetConfig updates the config reference in the appearance and video sections
 func (s *SettingsScreen) SetConfig(config *storage.Config) {
 	s.appearance.SetConfig(config)
+	s.video.SetConfig(config)
 }
 
 // Build creates the settings screen UI
@@ -150,8 +153,27 @@ func (s *SettingsScreen) Build() *widget.Container {
 	s.RegisterFocusButton("section-appearance", appearanceBtn)
 	sidebar.AddChild(appearanceBtn)
 
+	// Video section button
+	videoBtn := widget.NewButton(
+		widget.ButtonOpts.Image(style.ActiveButtonImage(s.selectedSection == 2)),
+		widget.ButtonOpts.Text("Video", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
+		}),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			s.selectedSection = 2
+			s.SetPendingFocus("section-video")
+			s.callback.RequestRebuild()
+		}),
+		widget.ButtonOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
+		),
+	)
+	s.RegisterFocusButton("section-video", videoBtn)
+	sidebar.AddChild(videoBtn)
+
 	// Future sections (disabled) - use containers instead of buttons so they're not focusable
-	sidebar.AddChild(style.DisabledSidebarItem("Video*"))
 	sidebar.AddChild(style.DisabledSidebarItem("Audio*"))
 	sidebar.AddChild(style.DisabledSidebarItem("Input*"))
 
@@ -173,10 +195,13 @@ func (s *SettingsScreen) Build() *widget.Container {
 	)
 
 	// Section content - delegate to encapsulated sections
-	if s.selectedSection == 0 {
+	switch s.selectedSection {
+	case 0:
 		contentArea.AddChild(s.library.Build(s))
-	} else if s.selectedSection == 1 {
+	case 1:
 		contentArea.AddChild(s.appearance.Build(s))
+	case 2:
+		contentArea.AddChild(s.video.Build(s))
 	}
 
 	mainContent.AddChild(contentArea)

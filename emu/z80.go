@@ -6,8 +6,9 @@ import (
 
 // CycleZ80 wraps the koron-go/z80 CPU and provides accurate cycle counting.
 type CycleZ80 struct {
-	cpu *z80.CPU
-	mem *Memory
+	cpu     *z80.CPU
+	mem     *Memory
+	afterEI bool // True if we just executed EI (interrupt delay)
 }
 
 // NewCycleZ80 creates a new cycle-counting Z80 wrapper.
@@ -66,16 +67,46 @@ func (c *CycleZ80) TriggerNMI() int {
 	c.cpu.HALT = false
 	// NMI response takes 11 T-states on Z80
 	return 11
-
 }
 
 // Step executes one instruction and returns the number of T-states (cycles) consumed.
 func (c *CycleZ80) Step() int {
-	// Check for pending interrupt
+	// ==========================================================================
+	// WORKAROUND: koron-go/z80 library missing EI instruction delay
+	// ==========================================================================
+	//
+	// Per the Zilog Z80 CPU User Manual (UM0080, page 175):
+	//   "When an EI instruction is executed, any pending interrupt request
+	//    is not accepted until after the instruction following EI is executed."
+	//
+	// This one-instruction delay is critical for code patterns like:
+	//     EI        ; Enable interrupts
+	//     HALT      ; Wait for interrupt
+	//
+	// Without the delay, if an interrupt is pending when EI executes, the CPU
+	// would service it immediately BEFORE executing HALT. The program would then
+	// need TWO interrupts to proceed past HALT (one serviced after EI, another
+	// to wake from HALT). This causes games like Fantastic Dizzy to run at half
+	// speed during sections that use EI;HALT for frame synchronization.
+	//
+	// The koron-go/z80 library sets IFF1=true immediately on EI without any
+	// delay, which is incorrect per Z80 specifications. Since we cannot modify
+	// the library, we work around this by temporarily hiding any pending
+	// interrupt during the instruction immediately following EI.
+	//
+	// Note: This workaround only affects maskable interrupts (INT). NMI is
+	// handled separately via TriggerNMI() and is not affected by EI delay.
+	// ==========================================================================
+	var savedInterrupt *z80.Interrupt
+	if c.afterEI && c.cpu.Interrupt != nil {
+		savedInterrupt = c.cpu.Interrupt
+		c.cpu.Interrupt = nil
+	}
+	c.afterEI = false
+
+	// Check for pending interrupt (after EI delay handling)
 	if c.cpu.Interrupt != nil {
-		// Wake from HALT if halted - HALT exits on any interrupt signal regardless of IFF1
-		// This is important: HALT waits for an interrupt to wake up, but the interrupt
-		// is only serviced (handler called) if IFF1=1
+		// Wake from HALT if halted - HALT exits on any interrupt signal
 		if c.cpu.HALT {
 			c.cpu.HALT = false
 			c.cpu.PC++ // Advance past HALT instruction
@@ -86,11 +117,11 @@ func (c *CycleZ80) Step() int {
 			c.cpu.Step()
 			return 13 // IM1 interrupt response cycles
 		}
-		// If IFF1=0, interrupt woke us from HALT but isn't serviced
-		// Fall through to execute the next instruction normally
+		// IFF1=0: interrupt woke HALT but isn't serviced yet
+		// Fall through to execute the next instruction
 	}
 
-	// If halted and no interrupt, just burn cycles
+	// If halted and no interrupt pending, just burn cycles
 	if c.cpu.HALT {
 		return 4 // HALT executes NOPs internally
 	}
@@ -141,8 +172,19 @@ func (c *CycleZ80) Step() int {
 	// Execute the instruction
 	c.cpu.Step()
 
+	// Set EI delay flag when EI (0xFB) is executed
+	if opcode == 0xFB {
+		c.afterEI = true
+	}
+
 	// Adjust for conditional instructions
 	cycles = c.adjustConditional(opcode, pc, cycles)
+
+	// Restore the interrupt that was hidden during EI delay
+	// It will be serviced on the next Step() call
+	if savedInterrupt != nil {
+		c.cpu.Interrupt = savedInterrupt
+	}
 
 	return cycles
 }

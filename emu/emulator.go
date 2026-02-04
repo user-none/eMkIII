@@ -159,11 +159,13 @@ func (e *EmulatorBase) runScanlines() []float32 {
 
 		if !vblankChecked && isVBlankLine {
 			e.vdp.SetVBlank()
+			e.checkAndSetInterrupt()
 		}
 
 		// Ensure line counter is updated even for short scanlines
 		if !lineInterruptChecked {
 			e.vdp.UpdateLineCounter()
+			e.checkAndSetInterrupt()
 		}
 
 		if i < activeHeight {

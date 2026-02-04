@@ -12,6 +12,11 @@ type ShaderInfo struct {
 // AvailableShaders lists all shaders that can be enabled
 var AvailableShaders = []ShaderInfo{
 	{
+		ID:          "ghosting",
+		Name:        "Phosphor Persistence",
+		Description: "Ghost trails from slow CRT phosphor decay",
+	},
+	{
 		ID:          "crt",
 		Name:        "CRT",
 		Description: "Curved screen with RGB separation and vignette",
@@ -51,14 +56,4 @@ var AvailableShaders = []ShaderInfo{
 		Name:        "CRT Gamma",
 		Description: "Non-linear brightness curve of CRT displays",
 	},
-}
-
-// GetShaderByID returns the shader info for the given ID, or nil if not found
-func GetShaderByID(id string) *ShaderInfo {
-	for i := range AvailableShaders {
-		if AvailableShaders[i].ID == id {
-			return &AvailableShaders[i]
-		}
-	}
-	return nil
 }

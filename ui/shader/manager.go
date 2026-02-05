@@ -56,6 +56,12 @@ var monochromeShaderSrc []byte
 //go:embed shaders/sepia.kage
 var sepiaShaderSrc []byte
 
+//go:embed shaders/vblur.kage
+var vblurShaderSrc []byte
+
+//go:embed shaders/hsoft.kage
+var hsoftShaderSrc []byte
+
 // shaderSources maps shader IDs to their Kage source code
 var shaderSources = map[string][]byte{
 	"crt":         crtShaderSrc,
@@ -73,6 +79,8 @@ var shaderSources = map[string][]byte{
 	"interlace":   interlaceShaderSrc,
 	"monochrome":  monochromeShaderSrc,
 	"sepia":       sepiaShaderSrc,
+	"vblur":       vblurShaderSrc,
+	"hsoft":       hsoftShaderSrc,
 }
 
 // specialEffects lists effect IDs that appear in the shader menu

@@ -103,6 +103,18 @@ var AvailableShaders = []ShaderInfo{
 		Weight:      380,
 	},
 	{
+		ID:          "hsoft",
+		Name:        "Horizontal Softness",
+		Description: "Bandwidth-limited horizontal blur like analog video",
+		Weight:      770,
+	},
+	{
+		ID:          "vblur",
+		Name:        "Vertical Blur",
+		Description: "Electron beam softness causing scanline bleed",
+		Weight:      760,
+	},
+	{
 		ID:          "monochrome",
 		Name:        "Monochrome",
 		Description: "Black and white conversion",

@@ -130,3 +130,25 @@ func (e *Emulator) Layout(outsideWidth, outsideHeight int) (int, int) {
 	// Return window size so we control scaling in Draw()
 	return outsideWidth, outsideHeight
 }
+
+// GetFramebuffer returns the VDP framebuffer as an ebiten.Image at native resolution.
+// If cropBorder is true and the VDP has left column blank enabled, the 8-pixel
+// left border is cropped from the returned image.
+func (e *Emulator) GetFramebuffer(cropBorder bool) *ebiten.Image {
+	activeHeight := e.vdp.ActiveHeight()
+
+	// Create or resize offscreen buffer if needed
+	if e.offscreen == nil || e.offscreen.Bounds().Dy() != activeHeight {
+		e.offscreen = ebiten.NewImage(ScreenWidth, activeHeight)
+	}
+
+	// Copy VDP framebuffer to offscreen buffer
+	stride := e.vdp.framebuffer.Stride
+	e.offscreen.WritePixels(e.vdp.framebuffer.Pix[:stride*activeHeight])
+
+	// Crop left border if enabled and VDP has left column blank active
+	if cropBorder && e.vdp.LeftColumnBlankEnabled() {
+		return e.offscreen.SubImage(image.Rect(8, 0, ScreenWidth, activeHeight)).(*ebiten.Image)
+	}
+	return e.offscreen
+}

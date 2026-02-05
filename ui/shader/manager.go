@@ -77,6 +77,7 @@ var shaderSources = map[string][]byte{
 // specialEffects lists effect IDs that appear in the shader menu
 // but are implemented directly in Go rather than as Kage shaders
 var specialEffects = map[string]bool{
+	"xbr":      true,
 	"ghosting": true,
 }
 
@@ -97,6 +98,9 @@ type Manager struct {
 	// Ghosting buffer for phosphor persistence (persistent across frames)
 	ghostingBuffer *ebiten.Image
 
+	// xBR scaler for pixel art scaling
+	xbrScaler *XBRScaler
+
 	// Frame counter for animated shaders
 	frame int
 }
@@ -104,7 +108,24 @@ type Manager struct {
 // NewManager creates a new shader manager
 func NewManager() *Manager {
 	return &Manager{
-		shaders: make(map[string]*ebiten.Shader),
+		shaders:   make(map[string]*ebiten.Shader),
+		xbrScaler: NewXBRScaler(),
+	}
+}
+
+// ResetBuffers clears all effect buffers. Call when switching games.
+func (m *Manager) ResetBuffers() {
+	if m.ghostingBuffer != nil {
+		m.ghostingBuffer.Deallocate()
+		m.ghostingBuffer = nil
+	}
+	if m.bufferA != nil {
+		m.bufferA.Deallocate()
+		m.bufferA = nil
+	}
+	if m.bufferB != nil {
+		m.bufferB.Deallocate()
+		m.bufferB = nil
 	}
 }
 
@@ -250,11 +271,72 @@ func removeGhosting(shaderIDs []string) []string {
 	return result
 }
 
+// HasXBR returns true if "xbr" is in the shader list (exported for app.go)
+func HasXBR(shaderIDs []string) bool {
+	return hasXBR(shaderIDs)
+}
+
+// hasXBR returns true if "xbr" is in the shader list
+func hasXBR(shaderIDs []string) bool {
+	for _, id := range shaderIDs {
+		if id == "xbr" {
+			return true
+		}
+	}
+	return false
+}
+
+// removeXBR returns a new slice without "xbr"
+func removeXBR(shaderIDs []string) []string {
+	result := make([]string, 0, len(shaderIDs))
+	for _, id := range shaderIDs {
+		if id != "xbr" {
+			result = append(result, id)
+		}
+	}
+	return result
+}
+
+// ApplyPreprocessEffects applies xBR and ghosting effects (not Kage shaders).
+// If xBR is in shaderIDs, src should be native resolution and will be scaled to screen size.
+// Otherwise, src should already be screen resolution.
+// Returns the processed image (screen-sized) and remaining shader IDs.
+func (m *Manager) ApplyPreprocessEffects(src *ebiten.Image, shaderIDs []string, screenW, screenH int) (*ebiten.Image, []string) {
+	if src == nil {
+		// Nothing to process, filter out special effects and return
+		filtered := shaderIDs
+		filtered = removeXBR(filtered)
+		filtered = removeGhosting(filtered)
+		return nil, filtered
+	}
+
+	effectiveInput := src
+	remainingShaders := shaderIDs
+
+	// Handle xBR first (scales native -> screen size with smoothing)
+	if hasXBR(shaderIDs) {
+		effectiveInput = m.xbrScaler.Apply(src, screenW, screenH)
+		remainingShaders = removeXBR(remainingShaders)
+	}
+
+	// Handle ghosting second (operates at screen size)
+	if hasGhosting(remainingShaders) {
+		effectiveInput = m.applyGhosting(effectiveInput)
+		remainingShaders = removeGhosting(remainingShaders)
+	}
+
+	return effectiveInput, remainingShaders
+}
+
 // ApplyShaders draws src to dst with the specified shader chain applied.
 // If shaderIDs is empty, src is drawn directly to dst.
-// Ghosting is handled as a pre-processing step before other shaders.
+// Note: Preprocessing effects (xBR, ghosting) should be applied via
+// ApplyPreprocessEffects before calling this function.
 // Returns true if shaders were applied, false if direct draw was used.
 func (m *Manager) ApplyShaders(dst, src *ebiten.Image, shaderIDs []string) bool {
+	if src == nil {
+		return false
+	}
 	if len(shaderIDs) == 0 {
 		// No shaders, direct draw
 		op := &ebiten.DrawImageOptions{}
@@ -262,24 +344,8 @@ func (m *Manager) ApplyShaders(dst, src *ebiten.Image, shaderIDs []string) bool 
 		return false
 	}
 
-	// Handle ghosting as pre-processing
-	effectiveInput := src
-	remainingShaders := shaderIDs
-
-	if hasGhosting(shaderIDs) {
-		effectiveInput = m.applyGhosting(src)
-		remainingShaders = removeGhosting(shaderIDs)
-	}
-
-	// If no remaining shaders, draw the (possibly ghosted) input to destination
-	if len(remainingShaders) == 0 {
-		op := &ebiten.DrawImageOptions{}
-		dst.DrawImage(effectiveInput, op)
-		return true
-	}
-
 	// Load any missing shaders
-	for _, id := range remainingShaders {
+	for _, id := range shaderIDs {
 		if _, ok := m.shaders[id]; !ok {
 			if err := m.LoadShader(id); err != nil {
 				log.Printf("Warning: shader %s not available: %v", id, err)
@@ -288,21 +354,21 @@ func (m *Manager) ApplyShaders(dst, src *ebiten.Image, shaderIDs []string) bool 
 	}
 
 	// Filter to only shaders that compiled successfully
-	validShaders := make([]*ebiten.Shader, 0, len(remainingShaders))
-	for _, id := range remainingShaders {
+	validShaders := make([]*ebiten.Shader, 0, len(shaderIDs))
+	for _, id := range shaderIDs {
 		if s, ok := m.shaders[id]; ok {
 			validShaders = append(validShaders, s)
 		}
 	}
 
 	if len(validShaders) == 0 {
-		// No valid shaders, draw the effective input
+		// No valid shaders, draw the input
 		op := &ebiten.DrawImageOptions{}
-		dst.DrawImage(effectiveInput, op)
-		return hasGhosting(shaderIDs) // Return true if ghosting was applied
+		dst.DrawImage(src, op)
+		return false
 	}
 
-	srcW, srcH := effectiveInput.Bounds().Dx(), effectiveInput.Bounds().Dy()
+	srcW, srcH := src.Bounds().Dx(), src.Bounds().Dy()
 
 	// Uniforms for animated shaders
 	uniforms := map[string]interface{}{
@@ -312,7 +378,7 @@ func (m *Manager) ApplyShaders(dst, src *ebiten.Image, shaderIDs []string) bool 
 	// Single shader case - draw directly to destination
 	if len(validShaders) == 1 {
 		op := &ebiten.DrawRectShaderOptions{}
-		op.Images[0] = effectiveInput
+		op.Images[0] = src
 		op.Uniforms = uniforms
 		dst.DrawRectShader(srcW, srcH, validShaders[0], op)
 		return true
@@ -322,7 +388,7 @@ func (m *Manager) ApplyShaders(dst, src *ebiten.Image, shaderIDs []string) bool 
 	m.ensureBuffers(srcW, srcH)
 
 	// Track current input for each pass
-	currentInput := effectiveInput
+	currentInput := src
 	buffers := [2]*ebiten.Image{m.bufferA, m.bufferB}
 	bufferIndex := 1
 

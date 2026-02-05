@@ -12,6 +12,11 @@ type ShaderInfo struct {
 // AvailableShaders lists all shaders that can be enabled
 var AvailableShaders = []ShaderInfo{
 	{
+		ID:          "xbr",
+		Name:        "Pixel Smoothing (xBR)",
+		Description: "Smooth edges while preserving pixel art details",
+	},
+	{
 		ID:          "ghosting",
 		Name:        "Phosphor Persistence",
 		Description: "Ghost trails from slow CRT phosphor decay",

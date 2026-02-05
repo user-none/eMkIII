@@ -29,6 +29,9 @@ type PauseMenu struct {
 	onResume      func()
 	onLibrary     func()
 	onExit        func()
+
+	// Cached layout info for mouse hit testing
+	buttonRects []image.Rectangle
 }
 
 // NewPauseMenu creates a new pause menu
@@ -39,6 +42,7 @@ func NewPauseMenu(onResume, onLibrary, onExit func()) *PauseMenu {
 		onResume:      onResume,
 		onLibrary:     onLibrary,
 		onExit:        onExit,
+		buttonRects:   make([]image.Rectangle, PauseMenuOptionCount),
 	}
 }
 
@@ -64,13 +68,13 @@ func (m *PauseMenu) Update() {
 		return
 	}
 
-	// ESC or Start closes menu (same as Resume)
+	// ESC closes menu (same as Resume)
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		m.handleSelect()
 		return
 	}
 
-	// Navigation
+	// Keyboard navigation
 	if inpututil.IsKeyJustPressed(ebiten.KeyUp) || inpututil.IsKeyJustPressed(ebiten.KeyW) {
 		m.selectedIndex--
 		if m.selectedIndex < 0 {
@@ -84,9 +88,31 @@ func (m *PauseMenu) Update() {
 		}
 	}
 
-	// Selection
+	// Keyboard selection
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 		m.handleSelect()
+		return
+	}
+
+	// Mouse click
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		mx, my := ebiten.CursorPosition()
+		for i, rect := range m.buttonRects {
+			if image.Pt(mx, my).In(rect) {
+				m.selectedIndex = i
+				m.handleSelect()
+				return
+			}
+		}
+	}
+
+	// Mouse hover for selection highlight
+	mx, my := ebiten.CursorPosition()
+	for i, rect := range m.buttonRects {
+		if image.Pt(mx, my).In(rect) {
+			m.selectedIndex = i
+			break
+		}
 	}
 
 	// Gamepad support
@@ -109,18 +135,21 @@ func (m *PauseMenu) Update() {
 		// A/Cross button selects
 		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightBottom) {
 			m.handleSelect()
+			return
 		}
 
 		// B/Circle button acts as Resume
 		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightRight) {
 			m.selectedIndex = int(PauseMenuResume)
 			m.handleSelect()
+			return
 		}
 
 		// Start button acts as Resume
 		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonCenterRight) {
 			m.selectedIndex = int(PauseMenuResume)
 			m.handleSelect()
+			return
 		}
 	}
 }
@@ -161,7 +190,6 @@ func (m *PauseMenu) Draw(screen *ebiten.Image) {
 	screen.DrawImage(dimOverlay, nil)
 
 	// Menu panel dimensions - proportional to screen size
-	// Panel is ~40% of screen width, with min/max limits
 	panelWidth := screenW * 40 / 100
 	if panelWidth < 150 {
 		panelWidth = 150
@@ -208,12 +236,15 @@ func (m *PauseMenu) Draw(screen *ebiten.Image) {
 	opts.GeoM.Translate(float64(panelX), float64(panelY))
 	screen.DrawImage(panelBg, opts)
 
-	// Draw menu options
+	// Draw menu options and cache button rects for hit testing
 	startY := panelY + padding
 
 	for i, optionText := range options {
 		buttonX := panelX + (panelWidth-buttonWidth)/2
 		buttonY := startY + i*(buttonHeight+buttonSpacing)
+
+		// Cache button rect for mouse hit testing
+		m.buttonRects[i] = image.Rect(buttonX, buttonY, buttonX+buttonWidth, buttonY+buttonHeight)
 
 		// Button background
 		buttonBg := ebiten.NewImage(buttonWidth, buttonHeight)
@@ -244,33 +275,4 @@ func (m *PauseMenu) Draw(screen *ebiten.Image) {
 		textOpts.ColorScale.ScaleWithColor(style.Text)
 		text.Draw(screen, optionText, *style.FontFace(), textOpts)
 	}
-}
-
-// GetBounds returns the menu panel bounds for click detection
-func (m *PauseMenu) GetBounds(screenWidth, screenHeight int) image.Rectangle {
-	// Same proportional calculations as Draw
-	panelWidth := screenWidth * 40 / 100
-	if panelWidth < 150 {
-		panelWidth = 150
-	}
-	if panelWidth > 300 {
-		panelWidth = 300
-	}
-
-	buttonHeight := screenHeight * 8 / 100
-	if buttonHeight < 30 {
-		buttonHeight = 30
-	}
-	if buttonHeight > 50 {
-		buttonHeight = 50
-	}
-
-	buttonSpacing := buttonHeight / 4
-	padding := buttonHeight / 2
-	numOptions := 3
-	panelHeight := padding*2 + numOptions*buttonHeight + (numOptions-1)*buttonSpacing
-
-	panelX := (screenWidth - panelWidth) / 2
-	panelY := (screenHeight - panelHeight) / 2
-	return image.Rect(panelX, panelY, panelX+panelWidth, panelY+panelHeight)
 }

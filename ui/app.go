@@ -420,31 +420,57 @@ func (a *App) Draw(screen *ebiten.Image) {
 	shaderIDs := a.getActiveShaders()
 
 	if len(shaderIDs) == 0 {
-		// No shaders - direct draw (current behavior)
+		// No shaders/effects - direct draw
 		switch a.state {
 		case StatePlaying:
 			a.gameplay.Draw(screen)
+			a.gameplay.DrawPauseMenu(screen)
 		default:
 			a.ui.Draw(screen)
 		}
 		a.notification.Draw(screen)
 	} else {
-		// With shaders - draw to intermediate buffer, then apply shaders
+		// With effects/shaders - use preprocessing pipeline
 		sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
 		buffer := a.getOrCreateShaderBuffer(sw, sh)
 		buffer.Clear()
 
+		// Determine input for preprocessing based on xBR and state
+		var preprocessInput *ebiten.Image
+		hasXBR := shader.HasXBR(shaderIDs)
+
 		switch a.state {
 		case StatePlaying:
-			a.gameplay.Draw(buffer)
+			if hasXBR {
+				// xBR path: pass native framebuffer to preprocessing
+				preprocessInput = a.gameplay.DrawFramebuffer()
+			} else {
+				// Non-xBR path: draw scaled game to buffer
+				a.gameplay.Draw(buffer)
+				preprocessInput = buffer
+			}
 		default:
+			// UI: draw to buffer (xBR has no effect on UI)
 			a.ui.Draw(buffer)
+			preprocessInput = buffer
 		}
-		// Notification drawn before shader so it gets the effect
-		a.notification.Draw(buffer)
+
+		// Apply preprocessing effects (xBR, ghosting)
+		// xBR scales native -> screen size; ghosting operates at screen size
+		// Returns processed image (screen-sized) and remaining shader IDs
+		processed, remainingShaders := a.shaderManager.ApplyPreprocessEffects(
+			preprocessInput, shaderIDs, sw, sh)
+
+		// For StatePlaying: draw pause menu after effects (so shaders apply to it)
+		if a.state == StatePlaying {
+			a.gameplay.DrawPauseMenu(processed)
+		}
+
+		// Notification drawn after effects, before shaders
+		a.notification.Draw(processed)
 
 		// Apply shader chain to final screen
-		a.shaderManager.ApplyShaders(screen, buffer, shaderIDs)
+		a.shaderManager.ApplyShaders(screen, processed, remainingShaders)
 	}
 
 	// Take screenshot if pending (after everything is drawn)
@@ -510,6 +536,9 @@ func (a *App) SwitchToScanProgress(rescanAll bool) {
 
 // LaunchGame starts the emulator with the specified game
 func (a *App) LaunchGame(gameCRC string, resume bool) {
+	// Reset shader buffers to avoid stale data from previous game
+	a.shaderManager.ResetBuffers()
+
 	if a.gameplay.Launch(gameCRC, resume) {
 		a.previousState = a.state
 		a.state = StatePlaying

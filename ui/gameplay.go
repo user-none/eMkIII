@@ -232,7 +232,7 @@ func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
 	return false, nil
 }
 
-// Draw renders the gameplay screen
+// Draw renders the gameplay screen (scaled to fit)
 func (gm *GameplayManager) Draw(screen *ebiten.Image) {
 	if gm.emulator == nil {
 		return
@@ -240,11 +240,25 @@ func (gm *GameplayManager) Draw(screen *ebiten.Image) {
 
 	// Use emulator's DrawToScreen for rendering
 	gm.emulator.DrawToScreen(screen, gm.cropBorder)
+}
 
-	// Draw pause menu overlay if visible
-	if gm.pauseMenu.IsVisible() {
-		gm.pauseMenu.Draw(screen)
+// DrawFramebuffer returns the native-resolution VDP framebuffer for xBR processing.
+// When xBR is enabled, this provides the native image which xBR will upscale.
+func (gm *GameplayManager) DrawFramebuffer() *ebiten.Image {
+	if gm.emulator == nil {
+		return nil
 	}
+	return gm.emulator.GetFramebuffer(gm.cropBorder)
+}
+
+// DrawPauseMenu draws the pause menu overlay
+func (gm *GameplayManager) DrawPauseMenu(screen *ebiten.Image) {
+	gm.pauseMenu.Draw(screen)
+}
+
+// IsPaused returns whether the pause menu is visible
+func (gm *GameplayManager) IsPaused() bool {
+	return gm.pauseMenu.IsVisible()
 }
 
 // Resume resumes gameplay after pause menu

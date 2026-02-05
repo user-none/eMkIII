@@ -67,6 +67,12 @@ var AvailableShaders = []ShaderInfo{
 		Weight:      850,
 	},
 	{
+		ID:          "rainbow",
+		Name:        "NTSC Rainbow",
+		Description: "Rainbow artifacts from dithering on composite video",
+		Weight:      845,
+	},
+	{
 		ID:          "gamma",
 		Name:        "CRT Gamma",
 		Description: "Non-linear brightness curve of CRT displays",

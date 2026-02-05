@@ -14,6 +14,7 @@ func TestGetShaderWeight(t *testing.T) {
 	}{
 		{"gamma", 900},
 		{"ntsc", 850},
+		{"rainbow", 845},
 		{"colorbleed", 800},
 		{"hsoft", 770},
 		{"vblur", 760},

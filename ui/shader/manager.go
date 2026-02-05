@@ -62,6 +62,9 @@ var vblurShaderSrc []byte
 //go:embed shaders/hsoft.kage
 var hsoftShaderSrc []byte
 
+//go:embed shaders/rainbow.kage
+var rainbowShaderSrc []byte
+
 // shaderSources maps shader IDs to their Kage source code
 var shaderSources = map[string][]byte{
 	"crt":         crtShaderSrc,
@@ -81,6 +84,7 @@ var shaderSources = map[string][]byte{
 	"sepia":       sepiaShaderSrc,
 	"vblur":       vblurShaderSrc,
 	"hsoft":       hsoftShaderSrc,
+	"rainbow":     rainbowShaderSrc,
 }
 
 // specialEffects lists effect IDs that appear in the shader menu

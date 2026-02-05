@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -353,9 +354,20 @@ func (m *Manager) ApplyShaders(dst, src *ebiten.Image, shaderIDs []string) bool 
 		}
 	}
 
+	// Sort shader IDs by weight (descending), then by ID (ascending) for determinism
+	sortedIDs := make([]string, len(shaderIDs))
+	copy(sortedIDs, shaderIDs)
+	sort.Slice(sortedIDs, func(i, j int) bool {
+		wi, wj := GetShaderWeight(sortedIDs[i]), GetShaderWeight(sortedIDs[j])
+		if wi != wj {
+			return wi > wj // Higher weight first
+		}
+		return sortedIDs[i] < sortedIDs[j] // Alphabetical tiebreaker
+	})
+
 	// Filter to only shaders that compiled successfully
-	validShaders := make([]*ebiten.Shader, 0, len(shaderIDs))
-	for _, id := range shaderIDs {
+	validShaders := make([]*ebiten.Shader, 0, len(sortedIDs))
+	for _, id := range sortedIDs {
 		if s, ok := m.shaders[id]; ok {
 			validShaders = append(validShaders, s)
 		}

@@ -88,6 +88,22 @@ When launched without a `-rom` argument, the emulator opens a standalone UI:
 - **Screenshots:** F12 captures to screenshots directory
 - **Play Time Tracking:** Automatic per-game tracking
 - **Window Persistence:** Window size and position restored on launch
+- **Shader Effects:** 20 visual effects including CRT simulation, scanlines, NTSC artifacts, and pixel smoothing
+
+### Shader Effects
+
+The standalone UI includes a comprehensive shader system for authentic retro display effects:
+
+| Category | Shaders |
+|----------|---------|
+| CRT Simulation | CRT (curved screen), Scanlines, Phosphor Glow, Halation, CRT Gamma |
+| Analog Video | NTSC Artifacts, NTSC Rainbow, Color Bleed, Horizontal Softness, Vertical Blur |
+| Display Types | LCD Grid, Dot Matrix, Interlace |
+| Signal Degradation | VHS Distortion, Rolling Band, RF Noise |
+| Color Effects | Monochrome, Sepia |
+| Enhancement | Pixel Smoothing (xBR), Phosphor Persistence |
+
+Shaders can be configured separately for UI (menus) and gameplay. Multiple shaders can be stacked and are applied in weighted order for correct visual layering.
 
 ### Data Location
 
@@ -121,7 +137,7 @@ The standalone UI follows a manager pattern with clear separation of concerns:
 
 **Package structure:**
 - `main.go` - Entry point; launches UI by default, or direct emulator with `-rom` flag
-- `ui/` - Standalone UI application:
+- `ui/` - Standalone UI application
   - `app.go` - Main application struct, screen management, Ebiten game loop
   - `state.go` - AppState enum (Library, Detail, Settings, etc.)
   - `gameplay.go` - GameplayManager: emulator lifecycle, input, auto-save, play time tracking
@@ -136,8 +152,10 @@ The standalone UI follows a manager pattern with clear separation of concerns:
   - `scanner.go` - ROM discovery and metadata lookup
   - `metadata.go` - RDB download and artwork fetching
   - `storage/` - Config and library JSON persistence
-  - `style/` - Theme colors, widget builders, constants, utility functions
+  - `style/` - Theme colors, widget builders, constants
+  - `shader/` - Shader system with weight-based ordering
   - `rdb/` - RDB parser for game metadata lookup
+  - `assets/` - Embedded placeholder images
 - `cli/` - CLI runner for direct ROM launch mode:
   - `runner.go` - Ebiten game wrapper for direct emulation (bypasses UI)
 - `emu/` - All emulation components:

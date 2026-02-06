@@ -127,7 +127,7 @@ Shaders can be configured separately for UI (menus) and gameplay. Multiple shade
 
 ## Architecture
 
-The emulator uses Ebiten for windowing/rendering, koron-go/z80 for CPU emulation, SDL2 for audio output, and ebitenui for the standalone UI.
+The emulator uses Ebiten for windowing/rendering, koron-go/z80 for CPU emulation, SDL3 for audio output, and ebitenui for the standalone UI.
 
 The standalone UI follows a manager pattern with clear separation of concerns:
 - `App` - Main application, implements `ebiten.Game`, owns screens and managers
@@ -160,7 +160,7 @@ The standalone UI follows a manager pattern with clear separation of concerns:
   - `runner.go` - Ebiten game wrapper for direct emulation (bypasses UI)
 - `emu/` - All emulation components:
   - `emulator.go` - Core `EmulatorBase` struct orchestrating CPU/VDP/PSG/Memory, frame timing, scanline execution
-  - `emulator_ebiten.go` - Standalone build: Ebiten rendering, SDL2 audio, keyboard/gamepad input, resizable window
+  - `emulator_ebiten.go` - Standalone build: Ebiten rendering, SDL3 audio, keyboard/gamepad input, resizable window
   - `emulator_libretro.go` - Libretro build: minimal wrapper exposing framebuffer and audio samples
   - `z80.go` - Cycle-accurate Z80 wrapper with full opcode timing tables (base, CB, DD, ED, FD prefixes) and conditional instruction handling
   - `vdp.go` - Video Display Processor with VRAM (16KB), CRAM (32 bytes), 16 registers; implements background/sprite rendering, scrolling, interrupts, collision detection, per-scanline scroll latching, 192/224-line display modes
@@ -179,7 +179,7 @@ The standalone UI follows a manager pattern with clear separation of concerns:
 **Execution flow:** `Update()` runs one frame by stepping the CPU through
 scanlines (262 NTSC / 313 PAL, ~228 cycles each), updating V/H counters,
 checking interrupts, rendering via VDP, and generating PSG samples. Audio
-samples are batched per-frame and queued to SDL2. `Draw()` blits the VDP
+samples are batched per-frame and queued to SDL3. `Draw()` blits the VDP
 framebuffer to screen.
 
 **Display modes:**
@@ -201,7 +201,7 @@ framebuffer to screen.
 - `github.com/ebitenui/ebitenui` - Retained-mode UI widgets
 - `github.com/sqweek/dialog` - Native OS file picker dialogs
 - `github.com/koron-go/z80` - Z80 CPU emulation
-- `github.com/veandco/go-sdl2` - Audio output
+- `github.com/Zyko0/go-sdl3` - Audio output (purego-based, no CGO)
 - `github.com/bodgit/sevenzip` - 7z archive support
 - `github.com/nwaples/rardecode/v2` - RAR archive support
 - `golang.org/x/image` - Font rendering

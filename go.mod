@@ -3,18 +3,19 @@ module github.com/user-none/emkiii
 go 1.24.2
 
 require (
+	github.com/Zyko0/go-sdl3 v0.0.0-20260125144524-02de3d449cb1
 	github.com/bodgit/sevenzip v1.6.1
 	github.com/ebitenui/ebitenui v0.7.2
 	github.com/hajimehoshi/ebiten/v2 v2.9.8
 	github.com/koron-go/z80 v0.10.2
 	github.com/nwaples/rardecode/v2 v2.2.2
 	github.com/sqweek/dialog v0.0.0-20240226140203-065105509627
-	github.com/veandco/go-sdl2 v0.4.40
-	golang.org/x/image v0.31.0
+	golang.org/x/image v0.34.0
 )
 
 require (
 	github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf // indirect
+	github.com/Zyko0/purego-gen v0.0.0-20250727121216-3bcd331a1e0c // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/bodgit/plumbing v1.3.0 // indirect
 	github.com/bodgit/windows v1.0.1 // indirect
@@ -32,7 +33,7 @@ require (
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	go4.org v0.0.0-20200411211856-f5505b9728dd // indirect
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
-	golang.org/x/sync v0.17.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/text v0.32.0 // indirect
 )

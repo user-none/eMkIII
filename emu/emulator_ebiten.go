@@ -5,55 +5,140 @@ package emu
 import (
 	"fmt"
 	"image"
+	"log"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sync"
 
+	"github.com/Zyko0/go-sdl3/sdl"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/veandco/go-sdl2/sdl"
 )
+
+var sdlOnce sync.Once
+
+// loadSDLLibrary attempts to load the SDL3 library from multiple locations.
+// It tries each path in priority order until one succeeds.
+func loadSDLLibrary() error {
+	paths := sdlLibrarySearchPaths()
+	var lastErr error
+	for _, path := range paths {
+		if err := sdl.LoadLibrary(path); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+	}
+	// Final fallback: try default name (let dlopen search system paths)
+	if err := sdl.LoadLibrary(sdl.Path()); err == nil {
+		return nil
+	} else if lastErr == nil {
+		lastErr = err
+	}
+	return fmt.Errorf("failed to load SDL3 library from any location: %w", lastErr)
+}
+
+// sdlLibrarySearchPaths returns a list of paths to search for the SDL3 library.
+func sdlLibrarySearchPaths() []string {
+	switch runtime.GOOS {
+	case "darwin":
+		paths := []string{}
+		// 1. App bundle Frameworks directory (for .app distribution)
+		if exe, err := os.Executable(); err == nil {
+			exeDir := filepath.Dir(exe)
+			// Inside .app bundle: Contents/MacOS/emkiii -> Contents/Frameworks/
+			paths = append(paths, filepath.Join(exeDir, "..", "Frameworks", "libSDL3.dylib"))
+			// Same directory as executable
+			paths = append(paths, filepath.Join(exeDir, "libSDL3.dylib"))
+		}
+		// 2. Homebrew locations (for development)
+		if runtime.GOARCH == "arm64" {
+			paths = append(paths, "/opt/homebrew/lib/libSDL3.dylib")
+		} else {
+			paths = append(paths, "/usr/local/lib/libSDL3.dylib")
+		}
+		// 3. System locations
+		paths = append(paths, "/usr/lib/libSDL3.dylib")
+		return paths
+	case "linux", "freebsd":
+		paths := []string{}
+		if exe, err := os.Executable(); err == nil {
+			exeDir := filepath.Dir(exe)
+			paths = append(paths, filepath.Join(exeDir, "libSDL3.so.0"))
+		}
+		// Standard library paths (dlopen will search these anyway)
+		paths = append(paths, "/usr/local/lib/libSDL3.so.0")
+		paths = append(paths, "/usr/lib/libSDL3.so.0")
+		return paths
+	case "windows":
+		paths := []string{}
+		if exe, err := os.Executable(); err == nil {
+			exeDir := filepath.Dir(exe)
+			paths = append(paths, filepath.Join(exeDir, "SDL3.dll"))
+		}
+		return paths
+	default:
+		return []string{}
+	}
+}
 
 // Emulator wraps EmulatorBase with Ebiten/SDL specific functionality
 type Emulator struct {
 	EmulatorBase
 
-	audioDeviceID sdl.AudioDeviceID
-	offscreen     *ebiten.Image // Offscreen buffer for native resolution rendering
+	audioStream *sdl.AudioStream
+	offscreen   *ebiten.Image // Offscreen buffer for native resolution rendering
 }
 
-// NewEmulator creates a new emulator instance with Ebiten/SDL audio
+// NewEmulator creates a new emulator instance with Ebiten/SDL3 audio
 func NewEmulator(rom []byte, region Region) *Emulator {
 	base := initEmulatorBase(rom, region)
+
+	// Load SDL3 library once (required before any SDL calls)
+	sdlOnce.Do(func() {
+		if err := loadSDLLibrary(); err != nil {
+			panic(err.Error())
+		}
+	})
 
 	// Initialize SDL audio subsystem
 	if err := sdl.Init(sdl.INIT_AUDIO); err != nil {
 		panic(fmt.Sprintf("failed to init SDL audio: %v", err))
 	}
 
-	// Configure audio device for queue-based (push) audio
+	// Configure audio spec for push-based audio
 	spec := sdl.AudioSpec{
 		Freq:     sampleRate,
-		Format:   sdl.AUDIO_S16LSB, // 16-bit signed little-endian
-		Channels: 2,                // Stereo
-		Samples:  1024,             // Buffer size hint
+		Format:   sdl.AUDIO_S16LE, // 16-bit signed little-endian
+		Channels: 2,               // Stereo
 	}
 
-	var obtained sdl.AudioSpec
-	deviceID, err := sdl.OpenAudioDevice("", false, &spec, &obtained, 0)
-	if err != nil {
+	// Open audio stream on default playback device
+	// 0 callback means push-based audio via PutData()
+	audioStream := sdl.AUDIO_DEVICE_DEFAULT_PLAYBACK.OpenAudioDeviceStream(&spec, 0)
+	if audioStream == nil {
 		sdl.Quit()
-		panic(fmt.Sprintf("failed to open audio device: %v", err))
+		panic("failed to open audio stream")
 	}
 
 	// Start playback immediately - we'll queue samples each frame
-	sdl.PauseAudioDevice(deviceID, false)
+	if err := audioStream.ResumeDevice(); err != nil {
+		audioStream.Destroy()
+		sdl.Quit()
+		panic(fmt.Sprintf("failed to resume audio device: %v", err))
+	}
 
 	return &Emulator{
-		EmulatorBase:  base,
-		audioDeviceID: deviceID,
+		EmulatorBase: base,
+		audioStream:  audioStream,
 	}
 }
 
 // Close cleans up the emulator resources
 func (e *Emulator) Close() {
-	sdl.CloseAudioDevice(e.audioDeviceID)
+	if e.audioStream != nil {
+		e.audioStream.Destroy()
+	}
 	sdl.Quit()
 }
 
@@ -71,7 +156,11 @@ func (e *Emulator) QueueAudio() {
 		audioBytes[i*2] = byte(sample)
 		audioBytes[i*2+1] = byte(sample >> 8)
 	}
-	sdl.QueueAudio(e.audioDeviceID, audioBytes)
+
+	// Queue audio data to the stream
+	if err := e.audioStream.PutData(audioBytes); err != nil {
+		log.Printf("warning: failed to queue audio: %v", err)
+	}
 }
 
 // DrawToScreen renders the emulator framebuffer to the given screen.

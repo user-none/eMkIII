@@ -53,7 +53,28 @@ func (v *VideoSection) Build(focus types.FocusManager) *widget.Container {
 	// Shaders list in scrollable container
 	section.AddChild(v.buildShadersList(focus))
 
+	// Set up navigation zones
+	v.setupNavigation(focus)
+
 	return section
+}
+
+// setupNavigation registers navigation zones for the video section
+func (v *VideoSection) setupNavigation(focus types.FocusManager) {
+	// Crop border zone (single button, treated as horizontal)
+	focus.RegisterNavZone("video-crop", types.NavZoneHorizontal, []string{"crop-border"}, 0)
+
+	// Shader grid zone (2 columns: UI, Game)
+	shaderKeys := make([]string, 0, len(shader.AvailableShaders)*2)
+	for _, info := range shader.AvailableShaders {
+		shaderKeys = append(shaderKeys, "shader-ui-"+info.ID)
+		shaderKeys = append(shaderKeys, "shader-game-"+info.ID)
+	}
+	focus.RegisterNavZone("video-shaders", types.NavZoneGrid, shaderKeys, 2)
+
+	// Transitions
+	focus.SetNavTransition("video-crop", types.DirDown, "video-shaders", types.NavIndexFirst)
+	focus.SetNavTransition("video-shaders", types.DirUp, "video-crop", types.NavIndexFirst)
 }
 
 // buildCropBorderRow creates the crop border toggle row

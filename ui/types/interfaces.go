@@ -8,6 +8,29 @@ import (
 	"github.com/ebitenui/ebitenui/widget"
 )
 
+// Direction constants for navigation
+const (
+	DirNone  = 0
+	DirUp    = 1
+	DirDown  = 2
+	DirLeft  = 3
+	DirRight = 4
+)
+
+// Navigation zone types
+const (
+	NavZoneHorizontal = "horizontal" // Left/Right navigates, Up/Down exits zone
+	NavZoneVertical   = "vertical"   // Up/Down navigates, Left/Right exits zone
+	NavZoneGrid       = "grid"       // 2D grid navigation
+)
+
+// Navigation index constants
+const (
+	NavIndexPreserve = -1 // Try to preserve column/row position
+	NavIndexFirst    = -2 // Go to first item
+	NavIndexLast     = -3 // Go to last item
+)
+
 // ScreenCallback provides callbacks for screen navigation
 type ScreenCallback interface {
 	SwitchToLibrary()
@@ -38,4 +61,7 @@ type FocusManager interface {
 	SetScrollWidgets(sc *widget.ScrollContainer, slider *widget.Slider)
 	SaveScrollPosition()
 	RestoreScrollPosition()
+	// Zone-based navigation
+	RegisterNavZone(name string, zoneType string, keys []string, columns int)
+	SetNavTransition(fromZone string, direction int, toZone string, toIndex int)
 }

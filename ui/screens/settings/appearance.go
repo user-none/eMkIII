@@ -74,7 +74,20 @@ func (a *AppearanceSection) Build(focus types.FocusManager) *widget.Container {
 	focus.RestoreScrollPosition()
 	section.AddChild(scrollWrapper)
 
+	// Set up navigation zones
+	a.setupNavigation(focus)
+
 	return section
+}
+
+// setupNavigation registers navigation zones for the appearance section
+func (a *AppearanceSection) setupNavigation(focus types.FocusManager) {
+	// Theme list zone (vertical)
+	themeKeys := make([]string, len(style.AvailableThemes))
+	for i, theme := range style.AvailableThemes {
+		themeKeys[i] = fmt.Sprintf("theme-%s", theme.Name)
+	}
+	focus.RegisterNavZone("theme-list", types.NavZoneVertical, themeKeys, 0)
 }
 
 // buildThemeCard creates a theme selection card with button and color preview

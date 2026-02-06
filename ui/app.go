@@ -14,6 +14,7 @@ import (
 	"github.com/user-none/emkiii/ui/shader"
 	"github.com/user-none/emkiii/ui/storage"
 	"github.com/user-none/emkiii/ui/style"
+	"github.com/user-none/emkiii/ui/types"
 )
 
 // App is the main application struct that implements ebiten.Game
@@ -352,11 +353,9 @@ func (a *App) processUIInput() UINavigation {
 
 	nav := a.inputManager.GetUINavigation()
 
-	// Apply navigation direction
-	if nav.Direction == 1 {
-		a.ui.ChangeFocus(widget.FOCUS_PREVIOUS)
-	} else if nav.Direction == 2 {
-		a.ui.ChangeFocus(widget.FOCUS_NEXT)
+	// Apply navigation direction using spatial navigation if supported
+	if nav.Direction != types.DirNone {
+		a.applySpatialNavigation(nav.Direction)
 	}
 
 	// A/Cross button activates focused widget
@@ -379,6 +378,41 @@ func (a *App) processUIInput() UINavigation {
 	}
 
 	return nav
+}
+
+// applySpatialNavigation uses 2D spatial navigation to find the next focus target.
+// Falls back to linear navigation for screens that don't support spatial nav.
+func (a *App) applySpatialNavigation(direction int) {
+	// Get the current focused widget
+	focused := a.ui.GetFocusedWidget()
+
+	// Try spatial navigation on the current screen
+	var nextBtn *widget.Button
+
+	switch a.state {
+	case StateLibrary:
+		nextBtn = a.libraryScreen.FindFocusInDirection(focused, direction)
+	case StateDetail:
+		nextBtn = a.detailScreen.FindFocusInDirection(focused, direction)
+	case StateSettings:
+		nextBtn = a.settingsScreen.FindFocusInDirection(focused, direction)
+		// StateError and StateScanProgress use linear navigation (simple layouts)
+	}
+
+	if nextBtn != nil {
+		// Spatial navigation found a target - unfocus current first
+		if focused != nil {
+			focused.Focus(false)
+		}
+		nextBtn.Focus(true)
+	} else {
+		// Fallback to linear navigation
+		if direction == types.DirUp || direction == types.DirLeft {
+			a.ui.ChangeFocus(widget.FOCUS_PREVIOUS)
+		} else {
+			a.ui.ChangeFocus(widget.FOCUS_NEXT)
+		}
+	}
 }
 
 // handleGamepadBack handles B button press for back navigation

@@ -15,6 +15,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/user-none/emkiii/ui/storage"
 	"github.com/user-none/emkiii/ui/style"
+	"github.com/user-none/emkiii/ui/types"
 )
 
 // LibraryScreen displays the game library
@@ -79,6 +80,9 @@ func (s *LibraryScreen) Build() *widget.Container {
 	rootContainer := style.ScreenContainer()
 	innerContainer := style.ScreenContentContainer([]bool{false, true}) // toolbar=fixed, content=stretch
 
+	// Track grid columns for navigation
+	gridColumns := 1
+
 	if totalGames == 0 {
 		// Library is truly empty - no games at all
 		innerContainer.AddChild(s.buildEmptyState())
@@ -86,6 +90,7 @@ func (s *LibraryScreen) Build() *widget.Container {
 		// Library has games but filter shows none (e.g., favorites filter with no favorites)
 		innerContainer.AddChild(s.buildToolbar())
 		innerContainer.AddChild(s.buildFilteredEmptyState())
+		s.setupNavigation(1) // Toolbar only
 	} else {
 		// Toolbar (row 0 - doesn't stretch)
 		innerContainer.AddChild(s.buildToolbar())
@@ -93,9 +98,11 @@ func (s *LibraryScreen) Build() *widget.Container {
 		// Game list or grid (row 1 - stretches to fill)
 		if s.config.Library.ViewMode == "list" {
 			innerContainer.AddChild(s.buildListView())
+			gridColumns = 1
 		} else {
-			innerContainer.AddChild(s.buildIconView())
+			gridColumns = s.buildIconView(innerContainer)
 		}
+		s.setupNavigation(gridColumns)
 	}
 
 	rootContainer.AddChild(innerContainer)
@@ -457,7 +464,8 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 }
 
 // buildIconView creates the icon/grid view of games with artwork
-func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
+// Returns the number of columns for navigation setup
+func (s *LibraryScreen) buildIconView(container *widget.Container) int {
 	// Calculate responsive grid dimensions
 	windowWidth := s.callback.GetWindowWidth()
 	if windowWidth < 400 {
@@ -520,7 +528,8 @@ func (s *LibraryScreen) buildIconView() widget.PreferredSizeLocateableWidget {
 		vSlider.Current = int(s.iconScrollTop * 1000)
 	}
 
-	return wrapper
+	container.AddChild(wrapper)
+	return columns
 }
 
 // buildGameCardSized creates a game card with specific dimensions
@@ -666,6 +675,39 @@ func (s *LibraryScreen) isGameButton(btn *widget.Button) bool {
 		}
 	}
 	return false
+}
+
+// setupNavigation registers navigation zones and transitions
+func (s *LibraryScreen) setupNavigation(gridColumns int) {
+	// Toolbar zone (horizontal)
+	toolbarKeys := []string{
+		"toolbar-icon",
+		"toolbar-list",
+		"toolbar-sort",
+		"toolbar-favorites",
+		"toolbar-settings",
+	}
+	s.RegisterNavZone("toolbar", types.NavZoneHorizontal, toolbarKeys, 0)
+
+	// Content zone (grid or list)
+	if len(s.games) > 0 {
+		gameKeys := make([]string, len(s.games))
+		for i, game := range s.games {
+			gameKeys[i] = "game-" + game.CRC32
+		}
+
+		zoneType := types.NavZoneGrid
+		if s.config.Library.ViewMode == "list" {
+			zoneType = types.NavZoneVertical
+			gridColumns = 1
+		}
+
+		s.RegisterNavZone("content", zoneType, gameKeys, gridColumns)
+
+		// Set up transitions
+		s.SetNavTransition("toolbar", types.DirDown, "content", types.NavIndexPreserve)
+		s.SetNavTransition("content", types.DirUp, "toolbar", types.NavIndexPreserve)
+	}
 }
 
 // EnsureFocusedVisible scrolls the view to ensure the focused widget is visible

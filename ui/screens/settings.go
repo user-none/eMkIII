@@ -8,6 +8,7 @@ import (
 	"github.com/user-none/emkiii/ui/screens/settings"
 	"github.com/user-none/emkiii/ui/storage"
 	"github.com/user-none/emkiii/ui/style"
+	"github.com/user-none/emkiii/ui/types"
 )
 
 // SettingsScreen displays application settings
@@ -207,7 +208,33 @@ func (s *SettingsScreen) Build() *widget.Container {
 	mainContent.AddChild(contentArea)
 	rootContainer.AddChild(mainContent)
 
+	// Set up navigation zones
+	s.setupNavigation()
+
 	return rootContainer
+}
+
+// setupNavigation registers navigation zones for settings screen
+func (s *SettingsScreen) setupNavigation() {
+	// Sidebar zone (vertical)
+	sidebarKeys := []string{"section-library", "section-appearance", "section-video"}
+	s.RegisterNavZone("sidebar", types.NavZoneVertical, sidebarKeys, 0)
+
+	// Set up transitions from sidebar to content
+	// The content zone names are set by the sections
+	switch s.selectedSection {
+	case 0: // Library
+		s.SetNavTransition("sidebar", types.DirRight, "lib-folders", types.NavIndexFirst)
+		s.SetNavTransition("lib-folders", types.DirLeft, "sidebar", types.NavIndexFirst)
+		s.SetNavTransition("lib-buttons", types.DirLeft, "sidebar", types.NavIndexFirst)
+	case 1: // Appearance - uses theme-list zone
+		s.SetNavTransition("sidebar", types.DirRight, "theme-list", types.NavIndexFirst)
+		s.SetNavTransition("theme-list", types.DirLeft, "sidebar", types.NavIndexFirst)
+	case 2: // Video
+		s.SetNavTransition("sidebar", types.DirRight, "video-crop", types.NavIndexFirst)
+		s.SetNavTransition("video-crop", types.DirLeft, "sidebar", types.NavIndexFirst)
+		s.SetNavTransition("video-shaders", types.DirLeft, "sidebar", types.NavIndexFirst)
+	}
 }
 
 // OnEnter is called when entering the settings screen

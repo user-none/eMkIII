@@ -8,11 +8,12 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/user-none/emkiii/ui/style"
+	"github.com/user-none/emkiii/ui/types"
 )
 
 // UINavigation represents the result of UI input polling
 type UINavigation struct {
-	Direction    int  // 0=none, 1=prev, 2=next
+	Direction    int  // 0=none, 1=up, 2=down, 3=left, 4=right
 	Activate     bool // A/Cross button just pressed
 	Back         bool // B/Circle button just pressed
 	OpenSettings bool // Start button just pressed
@@ -24,7 +25,7 @@ type UINavigation struct {
 // a clean interface for UI code to query input state.
 type InputManager struct {
 	// Navigation state for repeat handling
-	direction    int           // 0=none, 1=prev, 2=next
+	direction    int           // 0=none, 1=up, 2=down, 3=left, 4=right
 	startTime    time.Time     // When direction was first pressed
 	lastMove     time.Time     // When last move occurred
 	repeatDelay  time.Duration // Current repeat interval
@@ -53,15 +54,23 @@ func (im *InputManager) GetUINavigation() UINavigation {
 	result := UINavigation{}
 
 	// Navigation direction flags - keyboard and gamepad both contribute
-	navPrev := false
-	navNext := false
+	navUp := false
+	navDown := false
+	navLeft := false
+	navRight := false
 
-	// Keyboard navigation (arrow keys with repeat)
-	if ebiten.IsKeyPressed(ebiten.KeyArrowUp) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
-		navPrev = true
+	// Keyboard navigation (arrow keys)
+	if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
+		navUp = true
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyArrowDown) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
-		navNext = true
+	if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
+		navDown = true
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
+		navLeft = true
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
+		navRight = true
 	}
 
 	// Gamepad navigation (if connected)
@@ -72,40 +81,54 @@ func (im *InputManager) GetUINavigation() UINavigation {
 		gamepadID = gamepadIDs[0]
 
 		// D-pad
-		if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftTop) ||
-			ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftLeft) {
-			navPrev = true
+		if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftTop) {
+			navUp = true
 		}
-		if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftBottom) ||
-			ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftRight) {
-			navNext = true
+		if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftBottom) {
+			navDown = true
+		}
+		if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftLeft) {
+			navLeft = true
+		}
+		if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftRight) {
+			navRight = true
 		}
 
 		// Analog stick (0.5 threshold for UI)
 		axisY := ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickVertical)
 		axisX := ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickHorizontal)
-		if axisY < -0.5 || axisX < -0.5 {
-			navPrev = true
+		if axisY < -0.5 {
+			navUp = true
 		}
-		if axisY > 0.5 || axisX > 0.5 {
-			navNext = true
+		if axisY > 0.5 {
+			navDown = true
+		}
+		if axisX < -0.5 {
+			navLeft = true
+		}
+		if axisX > 0.5 {
+			navRight = true
 		}
 	}
 
-	// Determine desired direction (prev takes priority if both pressed)
-	desiredDir := 0
-	if navPrev {
-		desiredDir = 1
-	} else if navNext {
-		desiredDir = 2
+	// Determine desired direction (vertical takes priority for menu-like behavior)
+	desiredDir := types.DirNone
+	if navUp {
+		desiredDir = types.DirUp
+	} else if navDown {
+		desiredDir = types.DirDown
+	} else if navLeft {
+		desiredDir = types.DirLeft
+	} else if navRight {
+		desiredDir = types.DirRight
 	}
 
 	now := time.Now()
 	im.focusChanged = false
 
-	if desiredDir == 0 {
+	if desiredDir == types.DirNone {
 		// No direction pressed - reset state
-		im.direction = 0
+		im.direction = types.DirNone
 		im.repeatDelay = style.NavStartInterval
 	} else if desiredDir != im.direction {
 		// Direction changed - move immediately and start tracking

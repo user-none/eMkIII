@@ -66,6 +66,9 @@ func (l *LibrarySection) Build(focus types.FocusManager) *widget.Container {
 	// Create the folder list
 	section.AddChild(l.buildFolderList(focus))
 
+	// Track folder count for navigation setup
+	folderCount := len(l.library.ScanDirectories)
+
 	// Button row: Add Folder | Scan Library | Remove (centered)
 	buttonRow := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
@@ -83,12 +86,14 @@ func (l *LibrarySection) Build(focus types.FocusManager) *widget.Container {
 	addDirBtn := style.TextButton("Add Folder...", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
 		l.onAddDirectoryClick()
 	})
+	focus.RegisterFocusButton("lib-add", addDirBtn)
 	buttonRow.AddChild(addDirBtn)
 
 	// Scan Library button
 	scanBtn := style.PrimaryTextButton("Scan Library", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
 		l.callback.SwitchToScanProgress(true)
 	})
+	focus.RegisterFocusButton("lib-scan", scanBtn)
 	buttonRow.AddChild(scanBtn)
 
 	// Remove button - disabled when nothing selected, removes all selected folders
@@ -115,6 +120,7 @@ func (l *LibrarySection) Build(focus types.FocusManager) *widget.Container {
 			}
 		}),
 	)
+	focus.RegisterFocusButton("lib-remove", removeBtn)
 	buttonRow.AddChild(removeBtn)
 
 	section.AddChild(buttonRow)
@@ -138,7 +144,32 @@ func (l *LibrarySection) Build(focus types.FocusManager) *widget.Container {
 	)
 	section.AddChild(countLabel)
 
+	// Set up navigation zones
+	l.setupNavigation(focus, folderCount)
+
 	return section
+}
+
+// setupNavigation registers navigation zones for the library section
+func (l *LibrarySection) setupNavigation(focus types.FocusManager, folderCount int) {
+	// Folder list zone (vertical)
+	if folderCount > 0 {
+		folderKeys := make([]string, folderCount)
+		for i := 0; i < folderCount; i++ {
+			folderKeys[i] = fmt.Sprintf("folder-%d", i)
+		}
+		focus.RegisterNavZone("lib-folders", types.NavZoneVertical, folderKeys, 0)
+	}
+
+	// Button row zone (horizontal)
+	buttonKeys := []string{"lib-add", "lib-scan", "lib-remove"}
+	focus.RegisterNavZone("lib-buttons", types.NavZoneHorizontal, buttonKeys, 0)
+
+	// Transitions
+	if folderCount > 0 {
+		focus.SetNavTransition("lib-folders", types.DirDown, "lib-buttons", types.NavIndexFirst)
+		focus.SetNavTransition("lib-buttons", types.DirUp, "lib-folders", types.NavIndexLast)
+	}
 }
 
 // buildFolderList creates a selectable folder list with scrolling

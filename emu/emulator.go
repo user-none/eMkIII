@@ -38,8 +38,9 @@ type EmulatorBase struct {
 	timing    RegionTiming
 	scanlines int
 
-	// Audio buffer for accumulating samples (shared between builds)
-	audioBuffer []int16
+	// Pre-allocated audio buffers to avoid per-frame allocations
+	frameSamples []float32 // Collects float32 samples during scanline emulation
+	audioBuffer  []int16   // Final int16 stereo output for external consumption
 }
 
 // initEmulatorBase creates and initializes the shared emulator components
@@ -72,28 +73,32 @@ func initEmulatorBase(rom []byte, region Region) EmulatorBase {
 		region:              region,
 		timing:              timing,
 		scanlines:           timing.Scanlines,
+		// Pre-allocate audio buffers: ~800 samples/frame at 48kHz/60fps
+		frameSamples: make([]float32, 0, 1024),
+		audioBuffer:  make([]int16, 0, 2048),
 	}
 }
 
 // checkAndSetInterrupt updates CPU interrupt state based on VDP pending interrupts
 func (e *EmulatorBase) checkAndSetInterrupt() {
 	if e.vdp.InterruptPending() {
-		e.cpu.SetInterrupt(z80.IM1Interrupt())
+		e.cpu.SetIM1Interrupt() // Use cached interrupt to avoid allocation
 	} else {
 		e.cpu.ClearInterrupt()
 	}
 }
 
-// runScanlines executes one frame of CPU/VDP/PSG emulation and returns audio samples
-func (e *EmulatorBase) runScanlines() []float32 {
+// runScanlines executes one frame of CPU/VDP/PSG emulation.
+// Audio samples are accumulated in e.frameSamples.
+func (e *EmulatorBase) runScanlines() {
 	activeHeight := e.vdp.ActiveHeight()
 
 	var targetCyclesFP int = 0
 	var executedCycles int = 0
 	var prevTargetCycles int = 0
 
-	// Collect all audio samples for the frame
-	frameSamples := make([]float32, 0, 900) // ~800 samples per frame at 48kHz/60fps
+	// Reset pre-allocated buffer for this frame
+	e.frameSamples = e.frameSamples[:0]
 
 	for i := 0; i < e.scanlines; i++ {
 		targetCyclesFP += e.cyclesPerScanlineFP
@@ -177,11 +182,9 @@ func (e *EmulatorBase) runScanlines() []float32 {
 		e.psg.GenerateSamples(scanlineCycles)
 		buffer, count := e.psg.GetBuffer()
 		if count > 0 {
-			frameSamples = append(frameSamples, buffer[:count]...)
+			e.frameSamples = append(e.frameSamples, buffer[:count]...)
 		}
 	}
-
-	return frameSamples
 }
 
 // SetInput sets Player 1 controller state from external source
@@ -234,28 +237,20 @@ func (e *EmulatorBase) SetRegion(region Region) {
 // Shared Emulation Methods
 // =============================================================================
 
-// ConvertAudioSamples converts float32 mono samples to int16 stereo.
-func ConvertAudioSamples(samples []float32) []int16 {
-	result := make([]int16, len(samples)*2)
-	for i, sample := range samples {
-		intSample := int16(sample * 32767)
-		result[i*2] = intSample   // Left
-		result[i*2+1] = intSample // Right (duplicate for stereo)
-	}
-	return result
-}
-
 // RunFrame executes one frame of emulation without Ebiten or SDL.
 // Audio samples are accumulated in the internal buffer.
 func (e *EmulatorBase) RunFrame() {
 	// Reset audio buffer for this frame
 	e.audioBuffer = e.audioBuffer[:0]
 
-	// Run the core emulation loop
-	frameSamples := e.runScanlines()
+	// Run the core emulation loop (populates e.frameSamples)
+	e.runScanlines()
 
-	// Convert float32 samples to 16-bit stereo
-	e.audioBuffer = append(e.audioBuffer, ConvertAudioSamples(frameSamples)...)
+	// Convert float32 mono samples to int16 stereo in-place
+	for _, sample := range e.frameSamples {
+		intSample := int16(sample * 32767)
+		e.audioBuffer = append(e.audioBuffer, intSample, intSample)
+	}
 }
 
 // GetAudioSamples returns accumulated audio samples as 16-bit stereo PCM.

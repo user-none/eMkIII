@@ -21,6 +21,7 @@ import (
 type GameplayManager struct {
 	// Emulation state
 	emulator    *emu.Emulator
+	audioPlayer *AudioPlayer
 	currentGame *storage.GameEntry
 	cropBorder  bool
 
@@ -145,6 +146,14 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 	gm.currentGame = game
 	gm.saveStateManager.SetGame(gameCRC)
 
+	// Create audio player
+	player, err := NewAudioPlayer(false)
+	if err != nil {
+		log.Printf("Failed to init audio: %v", err)
+	} else {
+		gm.audioPlayer = player
+	}
+
 	// Load SRAM if exists
 	if err := gm.saveStateManager.LoadSRAM(gm.emulator); err != nil {
 		log.Printf("Failed to load SRAM: %v", err)
@@ -218,7 +227,9 @@ func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
 	gm.emulator.RunFrame()
 
 	// Queue audio samples
-	gm.emulator.QueueAudio()
+	if gm.audioPlayer != nil {
+		gm.audioPlayer.QueueSamples(gm.emulator.GetAudioSamples())
+	}
 
 	// Handle save state keys
 	gm.handleSaveStateKeys()
@@ -289,6 +300,12 @@ func (gm *GameplayManager) Exit(saveResume bool) {
 		if err := gm.saveStateManager.SaveResume(gm.emulator); err != nil {
 			log.Printf("Resume save failed: %v", err)
 		}
+	}
+
+	// Close audio player
+	if gm.audioPlayer != nil {
+		gm.audioPlayer.Close()
+		gm.audioPlayer = nil
 	}
 
 	// Close emulator

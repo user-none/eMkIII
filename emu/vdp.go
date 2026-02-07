@@ -110,6 +110,9 @@ type VDP struct {
 	// Interrupt state tracking
 	statusWasRead          bool // Set when status register is read (flags cleared)
 	interruptCheckRequired bool // Set when reg0/reg1 written, requiring interrupt state update
+
+	// Pre-allocated for sprite collision detection (avoids per-scanline allocation)
+	spritePixels []bool
 }
 
 // Palette scale: 2-bit SMS color to 8-bit RGB
@@ -120,6 +123,7 @@ func NewVDP() *VDP {
 		framebuffer:    image.NewRGBA(image.Rect(0, 0, ScreenWidth, MaxScreenHeight)),
 		totalScanlines: 262, // Default to NTSC
 		lineCounter:    255, // Prevent spurious interrupt on first scanline
+		spritePixels:   make([]bool, ScreenWidth),
 	}
 }
 
@@ -625,7 +629,10 @@ func (v *VDP) renderSprites(line uint16) {
 
 	// Render sprites in reverse order (sprite 0 has highest priority)
 	// This means we draw from last to first, so earlier sprites overwrite later ones
-	spritePixels := make([]bool, ScreenWidth) // Track which pixels have sprites
+	// Clear pre-allocated sprite pixel tracking array
+	for i := range v.spritePixels {
+		v.spritePixels[i] = false
+	}
 
 	for i := spriteCount - 1; i >= 0; i-- {
 		spr := sprites[i]
@@ -668,10 +675,10 @@ func (v *VDP) renderSprites(line uint16) {
 			}
 
 			// Check for sprite collision
-			if spritePixels[screenX] {
+			if v.spritePixels[screenX] {
 				v.status |= 0x20 // Set collision flag
 			}
-			spritePixels[screenX] = true
+			v.spritePixels[screenX] = true
 
 			// Skip if background has priority at this pixel
 			if v.bgPriority[screenX] {

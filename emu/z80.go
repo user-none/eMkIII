@@ -6,9 +6,10 @@ import (
 
 // CycleZ80 wraps the koron-go/z80 CPU and provides accurate cycle counting.
 type CycleZ80 struct {
-	cpu     *z80.CPU
-	mem     *Memory
-	afterEI bool // True if we just executed EI (interrupt delay)
+	cpu          *z80.CPU
+	mem          *Memory
+	afterEI      bool           // True if we just executed EI (interrupt delay)
+	cachedIM1Int *z80.Interrupt // Cached IM1 interrupt to avoid per-call allocation
 }
 
 // NewCycleZ80 creates a new cycle-counting Z80 wrapper.
@@ -18,13 +19,20 @@ func NewCycleZ80(mem *Memory, io z80.IO) *CycleZ80 {
 			Memory: mem,
 			IO:     io,
 		},
-		mem: mem,
+		mem:          mem,
+		cachedIM1Int: z80.IM1Interrupt(), // Cache once at creation
 	}
 }
 
 // SetInterrupt sets a pending interrupt on the CPU.
 func (c *CycleZ80) SetInterrupt(interrupt *z80.Interrupt) {
 	c.cpu.Interrupt = interrupt
+}
+
+// SetIM1Interrupt sets the cached IM1 interrupt on the CPU.
+// This avoids allocating a new Interrupt object on each call.
+func (c *CycleZ80) SetIM1Interrupt() {
+	c.cpu.Interrupt = c.cachedIM1Int
 }
 
 // ClearInterrupt clears any pending interrupt on the CPU.

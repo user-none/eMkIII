@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/user-none/emkiii/emu"
+	"github.com/user-none/emkiii/ui"
 )
 
 // Runner wraps an emulator for command-line mode.
@@ -15,15 +16,29 @@ import (
 // This follows the libretro pattern where the frontend is responsible
 // for polling input and passing it to the emulator via SetInput().
 type Runner struct {
-	emulator   *emu.Emulator
-	cropBorder bool
+	emulator    *emu.Emulator
+	audioPlayer *ui.AudioPlayer
+	cropBorder  bool
 }
 
 // NewRunner creates a new Runner wrapping the given emulator.
 func NewRunner(e *emu.Emulator, cropBorder bool) *Runner {
+	player, err := ui.NewAudioPlayer(false)
+	if err != nil {
+		panic(err)
+	}
 	return &Runner{
-		emulator:   e,
-		cropBorder: cropBorder,
+		emulator:    e,
+		audioPlayer: player,
+		cropBorder:  cropBorder,
+	}
+}
+
+// Close cleans up the runner's resources.
+func (r *Runner) Close() {
+	if r.audioPlayer != nil {
+		r.audioPlayer.Close()
+		r.audioPlayer = nil
 	}
 }
 
@@ -40,7 +55,7 @@ func (r *Runner) Update() error {
 	r.emulator.RunFrame()
 
 	// Queue audio samples to SDL
-	r.emulator.QueueAudio()
+	r.audioPlayer.QueueSamples(r.emulator.GetAudioSamples())
 
 	return nil
 }

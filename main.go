@@ -57,6 +57,9 @@ func main() {
 	ebiten.SetTPS(timing.FPS)
 
 	runner := cli.NewRunner(e, *cropBorder)
+	defer runner.Close()
+	defer e.Close()
+
 	if err := ebiten.RunGame(runner); err != nil {
 		log.Fatal(err)
 	}

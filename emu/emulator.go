@@ -44,13 +44,8 @@ type EmulatorBase struct {
 }
 
 // InitEmulatorBase creates and initializes the shared emulator components.
-// Exported for use by emuios package.
+// Exported for use by bridge packages.
 func InitEmulatorBase(rom []byte, region Region) EmulatorBase {
-	return initEmulatorBase(rom, region)
-}
-
-// initEmulatorBase creates and initializes the shared emulator components
-func initEmulatorBase(rom []byte, region Region) EmulatorBase {
 	mem := NewMemory(rom)
 	vdp := NewVDP()
 

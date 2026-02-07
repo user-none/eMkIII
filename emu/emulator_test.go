@@ -432,7 +432,7 @@ func TestEmulator_AudioSampleCount(t *testing.T) {
 // createTestEmulatorBase creates an EmulatorBase for testing serialization
 func createTestEmulatorBase() *EmulatorBase {
 	rom := createTestROM(4)
-	base := initEmulatorBase(rom, RegionNTSC)
+	base := InitEmulatorBase(rom, RegionNTSC)
 	return &base
 }
 
@@ -585,7 +585,7 @@ func TestVerifyState_WrongROM(t *testing.T) {
 	for i := range differentROM {
 		differentROM[i] = byte(i & 0xFF)
 	}
-	base := initEmulatorBase(differentROM, RegionNTSC)
+	base := InitEmulatorBase(differentROM, RegionNTSC)
 	emu2 := &base
 
 	err = emu2.VerifyState(state)
@@ -611,7 +611,7 @@ func TestVerifyState_TooShort(t *testing.T) {
 func TestDeserialize_PreservesRegion(t *testing.T) {
 	// Create emulator with NTSC
 	ntscROM := createTestROM(4)
-	ntscBase := initEmulatorBase(ntscROM, RegionNTSC)
+	ntscBase := InitEmulatorBase(ntscROM, RegionNTSC)
 	emuNTSC := &ntscBase
 
 	// Save state
@@ -621,7 +621,7 @@ func TestDeserialize_PreservesRegion(t *testing.T) {
 	}
 
 	// Create new emulator with PAL using same ROM
-	palBase := initEmulatorBase(ntscROM, RegionPAL)
+	palBase := InitEmulatorBase(ntscROM, RegionPAL)
 	emuPAL := &palBase
 
 	// Verify initial region is PAL

@@ -9,6 +9,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	emubridge "github.com/user-none/emkiii/bridge/ebiten"
 	"github.com/user-none/emkiii/emu"
 	"github.com/user-none/emkiii/romloader"
 	"github.com/user-none/emkiii/ui/storage"
@@ -20,7 +21,7 @@ import (
 // play time tracking, and the pause menu.
 type GameplayManager struct {
 	// Emulation state
-	emulator    *emu.Emulator
+	emulator    *emubridge.Emulator
 	audioPlayer *AudioPlayer
 	currentGame *storage.GameEntry
 	cropBorder  bool
@@ -142,7 +143,7 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 	gm.cropBorder = gm.config.Video.CropBorder
 
 	// Create emulator
-	gm.emulator = emu.NewEmulator(romData, region)
+	gm.emulator = emubridge.NewEmulator(romData, region)
 	gm.currentGame = game
 	gm.saveStateManager.SetGame(gameCRC)
 
@@ -259,7 +260,7 @@ func (gm *GameplayManager) DrawFramebuffer() *ebiten.Image {
 	if gm.emulator == nil {
 		return nil
 	}
-	return gm.emulator.GetFramebuffer(gm.cropBorder)
+	return gm.emulator.GetFramebufferImage(gm.cropBorder)
 }
 
 // DrawPauseMenu draws the pause menu overlay

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/user-none/emkiii/emu"
+	emubridge "github.com/user-none/emkiii/bridge/ebiten"
 	"github.com/user-none/emkiii/ui/storage"
 )
 
@@ -87,7 +87,7 @@ func (m *SaveStateManager) persistSlot() {
 }
 
 // Save saves the current state to the current slot
-func (m *SaveStateManager) Save(emulator *emu.Emulator) error {
+func (m *SaveStateManager) Save(emulator *emubridge.Emulator) error {
 	if m.gameCRC == "" {
 		return fmt.Errorf("no game set")
 	}
@@ -121,7 +121,7 @@ func (m *SaveStateManager) Save(emulator *emu.Emulator) error {
 }
 
 // Load loads the state from the current slot
-func (m *SaveStateManager) Load(emulator *emu.Emulator) error {
+func (m *SaveStateManager) Load(emulator *emubridge.Emulator) error {
 	if m.gameCRC == "" {
 		return fmt.Errorf("no game set")
 	}
@@ -158,7 +158,7 @@ func (m *SaveStateManager) Load(emulator *emu.Emulator) error {
 }
 
 // SaveResume saves the resume state
-func (m *SaveStateManager) SaveResume(emulator *emu.Emulator) error {
+func (m *SaveStateManager) SaveResume(emulator *emubridge.Emulator) error {
 	if m.gameCRC == "" {
 		return fmt.Errorf("no game set")
 	}
@@ -183,7 +183,7 @@ func (m *SaveStateManager) SaveResume(emulator *emu.Emulator) error {
 }
 
 // LoadResume loads the resume state
-func (m *SaveStateManager) LoadResume(emulator *emu.Emulator) error {
+func (m *SaveStateManager) LoadResume(emulator *emubridge.Emulator) error {
 	if m.gameCRC == "" {
 		return fmt.Errorf("no game set")
 	}
@@ -220,7 +220,7 @@ func (m *SaveStateManager) HasResumeState() bool {
 }
 
 // SaveSRAM saves the cartridge SRAM
-func (m *SaveStateManager) SaveSRAM(emulator *emu.Emulator) error {
+func (m *SaveStateManager) SaveSRAM(emulator *emubridge.Emulator) error {
 	if m.gameCRC == "" {
 		return fmt.Errorf("no game set")
 	}
@@ -245,7 +245,7 @@ func (m *SaveStateManager) SaveSRAM(emulator *emu.Emulator) error {
 }
 
 // LoadSRAM loads the cartridge SRAM
-func (m *SaveStateManager) LoadSRAM(emulator *emu.Emulator) error {
+func (m *SaveStateManager) LoadSRAM(emulator *emubridge.Emulator) error {
 	if m.gameCRC == "" {
 		return nil
 	}

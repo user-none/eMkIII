@@ -23,7 +23,7 @@ const (
 )
 
 var (
-	emulator *emu.Emulator
+	emulator *emu.EmulatorBase
 	region   emu.Region
 	screen   []byte
 	xrgbBuf  []byte // Buffer for RGBA to XRGB8888 conversion
@@ -40,9 +40,9 @@ var (
 	stringsReady bool
 
 	// Core option state
-	optionRegion     string = "Auto"
-	optionCropBorder bool   = false
-	detectedRegion   emu.Region // Store auto-detected region
+	optionRegion     string     = "Auto"
+	optionCropBorder bool       = false
+	detectedRegion   emu.Region         // Store auto-detected region
 	currentWidth     int        = WIDTH // Track for geometry updates
 
 	// Pre-allocated C strings for options (allocated once to prevent leaks)
@@ -200,7 +200,8 @@ func retro_reset() {
 	applyRegionOption()
 
 	// Create fresh emulator with stored ROM data
-	emulator = emu.NewEmulatorForLibretro(romData, region)
+	base := emu.InitEmulatorBase(romData, region)
+	emulator = &base
 }
 
 // convertRGBAToXRGB8888 converts RGBA pixels to XRGB8888 format.
@@ -366,7 +367,8 @@ func retro_load_game(game *C.struct_retro_game_info) C.bool {
 	updateCoreOptions()
 
 	// Create emulator
-	emulator = emu.NewEmulatorForLibretro(romData, region)
+	base := emu.InitEmulatorBase(romData, region)
+	emulator = &base
 
 	return C.bool(true)
 }

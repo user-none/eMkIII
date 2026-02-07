@@ -7,7 +7,7 @@ package cli
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/user-none/emkiii/emu"
+	emubridge "github.com/user-none/emkiii/bridge/ebiten"
 	"github.com/user-none/emkiii/ui"
 )
 
@@ -16,13 +16,13 @@ import (
 // This follows the libretro pattern where the frontend is responsible
 // for polling input and passing it to the emulator via SetInput().
 type Runner struct {
-	emulator    *emu.Emulator
+	emulator    *emubridge.Emulator
 	audioPlayer *ui.AudioPlayer
 	cropBorder  bool
 }
 
 // NewRunner creates a new Runner wrapping the given emulator.
-func NewRunner(e *emu.Emulator, cropBorder bool) *Runner {
+func NewRunner(e *emubridge.Emulator, cropBorder bool) *Runner {
 	player, err := ui.NewAudioPlayer(false)
 	if err != nil {
 		panic(err)

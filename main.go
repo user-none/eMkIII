@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	emubridge "github.com/user-none/emkiii/bridge/ebiten"
 	"github.com/user-none/emkiii/cli"
 	"github.com/user-none/emkiii/emu"
 	"github.com/user-none/emkiii/romloader"
@@ -48,7 +49,7 @@ func main() {
 	}
 
 	timing := emu.GetTimingForRegion(region)
-	e := emu.NewEmulator(romData, region)
+	e := emubridge.NewEmulator(romData, region)
 
 	ebiten.SetWindowSize(emu.ScreenWidth*2, 192*2) // Default size for 192-line mode
 	ebiten.SetWindowTitle("eMKIII")

@@ -43,6 +43,12 @@ type EmulatorBase struct {
 	audioBuffer  []int16   // Final int16 stereo output for external consumption
 }
 
+// InitEmulatorBase creates and initializes the shared emulator components.
+// Exported for use by emuios package.
+func InitEmulatorBase(rom []byte, region Region) EmulatorBase {
+	return initEmulatorBase(rom, region)
+}
+
 // initEmulatorBase creates and initializes the shared emulator components
 func initEmulatorBase(rom []byte, region Region) EmulatorBase {
 	mem := NewMemory(rom)
@@ -890,4 +896,17 @@ func (e *EmulatorBase) deserializeInput(data []byte, offset int) int {
 	e.io.Input.Port2 = data[offset]
 	offset++
 	return offset
+}
+
+// ConvertAudioSamples converts float32 mono samples to int16 stereo samples.
+// Each mono sample is duplicated for left and right channels.
+// Exported for use by libretro tests.
+func ConvertAudioSamples(samples []float32) []int16 {
+	result := make([]int16, len(samples)*2)
+	for i, sample := range samples {
+		intSample := int16(sample * 32767)
+		result[i*2] = intSample
+		result[i*2+1] = intSample
+	}
+	return result
 }

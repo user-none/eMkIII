@@ -5,6 +5,7 @@ package ui
 import (
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -36,6 +37,7 @@ type GameplayManager struct {
 	autoSaveTimer    time.Time
 	autoSaveInterval time.Duration
 	autoSaving       bool
+	autoSaveWg       sync.WaitGroup
 
 	// External dependencies (not owned by GameplayManager)
 	saveStateManager *SaveStateManager
@@ -148,7 +150,7 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 	gm.saveStateManager.SetGame(gameCRC)
 
 	// Create audio player
-	player, err := NewAudioPlayer(false)
+	player, err := NewAudioPlayer()
 	if err != nil {
 		log.Printf("Failed to init audio: %v", err)
 	} else {
@@ -287,6 +289,19 @@ func (gm *GameplayManager) Exit(saveResume bool) {
 		return
 	}
 
+	// Wait for any pending auto-save to complete (max 2 seconds)
+	done := make(chan struct{})
+	go func() {
+		gm.autoSaveWg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		// Auto-save completed
+	case <-time.After(2 * time.Second):
+		log.Printf("Warning: auto-save timed out on exit")
+	}
+
 	// Stop play time tracking and update
 	gm.pausePlayTimeTracking()
 	gm.updatePlayTime()
@@ -416,7 +431,9 @@ func (gm *GameplayManager) triggerAutoSave() {
 	}
 
 	gm.autoSaving = true
+	gm.autoSaveWg.Add(1)
 	go func() {
+		defer gm.autoSaveWg.Done()
 		defer func() { gm.autoSaving = false }()
 
 		// Save resume state

@@ -330,14 +330,14 @@ class EmulatorManager: ObservableObject {
     }
 
     func start(muted: Bool) {
-        // Setup audio
-        if !muted {
-            audioEngine = AudioEngine()
-            do {
-                try audioEngine?.start()
-            } catch {
-                Log.emulator.error("Failed to start audio engine: \(error.localizedDescription)")
-            }
+        // Always setup audio engine (needed for audio-driven timing even when muted)
+        audioEngine = AudioEngine()
+        do {
+            try audioEngine?.start()
+            // Set volume based on mute state
+            audioEngine?.setVolume(muted ? 0.0 : 1.0)
+        } catch {
+            Log.emulator.error("Failed to start audio engine: \(error.localizedDescription)")
         }
 
         // Start emulation on dedicated thread
@@ -395,29 +395,44 @@ class EmulatorManager: ObservableObject {
                 continue
             }
 
-            // Run emulation frame
-            emulator.runFrame()
+            // Run frame
+            runFrameAndQueueAudio()
 
-            // Cache frame buffer for Metal renderer (avoid Go bridge during render)
-            frameBufferLock.lock()
-            cachedFrameBuffer = emulator.getFrameBuffer()
-            frameBufferLock.unlock()
-
-            // Queue audio
-            if let samples = emulator.getAudioSamples() {
-                audioEngine?.queueSamples(samples)
-            }
-
-            // Frame timing - sleep until next frame
+            // Wall-clock timing with audio buffer feedback
             let now = CACurrentMediaTime()
             let elapsed = now - lastFrameTime
-            let sleepTime = frameTime - elapsed
+            var sleepTime = frameTime - elapsed
 
-            if sleepTime > 0 {
+            // Small adjustment based on audio buffer level
+            let bufferLevel = audioEngine?.getBufferLevel() ?? AudioEngine.targetBufferLevel
+            if bufferLevel < AudioEngine.minBufferLevel {
+                // Buffer low - speed up slightly by reducing sleep
+                sleepTime *= 0.9
+            } else if bufferLevel > AudioEngine.maxBufferLevel {
+                // Buffer high - slow down slightly by increasing sleep
+                sleepTime *= 1.1
+            }
+
+            if sleepTime > 0.001 {
                 Thread.sleep(forTimeInterval: sleepTime)
             }
 
             lastFrameTime = CACurrentMediaTime()
+        }
+    }
+
+    private func runFrameAndQueueAudio() {
+        // Run emulation frame
+        emulator.runFrame()
+
+        // Cache frame buffer for Metal renderer (avoid Go bridge during render)
+        frameBufferLock.lock()
+        cachedFrameBuffer = emulator.getFrameBuffer()
+        frameBufferLock.unlock()
+
+        // Queue audio
+        if let samples = emulator.getAudioSamples() {
+            audioEngine?.queueSamples(samples)
         }
     }
 

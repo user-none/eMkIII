@@ -18,8 +18,8 @@ type VideoConfig struct {
 
 // ShaderConfig contains shader effect settings
 type ShaderConfig struct {
-	UIShaders   []string `json:"uiShaders"`            // Ordered list of shader IDs for UI context
-	GameShaders []string `json:"gameShaders"`          // Ordered list of shader IDs for Game context
+	UIShaders   []string `json:"uiShaders"`   // Ordered list of shader IDs for UI context
+	GameShaders []string `json:"gameShaders"` // Ordered list of shader IDs for Game context
 }
 
 // AudioConfig contains audio-related settings

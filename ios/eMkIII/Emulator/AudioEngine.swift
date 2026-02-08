@@ -12,6 +12,11 @@ class AudioEngine {
     static let sampleRate: Double = 48000
     static let channelCount: AVAudioChannelCount = 2
 
+    // Buffer level thresholds (in stereo sample pairs = frames)
+    static let targetBufferLevel = 3200   // ~67ms target at 48kHz (4 frames at 60fps)
+    static let minBufferLevel = 2400      // ~50ms - speed up below this
+    static let maxBufferLevel = 4800      // ~100ms - slow down above this
+
     // Accumulate samples across frames for smoother playback
     private var pendingSamples: [Int16] = []
     private let samplesLock = NSLock()
@@ -19,6 +24,11 @@ class AudioEngine {
     private let maxPendingSamples = 9600  // ~100ms max buffer
     private let preBufferThreshold = 3200  // Wait for ~33ms before starting to schedule
     private var isPreBuffering = true
+
+    // Buffer level tracking for audio-driven timing
+    private var samplesScheduled: Int64 = 0
+    private let bufferTrackingLock = NSLock()
+    private var playbackStartTime: AVAudioTime?
 
     var isRunning: Bool {
         audioEngine?.isRunning ?? false
@@ -139,6 +149,14 @@ class AudioEngine {
             }
         }
 
+        // Track scheduled samples and capture start time
+        bufferTrackingLock.lock()
+        if playbackStartTime == nil, let nodeTime = player.lastRenderTime, nodeTime.isSampleTimeValid {
+            playbackStartTime = nodeTime
+        }
+        samplesScheduled += Int64(frameCount)
+        bufferTrackingLock.unlock()
+
         player.scheduleBuffer(buffer, completionHandler: nil)
     }
 
@@ -148,8 +166,44 @@ class AudioEngine {
         pendingSamples.removeAll(keepingCapacity: true)
         isPreBuffering = true
         samplesLock.unlock()
+
+        bufferTrackingLock.lock()
+        samplesScheduled = 0
+        playbackStartTime = nil
+        bufferTrackingLock.unlock()
+
         playerNode?.stop()
         playerNode?.play()
+    }
+
+    /// Get the current buffer level (pending + scheduled - played)
+    /// Returns the number of stereo sample frames waiting to be played
+    func getBufferLevel() -> Int {
+        samplesLock.lock()
+        let pending = pendingSamples.count / 2  // Convert to frames
+        samplesLock.unlock()
+
+        bufferTrackingLock.lock()
+        let scheduled = samplesScheduled
+        let startTime = playbackStartTime
+        bufferTrackingLock.unlock()
+
+        // Estimate played samples from player's current position
+        var played: Int64 = 0
+        if let player = playerNode,
+           let start = startTime,
+           let currentTime = player.lastRenderTime,
+           currentTime.isSampleTimeValid && start.isSampleTimeValid {
+            played = max(0, currentTime.sampleTime - start.sampleTime)
+        }
+
+        let inFlight = Int(max(0, scheduled - played))
+        return pending + inFlight
+    }
+
+    /// Set the audio volume (0.0 = muted, 1.0 = full volume)
+    func setVolume(_ volume: Float) {
+        audioEngine?.mainMixerNode.outputVolume = max(0.0, min(1.0, volume))
     }
 }
 

@@ -47,7 +47,11 @@ func (e *Emulator) DrawToScreen(screen *ebiten.Image, cropBorder bool) {
 	// Copy VDP framebuffer to offscreen buffer
 	fb := e.GetFramebuffer()
 	stride := e.GetFramebufferStride()
-	e.offscreen.WritePixels(fb[:stride*activeHeight])
+	requiredLen := stride * activeHeight
+	if len(fb) < requiredLen {
+		return // Buffer too small, skip frame
+	}
+	e.offscreen.WritePixels(fb[:requiredLen])
 
 	// Determine source image and native width
 	var srcImage *ebiten.Image
@@ -105,7 +109,11 @@ func (e *Emulator) GetFramebufferImage(cropBorder bool) *ebiten.Image {
 	// Copy VDP framebuffer to offscreen buffer
 	fb := e.GetFramebuffer()
 	stride := e.GetFramebufferStride()
-	e.offscreen.WritePixels(fb[:stride*activeHeight])
+	requiredLen := stride * activeHeight
+	if len(fb) < requiredLen {
+		return nil // Buffer too small
+	}
+	e.offscreen.WritePixels(fb[:requiredLen])
 
 	// Crop left border if enabled and VDP has left column blank active
 	if cropBorder && e.LeftColumnBlankEnabled() {

@@ -5,6 +5,8 @@
 package cli
 
 import (
+	"log"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	emubridge "github.com/user-none/emkiii/bridge/ebiten"
@@ -22,10 +24,11 @@ type Runner struct {
 }
 
 // NewRunner creates a new Runner wrapping the given emulator.
+// Audio initialization failure is non-fatal; the runner will work without sound.
 func NewRunner(e *emubridge.Emulator, cropBorder bool) *Runner {
-	player, err := ui.NewAudioPlayer(false)
+	player, err := ui.NewAudioPlayer()
 	if err != nil {
-		panic(err)
+		log.Printf("Warning: audio initialization failed: %v", err)
 	}
 	return &Runner{
 		emulator:    e,
@@ -55,7 +58,9 @@ func (r *Runner) Update() error {
 	r.emulator.RunFrame()
 
 	// Queue audio samples to SDL
-	r.audioPlayer.QueueSamples(r.emulator.GetAudioSamples())
+	if r.audioPlayer != nil {
+		r.audioPlayer.QueueSamples(r.emulator.GetAudioSamples())
+	}
 
 	return nil
 }

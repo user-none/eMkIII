@@ -709,6 +709,9 @@ func (v *VDP) GetCRAM() []uint8 {
 
 // GetRegister returns the value of a VDP register (0-15)
 func (v *VDP) GetRegister(n int) uint8 {
+	if n < 0 || n >= len(v.register) {
+		return 0
+	}
 	return v.register[n]
 }
 

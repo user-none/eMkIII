@@ -24,9 +24,20 @@ struct LibraryView: View {
         UTType(filenameExtension: "rar") ?? .data
     ]
 
-    private let gridColumns = [
-        GridItem(.adaptive(minimum: 120), spacing: 16)
-    ]
+    /// Calculate grid columns based on available width (2-4 columns)
+    private func gridColumns(for width: CGFloat) -> [GridItem] {
+        let spacing: CGFloat = 16
+        // Target column count based on width
+        let columnCount: Int
+        if width < 450 {
+            columnCount = 2
+        } else if width < 1000 {
+            columnCount = 3
+        } else {
+            columnCount = 4
+        }
+        return Array(repeating: GridItem(.flexible(), spacing: spacing), count: columnCount)
+    }
 
     var body: some View {
         NavigationStack {
@@ -103,16 +114,18 @@ struct LibraryView: View {
     }
 
     private var gameGridView: some View {
-        ScrollView {
-            LazyVGrid(columns: gridColumns, spacing: 16) {
-                ForEach(sortedGames) { game in
-                    GameGridItem(game: game)
-                        .onTapGesture {
-                            appState.navigateToDetail(gameCRC: game.crc32)
-                        }
+        GeometryReader { geometry in
+            ScrollView {
+                LazyVGrid(columns: gridColumns(for: geometry.size.width), spacing: 16) {
+                    ForEach(sortedGames) { game in
+                        GameGridItem(game: game)
+                            .onTapGesture {
+                                appState.navigateToDetail(gameCRC: game.crc32)
+                            }
+                    }
                 }
+                .padding()
             }
-            .padding()
         }
     }
 

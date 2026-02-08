@@ -333,9 +333,7 @@ class EmulatorManager: ObservableObject {
         // Always setup audio engine (needed for audio-driven timing even when muted)
         audioEngine = AudioEngine()
         do {
-            try audioEngine?.start()
-            // Set volume based on mute state
-            audioEngine?.setVolume(muted ? 0.0 : 1.0)
+            try audioEngine?.start(muted: muted)
         } catch {
             Log.emulator.error("Failed to start audio engine: \(error.localizedDescription)")
         }

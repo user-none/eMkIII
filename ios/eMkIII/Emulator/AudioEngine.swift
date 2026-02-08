@@ -39,7 +39,7 @@ class AudioEngine {
     }
 
     /// Start the audio engine
-    func start() throws {
+    func start(muted: Bool = false) throws {
         // Configure audio session
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
@@ -61,6 +61,9 @@ class AudioEngine {
 
         engine.attach(player)
         engine.connect(player, to: engine.mainMixerNode, format: format)
+
+        // Set volume before starting to prevent pop when muted
+        engine.mainMixerNode.outputVolume = muted ? 0.0 : 1.0
 
         try engine.start()
         player.play()

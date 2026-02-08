@@ -73,7 +73,7 @@ func LoadROM(path string) ([]byte, string, error) {
 
 	switch format {
 	case formatRawSMS:
-		data, err := io.ReadAll(f)
+		data, err := limitedRead(f)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to read ROM: %w", err)
 		}

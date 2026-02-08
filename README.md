@@ -1,6 +1,6 @@
 # eMKIII
 
-A Sega Master System Mark-3 (SMS) emulator written in Go 
+A Sega Master System Mark-3 (SMS) emulator written in Go
 
 ## Project Overview
 
@@ -44,17 +44,104 @@ go test ./...
 go build -tags libretro -buildmode=c-shared -o emkiii_libretro.dylib ./bridge/libretro/
 ```
 
-## iOS App
+## User Interfaces
+
+### Standalone UI
+
+When launched without a `-rom` argument, the emulator opens a standalone UI:
+
+- **Game Library:** Browse games in icon or list view with sorting (title, last played, play time) and favorites filtering
+- **ROM Scanning:** Add ROM folders, scan for games with automatic metadata lookup from libretro database
+- **Game Details:** View box art, metadata (developer, publisher, genre, release date), Play/Resume options
+- **Save States:** 10 manual slots per game (F1/F2/F3), auto-save every 5 seconds, resume support
+- **Screenshots:** F12 captures to screenshots directory
+- **Play Time Tracking:** Automatic per-game tracking
+- **Window Persistence:** Window size and position restored on launch
+- **Shader Effects:** 20 visual effects including CRT simulation, scanlines, NTSC artifacts, and pixel smoothing
+
+#### Controls
+
+**Keyboard:**
+- **Movement:** W (up), A (left), S (down), D (right)
+- **Buttons:** J (Button 1), K (Button 2)
+- **SMS Pause:** Enter (hardware pause button, triggers NMI)
+
+**Gamepad** (PlayStation, Xbox, and standard controllers):
+- **Movement:** D-pad or left analog stick
+- **Buttons:** A/Cross (Button 1), B/Circle (Button 2)
+
+**System Controls:**
+- **Pause Menu:** ESC (during gameplay)
+- **Save State:** F1
+- **Load State:** F3
+- **Next Slot:** F2
+- **Previous Slot:** Shift+F2
+- **Screenshot:** F12
+
+**Pause Menu Navigation:**
+- **Keyboard:** Arrow Up/Down, Enter to select, ESC to resume
+- **Gamepad:** D-pad, A/Cross to select, B/Circle or Start to resume
+
+#### Shader Effects
+
+The standalone UI includes a comprehensive shader system for authentic retro display effects:
+
+| Category | Shaders |
+|----------|---------|
+| CRT Simulation | CRT (curved screen), Scanlines, Phosphor Glow, Halation, CRT Gamma |
+| Analog Video | NTSC Artifacts, NTSC Rainbow, Color Bleed, Horizontal Softness, Vertical Blur |
+| Display Types | LCD Grid, Dot Matrix, Interlace |
+| Signal Degradation | VHS Distortion, Rolling Band, RF Noise |
+| Color Effects | Monochrome, Sepia |
+| Enhancement | Pixel Smoothing (xBR), Phosphor Persistence |
+
+Shaders can be configured separately for UI (menus) and gameplay. Multiple shaders can be stacked and are applied in weighted order for correct visual layering.
+
+#### Data Location
+
+| OS | Path |
+|----|------|
+| macOS | `~/Library/Application Support/emkiii/` |
+| Linux | `~/.config/emkiii/` |
+| Windows | `%APPDATA%\emkiii\` |
+
+#### Directory Structure
+
+```
+{data}/
+├── config.json          # Application settings
+├── library.json         # Game library and metadata
+├── metadata/sms.rdb     # Downloaded game database
+├── saves/{crc32}/       # Per-game save states and SRAM
+├── artwork/{crc32}/     # Per-game box art
+└── screenshots/         # Screenshots
+```
+
+### CLI (Direct Mode)
+
+When launched with the `-rom` flag, the emulator bypasses the UI and loads the ROM directly. This mode is useful for quick testing or integration with external launchers.
+
+#### Controls
+
+**Keyboard:**
+- **Movement:** W (up), A (left), S (down), D (right)
+- **Buttons:** J (Button 1), K (Button 2)
+
+**Gamepad** (PlayStation, Xbox, and standard controllers):
+- **Movement:** D-pad or left analog stick
+- **Buttons:** A/Cross (Button 1), B/Circle (Button 2)
+
+### iOS App
 
 The iOS app is a native Swift application that embeds the emulator via gomobile.
 
-### Prerequisites
+#### Prerequisites
 
 - Xcode 15+ with iOS SDK
 - Go 1.21+
 - gomobile: `go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init`
 
-### Build Instructions
+#### Build Instructions
 
 1. **Generate the gomobile framework:**
    ```bash
@@ -74,7 +161,7 @@ The iOS app is a native Swift application that embeds the emulator via gomobile.
    - Select your target device
    - Build and run (Cmd+R)
 
-### iOS Features
+#### Features
 
 - Touch controls with virtual D-pad and buttons
 - Game library with box art
@@ -84,84 +171,15 @@ The iOS app is a native Swift application that embeds the emulator via gomobile.
 
 **Supported ROM formats:** `.sms`, `.zip`, `.7z`, `.gz`, `.tar.gz`, `.rar` (auto-detected)
 
-## Controls
+#### Controls
 
-### Direct Mode (`-rom` flag)
+**Touch:**
+- Virtual D-pad on the left side of the screen
+- Button 1 and Button 2 on the right side
 
-**Keyboard:**
-- **Movement:** W (up), A (left), S (down), D (right)
-- **Buttons:** J (Button 1), K (Button 2)
-
-**Gamepad** (PlayStation, Xbox, and standard controllers):
+**Gamepad** (MFi controllers):
 - **Movement:** D-pad or left analog stick
-- **Buttons:** A/Cross (Button 1), B/Circle (Button 2)
-
-### Standalone UI
-
-All direct mode controls plus:
-
-**Gameplay:**
-- **SMS Pause:** Enter (hardware pause button, triggers NMI)
-
-**System Controls:**
-- **Pause Menu:** ESC (during gameplay)
-- **Save State:** F1
-- **Load State:** F3
-- **Next Slot:** F2
-- **Previous Slot:** Shift+F2
-- **Screenshot:** F12
-
-**Pause Menu Navigation:**
-- **Keyboard:** Arrow Up/Down, Enter to select, ESC to resume
-- **Gamepad:** D-pad, A/Cross to select, B/Circle or Start to resume
-
-## Standalone UI
-
-When launched without a `-rom` argument, the emulator opens a standalone UI:
-
-- **Game Library:** Browse games in icon or list view with sorting (title, last played, play time) and favorites filtering
-- **ROM Scanning:** Add ROM folders, scan for games with automatic metadata lookup from libretro database
-- **Game Details:** View box art, metadata (developer, publisher, genre, release date), Play/Resume options
-- **Save States:** 10 manual slots per game (F1/F2/F3), auto-save every 5 seconds, resume support
-- **Screenshots:** F12 captures to screenshots directory
-- **Play Time Tracking:** Automatic per-game tracking
-- **Window Persistence:** Window size and position restored on launch
-- **Shader Effects:** 20 visual effects including CRT simulation, scanlines, NTSC artifacts, and pixel smoothing
-
-### Shader Effects
-
-The standalone UI includes a comprehensive shader system for authentic retro display effects:
-
-| Category | Shaders |
-|----------|---------|
-| CRT Simulation | CRT (curved screen), Scanlines, Phosphor Glow, Halation, CRT Gamma |
-| Analog Video | NTSC Artifacts, NTSC Rainbow, Color Bleed, Horizontal Softness, Vertical Blur |
-| Display Types | LCD Grid, Dot Matrix, Interlace |
-| Signal Degradation | VHS Distortion, Rolling Band, RF Noise |
-| Color Effects | Monochrome, Sepia |
-| Enhancement | Pixel Smoothing (xBR), Phosphor Persistence |
-
-Shaders can be configured separately for UI (menus) and gameplay. Multiple shaders can be stacked and are applied in weighted order for correct visual layering.
-
-### Data Location
-
-| OS | Path |
-|----|------|
-| macOS | `~/Library/Application Support/emkiii/` |
-| Linux | `~/.config/emkiii/` |
-| Windows | `%APPDATA%\emkiii\` |
-
-### Directory Structure
-
-```
-{data}/
-├── config.json          # Application settings
-├── library.json         # Game library and metadata
-├── metadata/sms.rdb     # Downloaded game database
-├── saves/{crc32}/       # Per-game save states and SRAM
-├── artwork/{crc32}/     # Per-game box art
-└── screenshots/         # Screenshots
-```
+- **Buttons:** A (Button 1), B (Button 2)
 
 ## Architecture
 

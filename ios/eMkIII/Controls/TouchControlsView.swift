@@ -83,12 +83,12 @@ struct TouchControlsView: View {
 
                     // Action buttons side by side (same size as portrait)
                     HStack(spacing: 10) {
-                        CircleButton(label: "B", isPressed: $controlState.buttonB) {
+                        CircleButton(label: "1", isPressed: $controlState.buttonA) {
                             triggerHaptic()
                         }
                         .frame(width: 70, height: 70)
 
-                        CircleButton(label: "A", isPressed: $controlState.buttonA) {
+                        CircleButton(label: "2", isPressed: $controlState.buttonB) {
                             triggerHaptic()
                         }
                         .frame(width: 70, height: 70)
@@ -150,12 +150,12 @@ struct TouchControlsView: View {
 
                     // Action buttons side by side
                     HStack(spacing: 10) {
-                        CircleButton(label: "B", isPressed: $controlState.buttonB) {
+                        CircleButton(label: "1", isPressed: $controlState.buttonA) {
                             triggerHaptic()
                         }
                         .frame(width: 70, height: 70)
 
-                        CircleButton(label: "A", isPressed: $controlState.buttonA) {
+                        CircleButton(label: "2", isPressed: $controlState.buttonB) {
                             triggerHaptic()
                         }
                         .frame(width: 70, height: 70)

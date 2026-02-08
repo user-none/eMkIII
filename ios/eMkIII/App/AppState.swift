@@ -36,6 +36,14 @@ class AppState: ObservableObject {
     /// Incremented when artwork is downloaded, triggers UI refresh
     @Published var artworkVersion: Int = 0
 
+    // MARK: - Library UI State
+
+    /// Search text for library filtering (persists across navigation)
+    @Published var librarySearchText: String = ""
+
+    /// Scroll position in library (game CRC, persists across navigation)
+    @Published var libraryScrollPosition: String?
+
     // MARK: - Subscriptions
 
     private var cancellables = Set<AnyCancellable>()

@@ -14,7 +14,6 @@ struct LibraryView: View {
     @EnvironmentObject var appState: AppState
     @State private var showingFilePicker = false
     @State private var showingSettings = false
-    @State private var searchText = ""
 
     /// Allowed file types for ROM import
     private static let romContentTypes: [UTType] = [
@@ -83,7 +82,7 @@ struct LibraryView: View {
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
             }
-            .searchable(text: $searchText, prompt: "Search games")
+            .searchable(text: $appState.librarySearchText, prompt: "Search games")
         }
         .preferredColorScheme(.dark)
     }
@@ -117,40 +116,58 @@ struct LibraryView: View {
 
     private var gameGridView: some View {
         GeometryReader { geometry in
-            ScrollView {
-                LazyVGrid(columns: gridColumns(for: geometry.size.width), spacing: 16) {
-                    ForEach(sortedGames) { game in
-                        GameGridItem(game: game)
-                            .onTapGesture {
-                                appState.navigateToDetail(gameCRC: game.crc32)
-                            }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVGrid(columns: gridColumns(for: geometry.size.width), spacing: 16) {
+                        ForEach(sortedGames) { game in
+                            GameGridItem(game: game)
+                                .id(game.crc32)
+                                .onTapGesture {
+                                    appState.libraryScrollPosition = game.crc32
+                                    appState.navigateToDetail(gameCRC: game.crc32)
+                                }
+                        }
+                    }
+                    .padding()
+                }
+                .onAppear {
+                    if let position = appState.libraryScrollPosition {
+                        proxy.scrollTo(position, anchor: .center)
                     }
                 }
-                .padding()
             }
         }
     }
 
     private var gameListView: some View {
-        List(sortedGames) { game in
-            GameListItem(game: game)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    appState.navigateToDetail(gameCRC: game.crc32)
+        ScrollViewReader { proxy in
+            List(sortedGames) { game in
+                GameListItem(game: game)
+                    .id(game.crc32)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        appState.libraryScrollPosition = game.crc32
+                        appState.navigateToDetail(gameCRC: game.crc32)
+                    }
+                    .listRowBackground(Color.clear)
+            }
+            .listStyle(.plain)
+            .onAppear {
+                if let position = appState.libraryScrollPosition {
+                    proxy.scrollTo(position, anchor: .center)
                 }
-                .listRowBackground(Color.clear)
+            }
         }
-        .listStyle(.plain)
     }
 
     private var sortedGames: [GameEntry] {
         let sorted = appState.library.sortedGames(by: appState.config.library.sortBy)
-        if searchText.isEmpty {
+        if appState.librarySearchText.isEmpty {
             return sorted
         }
         return sorted.filter { game in
-            game.displayName.localizedCaseInsensitiveContains(searchText) ||
-            game.name.localizedCaseInsensitiveContains(searchText)
+            game.displayName.localizedCaseInsensitiveContains(appState.librarySearchText) ||
+            game.name.localizedCaseInsensitiveContains(appState.librarySearchText)
         }
     }
 

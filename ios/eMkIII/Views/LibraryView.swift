@@ -14,6 +14,7 @@ struct LibraryView: View {
     @EnvironmentObject var appState: AppState
     @State private var showingFilePicker = false
     @State private var showingSettings = false
+    @State private var searchText = ""
 
     /// Allowed file types for ROM import
     private static let romContentTypes: [UTType] = [
@@ -82,6 +83,7 @@ struct LibraryView: View {
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
             }
+            .searchable(text: $searchText, prompt: "Search games")
         }
         .preferredColorScheme(.dark)
     }
@@ -142,7 +144,14 @@ struct LibraryView: View {
     }
 
     private var sortedGames: [GameEntry] {
-        appState.library.sortedGames(by: appState.config.library.sortBy)
+        let sorted = appState.library.sortedGames(by: appState.config.library.sortBy)
+        if searchText.isEmpty {
+            return sorted
+        }
+        return sorted.filter { game in
+            game.displayName.localizedCaseInsensitiveContains(searchText) ||
+            game.name.localizedCaseInsensitiveContains(searchText)
+        }
     }
 
     // MARK: - ROM Import

@@ -74,7 +74,7 @@ struct TouchControlsView: View {
                 Spacer()
             }
 
-            // Right side - Action buttons centered vertically
+            // Right side - Action buttons aligned with D-Pad
             HStack {
                 Spacer()
 
@@ -93,6 +93,7 @@ struct TouchControlsView: View {
                         }
                         .frame(width: 70, height: 70)
                     }
+                    .offset(y: 35)
 
                     Spacer()
                 }

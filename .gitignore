@@ -8,7 +8,7 @@
 .claude/
 
 # Binaries for programs and plugins
-emkiii
+/emkiii
 *.exe
 *.exe~
 *.dll
@@ -42,4 +42,11 @@ emkiii_libretro.h
 emkiii_libretro.so
 emkiii_libretro.dll
 emkiii_libretro.dylib
+
+# iOS
+ios/Frameworks/
+ios/Signing.xcconfig
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
 

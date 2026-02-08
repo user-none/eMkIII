@@ -1,0 +1,507 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		01000001 /* eMkIIIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000001 /* eMkIIIApp.swift */; };
+		01000002 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000002 /* AppState.swift */; };
+		01000003 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000003 /* LibraryView.swift */; };
+		01000004 /* GameDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000004 /* GameDetailView.swift */; };
+		01000005 /* GameplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000005 /* GameplayView.swift */; };
+		01000006 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000006 /* SettingsView.swift */; };
+		01000007 /* EmulatorBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000007 /* EmulatorBridge.swift */; };
+		01000008 /* MetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000008 /* MetalRenderer.swift */; };
+		01000009 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000009 /* AudioEngine.swift */; };
+		0100000A /* TouchControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200000A /* TouchControlsView.swift */; };
+		0100000B /* Library.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200000B /* Library.swift */; };
+		0100000C /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200000C /* Config.swift */; };
+		0100000D /* SaveState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200000D /* SaveState.swift */; };
+		0100000E /* StoragePaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200000E /* StoragePaths.swift */; };
+		0100000F /* RDBParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200000F /* RDBParser.swift */; };
+		01000010 /* ArtworkDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000010 /* ArtworkDownloader.swift */; };
+		01000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 02000011 /* Assets.xcassets */; };
+		01000012 /* Emulator.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02000012 /* Emulator.xcframework */; };
+		01000013 /* Emulator.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 02000012 /* Emulator.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		01000014 /* Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000014 /* Logging.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		03000001 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				01000013 /* Emulator.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		02000001 /* eMkIIIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = eMkIIIApp.swift; sourceTree = "<group>"; };
+		02000002 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		02000003 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		02000004 /* GameDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameDetailView.swift; sourceTree = "<group>"; };
+		02000005 /* GameplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameplayView.swift; sourceTree = "<group>"; };
+		02000006 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		02000007 /* EmulatorBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmulatorBridge.swift; sourceTree = "<group>"; };
+		02000008 /* MetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderer.swift; sourceTree = "<group>"; };
+		02000009 /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
+		0200000A /* TouchControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchControlsView.swift; sourceTree = "<group>"; };
+		0200000B /* Library.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Library.swift; sourceTree = "<group>"; };
+		0200000C /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+		0200000D /* SaveState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveState.swift; sourceTree = "<group>"; };
+		0200000E /* StoragePaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoragePaths.swift; sourceTree = "<group>"; };
+		0200000F /* RDBParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RDBParser.swift; sourceTree = "<group>"; };
+		02000010 /* ArtworkDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkDownloader.swift; sourceTree = "<group>"; };
+		02000011 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		02000012 /* Emulator.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Emulator.xcframework; sourceTree = "<group>"; };
+		02000014 /* Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logging.swift; sourceTree = "<group>"; };
+		04000001 /* eMkIII.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = eMkIII.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		527EF69B2F37F097001F2BFB /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		05000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				01000012 /* Emulator.xcframework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		06000001 = {
+			isa = PBXGroup;
+			children = (
+				06000002 /* eMkIII */,
+				06000003 /* Frameworks */,
+				06000004 /* Products */,
+				527EF69B2F37F097001F2BFB /* Signing.xcconfig */,
+			);
+			sourceTree = "<group>";
+		};
+		06000002 /* eMkIII */ = {
+			isa = PBXGroup;
+			children = (
+				06000005 /* App */,
+				06000006 /* Views */,
+				06000007 /* Emulator */,
+				06000008 /* Controls */,
+				06000009 /* Storage */,
+				0600000A /* Metadata */,
+				0600000C /* Utilities */,
+				0600000B /* Resources */,
+			);
+			path = eMkIII;
+			sourceTree = "<group>";
+		};
+		06000003 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				02000012 /* Emulator.xcframework */,
+			);
+			path = Frameworks;
+			sourceTree = "<group>";
+		};
+		06000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				04000001 /* eMkIII.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		06000005 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				02000001 /* eMkIIIApp.swift */,
+				02000002 /* AppState.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		06000006 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				02000003 /* LibraryView.swift */,
+				02000004 /* GameDetailView.swift */,
+				02000005 /* GameplayView.swift */,
+				02000006 /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		06000007 /* Emulator */ = {
+			isa = PBXGroup;
+			children = (
+				02000007 /* EmulatorBridge.swift */,
+				02000008 /* MetalRenderer.swift */,
+				02000009 /* AudioEngine.swift */,
+			);
+			path = Emulator;
+			sourceTree = "<group>";
+		};
+		06000008 /* Controls */ = {
+			isa = PBXGroup;
+			children = (
+				0200000A /* TouchControlsView.swift */,
+			);
+			path = Controls;
+			sourceTree = "<group>";
+		};
+		06000009 /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				0200000B /* Library.swift */,
+				0200000C /* Config.swift */,
+				0200000D /* SaveState.swift */,
+				0200000E /* StoragePaths.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		0600000A /* Metadata */ = {
+			isa = PBXGroup;
+			children = (
+				0200000F /* RDBParser.swift */,
+				02000010 /* ArtworkDownloader.swift */,
+			);
+			path = Metadata;
+			sourceTree = "<group>";
+		};
+		0600000B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				02000011 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		0600000C /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				02000014 /* Logging.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		07000001 /* eMkIII */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 08000003 /* Build configuration list for PBXNativeTarget "eMkIII" */;
+			buildPhases = (
+				05000002 /* Sources */,
+				05000001 /* Frameworks */,
+				05000003 /* Resources */,
+				03000001 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = eMkIII;
+			productName = eMkIII;
+			productReference = 04000001 /* eMkIII.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		09000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					07000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = 08000001 /* Build configuration list for PBXProject "eMkIII" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 06000001;
+			productRefGroup = 06000004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				07000001 /* eMkIII */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		05000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				01000011 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		05000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				01000001 /* eMkIIIApp.swift in Sources */,
+				01000002 /* AppState.swift in Sources */,
+				01000003 /* LibraryView.swift in Sources */,
+				01000004 /* GameDetailView.swift in Sources */,
+				01000005 /* GameplayView.swift in Sources */,
+				01000006 /* SettingsView.swift in Sources */,
+				01000007 /* EmulatorBridge.swift in Sources */,
+				01000008 /* MetalRenderer.swift in Sources */,
+				01000009 /* AudioEngine.swift in Sources */,
+				0100000A /* TouchControlsView.swift in Sources */,
+				0100000B /* Library.swift in Sources */,
+				0100000C /* Config.swift in Sources */,
+				0100000D /* SaveState.swift in Sources */,
+				0100000E /* StoragePaths.swift in Sources */,
+				0100000F /* RDBParser.swift in Sources */,
+				01000010 /* ArtworkDownloader.swift in Sources */,
+				01000014 /* Logging.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0A000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		0A000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		0A000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 527EF69B2F37F097001F2BFB /* Signing.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Frameworks",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = eMkIII;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.emkiii.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		0A000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 527EF69B2F37F097001F2BFB /* Signing.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Frameworks",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = eMkIII;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.emkiii.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		08000001 /* Build configuration list for PBXProject "eMkIII" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0A000001 /* Debug */,
+				0A000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		08000003 /* Build configuration list for PBXNativeTarget "eMkIII" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0A000003 /* Debug */,
+				0A000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 09000001 /* Project object */;
+}

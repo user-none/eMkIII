@@ -41,8 +41,46 @@ go test ./...
 ./emkiii -rom <path-to-rom> -region pal -crop-border
 
 # Build libretro core (for RetroArch and other frontends)
-go build -tags libretro -buildmode=c-shared -o emkiii_libretro.dylib ./libretro/
+go build -tags libretro -buildmode=c-shared -o emkiii_libretro.dylib ./bridge/libretro/
 ```
+
+## iOS App
+
+The iOS app is a native Swift application that embeds the emulator via gomobile.
+
+### Prerequisites
+
+- Xcode 15+ with iOS SDK
+- Go 1.21+
+- gomobile: `go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init`
+
+### Build Instructions
+
+1. **Generate the gomobile framework:**
+   ```bash
+   cd ios
+   make framework
+   ```
+   This creates `ios/Frameworks/Emulator.xcframework`.
+
+2. **Configure code signing:**
+   ```bash
+   cp ios/Signing.xcconfig.template ios/Signing.xcconfig
+   # Edit Signing.xcconfig and set your DEVELOPMENT_TEAM
+   ```
+
+3. **Build and run:**
+   - Open `ios/eMkIII.xcodeproj` in Xcode
+   - Select your target device
+   - Build and run (Cmd+R)
+
+### iOS Features
+
+- Touch controls with virtual D-pad and buttons
+- Game library with box art
+- Resume state and SRAM persistence
+- Gamepad support (MFi controllers)
+- Metal rendering
 
 **Supported ROM formats:** `.sms`, `.zip`, `.7z`, `.gz`, `.tar.gz`, `.rar` (auto-detected)
 
@@ -158,10 +196,8 @@ The standalone UI follows a manager pattern with clear separation of concerns:
   - `assets/` - Embedded placeholder images
 - `cli/` - CLI runner for direct ROM launch mode:
   - `runner.go` - Ebiten game wrapper for direct emulation (bypasses UI)
-- `emu/` - All emulation components:
+- `emu/` - Core emulation components (framework-agnostic):
   - `emulator.go` - Core `EmulatorBase` struct orchestrating CPU/VDP/PSG/Memory, frame timing, scanline execution
-  - `emulator_ebiten.go` - Standalone build: Ebiten rendering, SDL3 audio, keyboard/gamepad input, resizable window
-  - `emulator_libretro.go` - Libretro build: minimal wrapper exposing framebuffer and audio samples
   - `z80.go` - Cycle-accurate Z80 wrapper with full opcode timing tables (base, CB, DD, ED, FD prefixes) and conditional instruction handling
   - `vdp.go` - Video Display Processor with VRAM (16KB), CRAM (32 bytes), 16 registers; implements background/sprite rendering, scrolling, interrupts, collision detection, per-scanline scroll latching, 192/224-line display modes
   - `mem.go` - 64KB memory space with Sega mapper ($FFFC-$FFFF) and Codemasters mapper ($0000/$4000/$8000) support, 32KB cartridge RAM
@@ -169,12 +205,18 @@ The standalone UI follows a manager pattern with clear separation of concerns:
   - `psg.go` - SN76489 sound chip with 3 tone channels, 1 noise channel, 4-bit volume, 15-bit LFSR; 48kHz stereo output
   - `region.go` - NTSC/PAL timing constants (CPU clock, scanlines, FPS), region auto-detection via CRC32 lookup
   - `romdb.go` - Embedded ROM database (357 games) mapping CRC32 to mapper type and region
+- `bridge/` - Platform-specific wrappers:
+  - `ebiten/emulator.go` - Ebiten wrapper: rendering, SDL3 audio, keyboard/gamepad input, resizable window
+  - `ios/ios.go` - gomobile bridge for iOS: exposes emulator API to Swift
+  - `libretro/main.go` - Libretro core: API exports, core options (region, crop border), XRGB8888 video output
+  - `libretro/libretro.h`, `cfuncs.h` - C headers for libretro API
 - `romloader/` - ROM loading with archive support:
   - `loader.go` - Main loader with magic byte format detection
   - `zip.go`, `gzip.go`, `sevenzip.go`, `rar.go` - Archive format handlers
-- `libretro/` - Libretro core implementation:
-  - `main.go` - Libretro API exports, core options (region, crop border), XRGB8888 video output
-  - `libretro.h`, `cfuncs.h` - C headers for libretro API
+- `ios/` - Native iOS app (Swift/SwiftUI):
+  - `eMkIII/` - App source: views, models, Metal renderer, audio engine
+  - `eMkIII.xcodeproj/` - Xcode project
+  - `Makefile` - gomobile framework build script
 
 **Execution flow:** `Update()` runs one frame by stepping the CPU through
 scanlines (262 NTSC / 313 PAL, ~228 cycles each), updating V/H counters,
@@ -220,6 +262,7 @@ framebuffer to screen.
 | Region | Complete | Auto-detection via CRC32 database (357 games), manual override with `-region` flag |
 | Libretro | Complete | Full core implementation with region/crop options, works with RetroArch |
 | Standalone UI | Complete | Library management, save states (10 slots + auto-save), screenshots, play time tracking |
+| iOS App | Complete | Native Swift app with touch controls, Metal rendering, gamepad support, save states |
 | Tests | Complete | Unit tests for I/O, memory, VDP, PSG, region timing, ROM loading, and libretro |
 
 ## Unsupported Functionality

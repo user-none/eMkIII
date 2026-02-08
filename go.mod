@@ -10,7 +10,7 @@ require (
 	github.com/koron-go/z80 v0.10.2
 	github.com/nwaples/rardecode/v2 v2.2.2
 	github.com/sqweek/dialog v0.0.0-20240226140203-065105509627
-	golang.org/x/image v0.34.0
+	golang.org/x/image v0.35.0
 )
 
 require (
@@ -33,7 +33,8 @@ require (
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	go4.org v0.0.0-20200411211856-f5505b9728dd // indirect
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
+	golang.org/x/mobile v0.0.0-20231127183840-76ac6878050a // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/text v0.33.0 // indirect
 )

@@ -7,6 +7,9 @@
 # Claude Code
 .claude/
 
+# Build output
+/build/
+
 # Binaries for programs and plugins
 /emkiii
 *.exe
@@ -46,7 +49,8 @@ emkiii_libretro.dylib
 # iOS
 ios/Frameworks/
 ios/Signing.xcconfig
-*.xcodeproj/xcuserdata/
-*.xcodeproj/project.xcworkspace/xcuserdata/
-*.xcworkspace/xcuserdata/
+ios/eMkIII/Resources/Assets.xcassets/AppIcon.appiconset/icon.png
+**/*.xcodeproj/xcuserdata/
+**/*.xcodeproj/project.xcworkspace/xcuserdata/
+**/*.xcworkspace/xcuserdata/
 

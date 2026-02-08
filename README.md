@@ -16,9 +16,6 @@ ROMs default to Sega mapper with NTSC timing.
 ## Build and Run Commands
 
 ```bash
-# Build the emulator
-go build
-
 # Launch standalone UI (game library, settings, save states)
 go run main.go
 
@@ -34,14 +31,48 @@ go run main.go -rom <path-to-rom> -crop-border
 
 # Run tests
 go test ./...
+```
 
-# After building:
-./emkiii                                        # Launch UI
-./emkiii -rom <path-to-rom>                     # Direct mode
-./emkiii -rom <path-to-rom> -region pal -crop-border
+## Prerequisites
 
-# Build libretro core (for RetroArch and other frontends)
-go build -tags libretro -buildmode=c-shared -o emkiii_libretro.dylib ./bridge/libretro/
+The standalone UI requires **SDL3** for audio output.
+
+**macOS (Homebrew):**
+```bash
+brew install sdl3
+```
+
+**Linux:**
+```bash
+# Build from source or use your distribution's package manager
+# SDL3 is still new; check https://github.com/libsdl-org/SDL for instructions
+```
+
+**Windows:**
+Download SDL3.dll from the [SDL releases](https://github.com/libsdl-org/SDL/releases) and place it in the same directory as the executable.
+
+The `make macos` target bundles SDL3 into the .app, so end users don't need it installed separately.
+
+## Makefile
+
+The top-level Makefile provides targets for building distributable applications.
+
+| Target | Description |
+|--------|-------------|
+| `make emkiii` | Build standalone binary to `build/emkiii` |
+| `make macos` | Build macOS .app bundle to `build/eMkIII.app` |
+| `make libretro` | Build libretro core to `build/emkiii_libretro.dylib` |
+| `make icons` | Generate icons for macOS and iOS from `assets/icon.png` |
+| `make clean` | Remove build directory |
+
+The macOS app bundle includes SDL3 and is code-signed for distribution.
+
+```bash
+# Build macOS app
+make macos
+
+# Build libretro core
+make libretro
 ```
 
 ## User Interfaces
@@ -143,20 +174,26 @@ The iOS app is a native Swift application that embeds the emulator via gomobile.
 
 #### Build Instructions
 
-1. **Generate the gomobile framework:**
+1. **Generate icons (from project root):**
+   ```bash
+   make icons
+   ```
+   This copies the app icon to the iOS asset catalog.
+
+2. **Generate the gomobile framework:**
    ```bash
    cd ios
    make framework
    ```
    This creates `ios/Frameworks/Emulator.xcframework`.
 
-2. **Configure code signing:**
+3. **Configure code signing:**
    ```bash
    cp ios/Signing.xcconfig.template ios/Signing.xcconfig
    # Edit Signing.xcconfig and set your DEVELOPMENT_TEAM
    ```
 
-3. **Build and run:**
+4. **Build and run:**
    - Open `ios/eMkIII.xcodeproj` in Xcode
    - Select your target device
    - Build and run (Cmd+R)

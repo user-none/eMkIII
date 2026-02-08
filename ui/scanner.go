@@ -177,15 +177,15 @@ func (s *Scanner) Run() {
 		s.sendProgress(ScanProgress{
 			Phase:      ScanPhaseDiscovery,
 			Progress:   float64(i+1) / float64(totalFiles),
-			GamesFound: len(s.games),
+			GamesFound: s.gamesCount(),
 			StatusText: "Scanning for games...",
 		})
 	}
 
 	if s.isCancelled() {
 		s.done <- ScanResult{
-			NewGames:  len(s.games),
-			Errors:    s.errors,
+			NewGames:  s.gamesCount(),
+			Errors:    s.getErrors(),
 			Cancelled: true,
 		}
 		return
@@ -196,8 +196,8 @@ func (s *Scanner) Run() {
 
 	// Send final result
 	s.done <- ScanResult{
-		NewGames:  len(s.games),
-		Errors:    s.errors,
+		NewGames:  s.gamesCount(),
+		Errors:    s.getErrors(),
 		Cancelled: s.isCancelled(),
 	}
 }
@@ -389,7 +389,7 @@ func (s *Scanner) downloadArtwork() {
 	s.sendProgress(ScanProgress{
 		Phase:           ScanPhaseArtwork,
 		Progress:        0,
-		GamesFound:      len(s.games),
+		GamesFound:      s.gamesCount(),
 		ArtworkTotal:    total,
 		ArtworkComplete: 0,
 		StatusText:      "Downloading artwork...",
@@ -426,7 +426,7 @@ func (s *Scanner) downloadArtwork() {
 			s.sendProgress(ScanProgress{
 				Phase:           ScanPhaseArtwork,
 				Progress:        float64(complete) / float64(total),
-				GamesFound:      len(s.games),
+				GamesFound:      s.gamesCount(),
 				ArtworkTotal:    total,
 				ArtworkComplete: complete,
 				StatusText:      "Downloading artwork...",
@@ -456,6 +456,23 @@ func (s *Scanner) isCancelled() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.cancelled
+}
+
+// gamesCount returns the number of discovered games (thread-safe)
+func (s *Scanner) gamesCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.games)
+}
+
+// getErrors returns a copy of the errors slice (thread-safe)
+func (s *Scanner) getErrors() []error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// Return a copy to avoid race on the slice
+	errs := make([]error, len(s.errors))
+	copy(errs, s.errors)
+	return errs
 }
 
 // sendProgress sends a progress update (non-blocking)

@@ -15,6 +15,15 @@ struct LibraryView: View {
     @State private var showingFilePicker = false
     @State private var showingSettings = false
 
+    /// Allowed file types for ROM import
+    private static let romContentTypes: [UTType] = [
+        UTType(filenameExtension: "sms") ?? .data,
+        .zip,
+        .gzip,
+        UTType(filenameExtension: "7z") ?? .data,
+        UTType(filenameExtension: "rar") ?? .data
+    ]
+
     private let gridColumns = [
         GridItem(.adaptive(minimum: 120), spacing: 16)
     ]
@@ -47,8 +56,17 @@ struct LibraryView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingFilePicker) {
-                DocumentPicker(onPick: handleROMImport)
+            .fileImporter(
+                isPresented: $showingFilePicker,
+                allowedContentTypes: LibraryView.romContentTypes,
+                allowsMultipleSelection: true
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    handleROMImport(urls: urls)
+                case .failure(let error):
+                    Log.romImport.error("File picker error: \(error.localizedDescription)")
+                }
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
@@ -330,49 +348,6 @@ struct GameListItem: View {
         case "eu", "europe": return "Europe"
         case "jp", "japan": return "Japan"
         default: return region.isEmpty ? "Unknown" : region.uppercased()
-        }
-    }
-}
-
-/// Document picker for ROM import
-struct DocumentPicker: UIViewControllerRepresentable {
-    var onPick: ([URL]) -> Void
-
-    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let types: [UTType] = [
-            .item // Allow any file type for ROM files
-        ]
-
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
-        picker.allowsMultipleSelection = true
-        picker.delegate = context.coordinator
-        return picker
-    }
-
-    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onPick: onPick)
-    }
-
-    class Coordinator: NSObject, UIDocumentPickerDelegate {
-        var onPick: ([URL]) -> Void
-
-        init(onPick: @escaping ([URL]) -> Void) {
-            self.onPick = onPick
-        }
-
-        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-            // Filter to ROM file extensions
-            let romExtensions = ["sms", "zip", "7z", "gz", "rar"]
-            let romURLs = urls.filter { url in
-                romExtensions.contains(url.pathExtension.lowercased())
-            }
-            onPick(romURLs)
-        }
-
-        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-            // Do nothing
         }
     }
 }

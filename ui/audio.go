@@ -28,8 +28,7 @@ type AudioPlayer struct {
 var audioInitOnce sync.Once
 
 // NewAudioPlayer creates and initializes SDL audio.
-// The mixWithOthers parameter is ignored on non-iOS platforms.
-func NewAudioPlayer(mixWithOthers bool) (*AudioPlayer, error) {
+func NewAudioPlayer() (*AudioPlayer, error) {
 	var loadErr error
 
 	// Load SDL library once (required before any SDL calls)

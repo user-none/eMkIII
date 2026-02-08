@@ -248,8 +248,10 @@ func (e *EmulatorBase) RunFrame() {
 	e.runScanlines()
 
 	// Convert float32 mono samples to int16 stereo in-place
+	// Attenuate by 0.5 to compensate for acoustic summing when both speakers
+	// play the same signal (mono duplicated to L+R doubles perceived loudness)
 	for _, sample := range e.frameSamples {
-		intSample := int16(sample * 32767)
+		intSample := int16(sample * 32767 * 0.5)
 		e.audioBuffer = append(e.audioBuffer, intSample, intSample)
 	}
 }
@@ -895,11 +897,12 @@ func (e *EmulatorBase) deserializeInput(data []byte, offset int) int {
 
 // ConvertAudioSamples converts float32 mono samples to int16 stereo samples.
 // Each mono sample is duplicated for left and right channels.
+// Attenuates by 0.5 to compensate for acoustic summing.
 // Exported for use by libretro tests.
 func ConvertAudioSamples(samples []float32) []int16 {
 	result := make([]int16, len(samples)*2)
 	for i, sample := range samples {
-		intSample := int16(sample * 32767)
+		intSample := int16(sample * 32767 * 0.5)
 		result[i*2] = intSample
 		result[i*2+1] = intSample
 	}

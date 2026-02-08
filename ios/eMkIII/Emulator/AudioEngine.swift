@@ -12,9 +12,6 @@ class AudioEngine {
     static let sampleRate: Double = 48000
     static let channelCount: AVAudioChannelCount = 2
 
-    // Volume control
-    private let volume: Float = 0.2
-
     // Accumulate samples across frames for smoother playback
     private var pendingSamples: [Int16] = []
     private let samplesLock = NSLock()
@@ -133,8 +130,8 @@ class AudioEngine {
             return
         }
 
-        // Use vDSP for fast int16 to float conversion with de-interleaving
-        let scale = volume / 32768.0
+        // Convert int16 to float with de-interleaving
+        let scale: Float = 1.0 / 32768.0
         samples.withUnsafeBufferPointer { samplesPtr in
             for i in 0..<frameCount {
                 leftChannel[i] = Float(samplesPtr[i * 2]) * scale

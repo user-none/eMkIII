@@ -170,6 +170,7 @@ func NewApp() (*App, error) {
 		app.scanScreen,
 		func() { app.rebuildCurrentScreen() }, // onProgress
 		func(msg string) { // onComplete
+			app.libraryScreen.ClearArtworkCache()
 			app.state = StateSettings
 			app.rebuildCurrentScreen()
 			if msg != "" {

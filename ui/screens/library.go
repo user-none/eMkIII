@@ -41,6 +41,10 @@ type LibraryScreen struct {
 	iconVSlider         *widget.Slider
 	listScrollContainer *widget.ScrollContainer
 	listVSlider         *widget.Slider
+
+	// Artwork cache: key = "crc32", value = scaled ebiten.Image
+	artworkCache      map[string]*ebiten.Image
+	cachedWindowWidth int // Track window width to detect resize
 }
 
 // NewLibraryScreen creates a new library screen
@@ -50,6 +54,7 @@ func NewLibraryScreen(callback ScreenCallback, library *storage.Library, config 
 		library:       library,
 		config:        config,
 		selectedIndex: 0,
+		artworkCache:  make(map[string]*ebiten.Image),
 	}
 	s.InitBase()
 	return s
@@ -63,6 +68,13 @@ func (s *LibraryScreen) SetLibrary(library *storage.Library) {
 // SetConfig updates the config reference
 func (s *LibraryScreen) SetConfig(config *storage.Config) {
 	s.config = config
+}
+
+// ClearArtworkCache clears the cached artwork images.
+// Should be called after library scan or when library locations change.
+func (s *LibraryScreen) ClearArtworkCache() {
+	s.artworkCache = make(map[string]*ebiten.Image)
+	s.cachedWindowWidth = 0
 }
 
 // Build creates the library screen UI
@@ -472,6 +484,12 @@ func (s *LibraryScreen) buildIconView(container *widget.Container) int {
 		windowWidth = style.IconDefaultWindowWidth
 	}
 
+	// Clear cache if window width changed (artwork needs re-scaling)
+	if s.cachedWindowWidth != 0 && s.cachedWindowWidth != windowWidth {
+		s.artworkCache = make(map[string]*ebiten.Image)
+	}
+	s.cachedWindowWidth = windowWidth
+
 	// Available width for cards (subtract padding and scrollbar)
 	availableWidth := windowWidth - (style.DefaultPadding * 2) - style.ScrollbarWidth
 
@@ -607,6 +625,11 @@ func (s *LibraryScreen) buildGameCardSized(game *storage.GameEntry, cardWidth, c
 
 // loadGameArtworkSized loads artwork scaled to specific dimensions
 func (s *LibraryScreen) loadGameArtworkSized(gameCRC string, maxWidth, maxHeight int) *ebiten.Image {
+	// Check cache first
+	if cached, ok := s.artworkCache[gameCRC]; ok {
+		return cached
+	}
+
 	artPath, err := storage.GetGameArtworkPath(gameCRC)
 	if err != nil {
 		return s.getPlaceholderImageSized(maxWidth, maxHeight)
@@ -622,16 +645,24 @@ func (s *LibraryScreen) loadGameArtworkSized(gameCRC string, maxWidth, maxHeight
 		return s.getPlaceholderImageSized(maxWidth, maxHeight)
 	}
 
-	return style.ScaleImage(img, maxWidth, maxHeight)
+	scaled := style.ScaleImage(img, maxWidth, maxHeight)
+	s.artworkCache[gameCRC] = scaled
+	return scaled
 }
 
 // getPlaceholderImageSized returns the placeholder image scaled to the specified size
 func (s *LibraryScreen) getPlaceholderImageSized(width, height int) *ebiten.Image {
+	const placeholderKey = "placeholder"
+	if cached, ok := s.artworkCache[placeholderKey]; ok {
+		return cached
+	}
+
 	data := s.callback.GetPlaceholderImageData()
 	if data == nil {
 		// Fallback to solid color if no placeholder data
 		img := ebiten.NewImage(width, height)
 		img.Fill(style.Surface)
+		s.artworkCache[placeholderKey] = img
 		return img
 	}
 
@@ -640,10 +671,13 @@ func (s *LibraryScreen) getPlaceholderImageSized(width, height int) *ebiten.Imag
 		// Fallback to solid color on decode error
 		fallback := ebiten.NewImage(width, height)
 		fallback.Fill(style.Surface)
+		s.artworkCache[placeholderKey] = fallback
 		return fallback
 	}
 
-	return style.ScaleImage(img, width, height)
+	scaled := style.ScaleImage(img, width, height)
+	s.artworkCache[placeholderKey] = scaled
+	return scaled
 }
 
 // SaveScrollPosition saves the current scroll position before a rebuild

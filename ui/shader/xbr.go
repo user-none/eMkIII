@@ -13,8 +13,14 @@ var xbrShaderSrc []byte
 
 // XBRScaler handles xBR pixel art scaling with cascaded 2x passes.
 // Supports 2x (1 pass), 4x (2 passes), and 8x (3 passes) scaling.
+// Buffers are pooled and reused to avoid per-frame GPU allocations.
 type XBRScaler struct {
 	shader *ebiten.Shader // Cached compiled shader
+
+	// Pooled buffers (reused when dimensions match)
+	normalizedSrc *ebiten.Image
+	passBuffers   [3]*ebiten.Image // Max 3 passes for 8x
+	screenBuffer  *ebiten.Image
 }
 
 // NewXBRScaler creates a new xBR scaler instance
@@ -38,43 +44,78 @@ func (x *XBRScaler) Apply(src *ebiten.Image, screenW, screenH int) *ebiten.Image
 		return x.scaleToScreen(src, screenW, screenH)
 	}
 
-	// Copy SubImage to regular image at (0,0) to fix coordinate issues
-	// SubImages have non-zero bounds that break DrawTrianglesShader srcPos interpolation
-	normalizedSrc := ebiten.NewImage(srcW, srcH)
-	normalizedSrc.DrawImage(src, nil)
-
-	// Determine optimal scale factor and number of passes
+	// Determine number of passes needed
 	scaleFactor := selectOptimalScale(srcW, srcH, screenW, screenH)
 	passes := scaleFactorToPasses(scaleFactor)
 
+	// Ensure all buffers are ready (creates or clears as needed)
+	x.ensureBufferPool(srcW, srcH, screenW, screenH)
+
+	// Copy SubImage to regular image at (0,0) to fix coordinate issues
+	// SubImages have non-zero bounds that break DrawTrianglesShader srcPos interpolation
+	x.normalizedSrc.DrawImage(src, nil)
+
 	// Execute cascade passes
-	currentInput := normalizedSrc
-	var currentOutput *ebiten.Image
-
+	currentInput := x.normalizedSrc
 	for pass := 0; pass < passes; pass++ {
-		inW := currentInput.Bounds().Dx()
-		inH := currentInput.Bounds().Dy()
-		outW := inW * 2
-		outH := inH * 2
-
-		currentOutput = ebiten.NewImage(outW, outH)
-		x.runShaderPass(currentInput, currentOutput)
-
-		// Deallocate previous input (except the original normalized source on first pass)
-		if pass > 0 {
-			currentInput.Deallocate()
-		}
-		currentInput = currentOutput
+		x.runShaderPass(currentInput, x.passBuffers[pass])
+		currentInput = x.passBuffers[pass]
 	}
 
 	// Scale final xBR output to screen with centering
-	screenBuffer := x.scaleToScreen(currentOutput, screenW, screenH)
+	x.drawToScreenBuffer(currentInput, screenW, screenH)
 
-	// Clean up
-	currentOutput.Deallocate()
-	normalizedSrc.Deallocate()
+	return x.screenBuffer
+}
 
-	return screenBuffer
+// ensureBufferPool ensures all pooled buffers are ready for the given dimensions.
+// Creates new buffers if dimensions changed, otherwise clears existing ones.
+func (x *XBRScaler) ensureBufferPool(srcW, srcH, screenW, screenH int) {
+	// Check if source dimensions changed
+	srcChanged := x.normalizedSrc == nil ||
+		x.normalizedSrc.Bounds().Dx() != srcW ||
+		x.normalizedSrc.Bounds().Dy() != srcH
+
+	if srcChanged {
+		// Deallocate old source-derived buffers
+		if x.normalizedSrc != nil {
+			x.normalizedSrc.Deallocate()
+		}
+		for i := range x.passBuffers {
+			if x.passBuffers[i] != nil {
+				x.passBuffers[i].Deallocate()
+				x.passBuffers[i] = nil
+			}
+		}
+
+		// Create all pass buffers
+		x.normalizedSrc = ebiten.NewImage(srcW, srcH)
+		w, h := srcW, srcH
+		for i := range x.passBuffers {
+			w, h = w*2, h*2
+			x.passBuffers[i] = ebiten.NewImage(w, h)
+		}
+	} else {
+		// Clear existing buffers for reuse
+		x.normalizedSrc.Clear()
+		for i := range x.passBuffers {
+			x.passBuffers[i].Clear()
+		}
+	}
+
+	// Handle screen buffer separately (depends on window size, not source)
+	screenChanged := x.screenBuffer == nil ||
+		x.screenBuffer.Bounds().Dx() != screenW ||
+		x.screenBuffer.Bounds().Dy() != screenH
+
+	if screenChanged {
+		if x.screenBuffer != nil {
+			x.screenBuffer.Deallocate()
+		}
+		x.screenBuffer = ebiten.NewImage(screenW, screenH)
+	} else {
+		x.screenBuffer.Clear()
+	}
 }
 
 // ensureShader compiles and caches the xBR shader
@@ -142,28 +183,19 @@ func (x *XBRScaler) runShaderPass(input, output *ebiten.Image) {
 	output.DrawTrianglesShader(vertices, indices, x.shader, op)
 }
 
-// scaleToScreen scales src to fit screen, centered with aspect ratio preserved
+// scaleToScreen scales src to fit screen, centered with aspect ratio preserved.
+// Used as fallback when shader fails.
 func (x *XBRScaler) scaleToScreen(src *ebiten.Image, screenW, screenH int) *ebiten.Image {
 	srcW := float64(src.Bounds().Dx())
 	srcH := float64(src.Bounds().Dy())
 
-	// Calculate scale to fit
-	scaleX := float64(screenW) / srcW
-	scaleY := float64(screenH) / srcH
-	scale := scaleX
-	if scaleY < scaleX {
-		scale = scaleY
-	}
-
-	// Calculate centering offset
+	scale := min(float64(screenW)/srcW, float64(screenH)/srcH)
 	scaledW := srcW * scale
 	scaledH := srcH * scale
 	offsetX := (float64(screenW) - scaledW) / 2
 	offsetY := (float64(screenH) - scaledH) / 2
 
-	// Create screen buffer and draw centered
 	screenBuffer := ebiten.NewImage(screenW, screenH)
-
 	drawOp := &ebiten.DrawImageOptions{}
 	drawOp.GeoM.Scale(scale, scale)
 	drawOp.GeoM.Translate(offsetX, offsetY)
@@ -171,4 +203,22 @@ func (x *XBRScaler) scaleToScreen(src *ebiten.Image, screenW, screenH int) *ebit
 	screenBuffer.DrawImage(src, drawOp)
 
 	return screenBuffer
+}
+
+// drawToScreenBuffer scales src to the pooled screen buffer, centered with aspect ratio preserved.
+func (x *XBRScaler) drawToScreenBuffer(src *ebiten.Image, screenW, screenH int) {
+	srcW := float64(src.Bounds().Dx())
+	srcH := float64(src.Bounds().Dy())
+
+	scale := min(float64(screenW)/srcW, float64(screenH)/srcH)
+	scaledW := srcW * scale
+	scaledH := srcH * scale
+	offsetX := (float64(screenW) - scaledW) / 2
+	offsetY := (float64(screenH) - scaledH) / 2
+
+	drawOp := &ebiten.DrawImageOptions{}
+	drawOp.GeoM.Scale(scale, scale)
+	drawOp.GeoM.Translate(offsetX, offsetY)
+	drawOp.Filter = ebiten.FilterNearest
+	x.screenBuffer.DrawImage(src, drawOp)
 }

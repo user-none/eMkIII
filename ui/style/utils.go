@@ -5,13 +5,16 @@ package style
 import (
 	"fmt"
 	goimage "image"
+	"image/draw"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	xdraw "golang.org/x/image/draw"
 )
 
 // ScaleImage scales an image to fit within maxWidth x maxHeight while preserving aspect ratio.
 // Returns an ebiten.Image suitable for display.
+// Scaling is done on CPU to avoid creating large temporary GPU textures.
 func ScaleImage(src goimage.Image, maxWidth, maxHeight int) *ebiten.Image {
 	bounds := src.Bounds()
 	srcWidth := bounds.Dx()
@@ -36,17 +39,13 @@ func ScaleImage(src goimage.Image, maxWidth, maxHeight int) *ebiten.Image {
 		newHeight = 1
 	}
 
-	// Create source ebiten image
-	srcEbiten := ebiten.NewImageFromImage(src)
+	// Scale on CPU using approximate bilinear interpolation (fast with good quality)
+	dstRect := goimage.Rect(0, 0, newWidth, newHeight)
+	scaled := goimage.NewRGBA(dstRect)
+	xdraw.ApproxBiLinear.Scale(scaled, dstRect, src, bounds, draw.Over, nil)
 
-	// Create destination image and draw scaled
-	dst := ebiten.NewImage(newWidth, newHeight)
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(scale, scale)
-	op.Filter = ebiten.FilterLinear
-	dst.DrawImage(srcEbiten, op)
-
-	return dst
+	// Create Ebiten image from the small scaled image only
+	return ebiten.NewImageFromImage(scaled)
 }
 
 // TruncateStart truncates a string from the start, keeping the end portion.

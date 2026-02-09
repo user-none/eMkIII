@@ -73,6 +73,11 @@ func (s *LibraryScreen) SetConfig(config *storage.Config) {
 // ClearArtworkCache clears the cached artwork images.
 // Should be called after library scan or when library locations change.
 func (s *LibraryScreen) ClearArtworkCache() {
+	for _, img := range s.artworkCache {
+		if img != nil {
+			img.Deallocate()
+		}
+	}
 	s.artworkCache = make(map[string]*ebiten.Image)
 	s.cachedWindowWidth = 0
 }
@@ -486,7 +491,7 @@ func (s *LibraryScreen) buildIconView(container *widget.Container) int {
 
 	// Clear cache if window width changed (artwork needs re-scaling)
 	if s.cachedWindowWidth != 0 && s.cachedWindowWidth != windowWidth {
-		s.artworkCache = make(map[string]*ebiten.Image)
+		s.ClearArtworkCache()
 	}
 	s.cachedWindowWidth = windowWidth
 

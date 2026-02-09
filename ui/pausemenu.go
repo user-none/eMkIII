@@ -32,6 +32,21 @@ type PauseMenu struct {
 
 	// Cached layout info for mouse hit testing
 	buttonRects []image.Rectangle
+
+	// Cached images to avoid per-frame allocations
+	cache struct {
+		screenW, screenH int
+		panelW, panelH   int
+		buttonW, buttonH int
+		dimOverlay       *ebiten.Image
+		panelBg          *ebiten.Image
+		buttonBgs        [PauseMenuOptionCount]*ebiten.Image
+		buttonBgSelected *ebiten.Image
+	}
+
+	// Pre-allocated draw options (reset each use)
+	drawOpts ebiten.DrawImageOptions
+	textOpts text.DrawOptions
 }
 
 // NewPauseMenu creates a new pause menu
@@ -175,21 +190,33 @@ func (m *PauseMenu) handleSelect() {
 	}
 }
 
-// Draw renders the pause menu
-func (m *PauseMenu) Draw(screen *ebiten.Image) {
-	if !m.visible {
-		return
+// rebuildCache recreates cached images when screen dimensions change
+func (m *PauseMenu) rebuildCache(screenW, screenH int) {
+	// Deallocate old images if they exist
+	if m.cache.dimOverlay != nil {
+		m.cache.dimOverlay.Deallocate()
+	}
+	if m.cache.panelBg != nil {
+		m.cache.panelBg.Deallocate()
+	}
+	if m.cache.buttonBgSelected != nil {
+		m.cache.buttonBgSelected.Deallocate()
+	}
+	for i := range m.cache.buttonBgs {
+		if m.cache.buttonBgs[i] != nil {
+			m.cache.buttonBgs[i].Deallocate()
+			m.cache.buttonBgs[i] = nil
+		}
 	}
 
-	// Dim overlay (50% black)
-	bounds := screen.Bounds()
-	screenW := bounds.Dx()
-	screenH := bounds.Dy()
-	dimOverlay := ebiten.NewImage(screenW, screenH)
-	dimOverlay.Fill(color.RGBA{0, 0, 0, 128})
-	screen.DrawImage(dimOverlay, nil)
+	m.cache.screenW = screenW
+	m.cache.screenH = screenH
 
-	// Menu panel dimensions - proportional to screen size
+	// Create dim overlay
+	m.cache.dimOverlay = ebiten.NewImage(screenW, screenH)
+	m.cache.dimOverlay.Fill(color.RGBA{0, 0, 0, 128})
+
+	// Calculate panel dimensions
 	panelWidth := screenW * 40 / 100
 	if panelWidth < 150 {
 		panelWidth = 150
@@ -198,7 +225,7 @@ func (m *PauseMenu) Draw(screen *ebiten.Image) {
 		panelWidth = 300
 	}
 
-	// Button dimensions - proportional to panel
+	// Calculate button dimensions
 	buttonWidth := panelWidth * 80 / 100
 	buttonHeight := screenH * 8 / 100
 	if buttonHeight < 30 {
@@ -212,67 +239,107 @@ func (m *PauseMenu) Draw(screen *ebiten.Image) {
 	padding := buttonHeight / 2
 
 	// Calculate panel height based on content
-	options := []string{"Resume", "Library", "Exit"}
-	panelHeight := padding*2 + len(options)*buttonHeight + (len(options)-1)*buttonSpacing
+	numOptions := int(PauseMenuOptionCount)
+	panelHeight := padding*2 + numOptions*buttonHeight + (numOptions-1)*buttonSpacing
 
-	panelX := (screenW - panelWidth) / 2
-	panelY := (screenH - panelHeight) / 2
+	m.cache.panelW = panelWidth
+	m.cache.panelH = panelHeight
+	m.cache.buttonW = buttonWidth
+	m.cache.buttonH = buttonHeight
 
-	// Draw panel background
-	panelBg := ebiten.NewImage(panelWidth, panelHeight)
-	panelBg.Fill(style.Surface)
+	// Create panel background
+	m.cache.panelBg = ebiten.NewImage(panelWidth, panelHeight)
+	m.cache.panelBg.Fill(style.Surface)
 
 	// Draw panel border
 	for x := 0; x < panelWidth; x++ {
-		panelBg.Set(x, 0, style.Border)
-		panelBg.Set(x, panelHeight-1, style.Border)
+		m.cache.panelBg.Set(x, 0, style.Border)
+		m.cache.panelBg.Set(x, panelHeight-1, style.Border)
 	}
 	for y := 0; y < panelHeight; y++ {
-		panelBg.Set(0, y, style.Border)
-		panelBg.Set(panelWidth-1, y, style.Border)
+		m.cache.panelBg.Set(0, y, style.Border)
+		m.cache.panelBg.Set(panelWidth-1, y, style.Border)
 	}
 
-	opts := &ebiten.DrawImageOptions{}
-	opts.GeoM.Translate(float64(panelX), float64(panelY))
-	screen.DrawImage(panelBg, opts)
+	// Create selected button background
+	m.cache.buttonBgSelected = ebiten.NewImage(buttonWidth, buttonHeight)
+	m.cache.buttonBgSelected.Fill(style.Primary)
 
-	// Draw menu options and cache button rects for hit testing
+	// Create unselected button backgrounds
+	for i := range m.cache.buttonBgs {
+		m.cache.buttonBgs[i] = ebiten.NewImage(buttonWidth, buttonHeight)
+		m.cache.buttonBgs[i].Fill(style.Surface)
+
+		// Draw border
+		for x := 0; x < buttonWidth; x++ {
+			m.cache.buttonBgs[i].Set(x, 0, style.Border)
+			m.cache.buttonBgs[i].Set(x, buttonHeight-1, style.Border)
+		}
+		for y := 0; y < buttonHeight; y++ {
+			m.cache.buttonBgs[i].Set(0, y, style.Border)
+			m.cache.buttonBgs[i].Set(buttonWidth-1, y, style.Border)
+		}
+	}
+}
+
+// Draw renders the pause menu
+func (m *PauseMenu) Draw(screen *ebiten.Image) {
+	if !m.visible {
+		return
+	}
+
+	bounds := screen.Bounds()
+	screenW := bounds.Dx()
+	screenH := bounds.Dy()
+
+	// Rebuild cache if screen dimensions changed
+	if m.cache.screenW != screenW || m.cache.screenH != screenH {
+		m.rebuildCache(screenW, screenH)
+	}
+
+	// Draw dim overlay (reuse cached image)
+	screen.DrawImage(m.cache.dimOverlay, nil)
+
+	// Calculate positions using cached dimensions
+	panelX := (screenW - m.cache.panelW) / 2
+	panelY := (screenH - m.cache.panelH) / 2
+
+	// Draw panel background (reuse cached image and draw options)
+	m.drawOpts.GeoM.Reset()
+	m.drawOpts.GeoM.Translate(float64(panelX), float64(panelY))
+	screen.DrawImage(m.cache.panelBg, &m.drawOpts)
+
+	// Draw menu options
+	options := []string{"Resume", "Library", "Exit"}
+	buttonSpacing := m.cache.buttonH / 4
+	padding := m.cache.buttonH / 2
 	startY := panelY + padding
 
 	for i, optionText := range options {
-		buttonX := panelX + (panelWidth-buttonWidth)/2
-		buttonY := startY + i*(buttonHeight+buttonSpacing)
+		buttonX := panelX + (m.cache.panelW-m.cache.buttonW)/2
+		buttonY := startY + i*(m.cache.buttonH+buttonSpacing)
 
 		// Cache button rect for mouse hit testing
-		m.buttonRects[i] = image.Rect(buttonX, buttonY, buttonX+buttonWidth, buttonY+buttonHeight)
+		m.buttonRects[i] = image.Rect(buttonX, buttonY, buttonX+m.cache.buttonW, buttonY+m.cache.buttonH)
 
-		// Button background
-		buttonBg := ebiten.NewImage(buttonWidth, buttonHeight)
+		// Select appropriate cached button image
+		var btnImg *ebiten.Image
 		if i == m.selectedIndex {
-			buttonBg.Fill(style.Primary)
+			btnImg = m.cache.buttonBgSelected
 		} else {
-			buttonBg.Fill(style.Surface)
-			// Draw border
-			for x := 0; x < buttonWidth; x++ {
-				buttonBg.Set(x, 0, style.Border)
-				buttonBg.Set(x, buttonHeight-1, style.Border)
-			}
-			for y := 0; y < buttonHeight; y++ {
-				buttonBg.Set(0, y, style.Border)
-				buttonBg.Set(buttonWidth-1, y, style.Border)
-			}
+			btnImg = m.cache.buttonBgs[i]
 		}
 
-		btnOpts := &ebiten.DrawImageOptions{}
-		btnOpts.GeoM.Translate(float64(buttonX), float64(buttonY))
-		screen.DrawImage(buttonBg, btnOpts)
+		m.drawOpts.GeoM.Reset()
+		m.drawOpts.GeoM.Translate(float64(buttonX), float64(buttonY))
+		screen.DrawImage(btnImg, &m.drawOpts)
 
-		// Draw text centered
-		textOpts := &text.DrawOptions{}
-		textOpts.GeoM.Translate(float64(buttonX+buttonWidth/2), float64(buttonY+buttonHeight/2))
-		textOpts.PrimaryAlign = text.AlignCenter
-		textOpts.SecondaryAlign = text.AlignCenter
-		textOpts.ColorScale.ScaleWithColor(style.Text)
-		text.Draw(screen, optionText, *style.FontFace(), textOpts)
+		// Draw text centered (reuse text options)
+		m.textOpts = text.DrawOptions{}
+		m.textOpts.GeoM.Translate(float64(buttonX+m.cache.buttonW/2), float64(buttonY+m.cache.buttonH/2))
+		m.textOpts.PrimaryAlign = text.AlignCenter
+		m.textOpts.SecondaryAlign = text.AlignCenter
+		m.textOpts.ColorScale.ScaleWithColor(style.Text)
+		text.Draw(screen, optionText, *style.FontFace(), &m.textOpts)
 	}
 }

@@ -116,6 +116,10 @@ type Manager struct {
 
 	// Frame counter for animated shaders
 	frame int
+
+	// Cached shader pipeline (rebuilt only when config changes)
+	cachedShaderIDs     []string
+	cachedSortedShaders []*ebiten.Shader
 }
 
 // NewManager creates a new shader manager
@@ -225,6 +229,53 @@ func (m *Manager) ensureBuffers(width, height int) {
 	}
 	if m.bufferB == nil {
 		m.bufferB = ebiten.NewImage(width, height)
+	}
+}
+
+// shaderListMatches checks if the given shader IDs match the cached list
+func (m *Manager) shaderListMatches(shaderIDs []string) bool {
+	if len(shaderIDs) != len(m.cachedShaderIDs) {
+		return false
+	}
+	for i, id := range shaderIDs {
+		if m.cachedShaderIDs[i] != id {
+			return false
+		}
+	}
+	return true
+}
+
+// rebuildShaderCache loads, sorts, and filters shaders, caching the result
+func (m *Manager) rebuildShaderCache(shaderIDs []string) {
+	// Load any missing shaders
+	for _, id := range shaderIDs {
+		if _, ok := m.shaders[id]; !ok {
+			if err := m.LoadShader(id); err != nil {
+				log.Printf("Warning: shader %s not available: %v", id, err)
+			}
+		}
+	}
+
+	// Copy and sort shader IDs by weight (descending), then by ID (ascending)
+	m.cachedShaderIDs = make([]string, len(shaderIDs))
+	copy(m.cachedShaderIDs, shaderIDs)
+
+	sortedIDs := make([]string, len(shaderIDs))
+	copy(sortedIDs, shaderIDs)
+	sort.Slice(sortedIDs, func(i, j int) bool {
+		wi, wj := GetShaderWeight(sortedIDs[i]), GetShaderWeight(sortedIDs[j])
+		if wi != wj {
+			return wi > wj
+		}
+		return sortedIDs[i] < sortedIDs[j]
+	})
+
+	// Filter to only shaders that compiled successfully
+	m.cachedSortedShaders = make([]*ebiten.Shader, 0, len(sortedIDs))
+	for _, id := range sortedIDs {
+		if s, ok := m.shaders[id]; ok {
+			m.cachedSortedShaders = append(m.cachedSortedShaders, s)
+		}
 	}
 }
 
@@ -351,44 +402,18 @@ func (m *Manager) ApplyShaders(dst, src *ebiten.Image, shaderIDs []string) bool 
 		return false
 	}
 	if len(shaderIDs) == 0 {
-		// No shaders, direct draw
-		op := &ebiten.DrawImageOptions{}
-		dst.DrawImage(src, op)
+		dst.DrawImage(src, nil)
 		return false
 	}
 
-	// Load any missing shaders
-	for _, id := range shaderIDs {
-		if _, ok := m.shaders[id]; !ok {
-			if err := m.LoadShader(id); err != nil {
-				log.Printf("Warning: shader %s not available: %v", id, err)
-			}
-		}
+	// Rebuild cache only when shader list changes
+	if !m.shaderListMatches(shaderIDs) {
+		m.rebuildShaderCache(shaderIDs)
 	}
 
-	// Sort shader IDs by weight (descending), then by ID (ascending) for determinism
-	sortedIDs := make([]string, len(shaderIDs))
-	copy(sortedIDs, shaderIDs)
-	sort.Slice(sortedIDs, func(i, j int) bool {
-		wi, wj := GetShaderWeight(sortedIDs[i]), GetShaderWeight(sortedIDs[j])
-		if wi != wj {
-			return wi > wj // Higher weight first
-		}
-		return sortedIDs[i] < sortedIDs[j] // Alphabetical tiebreaker
-	})
-
-	// Filter to only shaders that compiled successfully
-	validShaders := make([]*ebiten.Shader, 0, len(sortedIDs))
-	for _, id := range sortedIDs {
-		if s, ok := m.shaders[id]; ok {
-			validShaders = append(validShaders, s)
-		}
-	}
-
+	validShaders := m.cachedSortedShaders
 	if len(validShaders) == 0 {
-		// No valid shaders, draw the input
-		op := &ebiten.DrawImageOptions{}
-		dst.DrawImage(src, op)
+		dst.DrawImage(src, nil)
 		return false
 	}
 

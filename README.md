@@ -81,7 +81,7 @@ make libretro
 
 When launched without a `-rom` argument, the emulator opens a standalone UI:
 
-- **Game Library:** Browse games in icon or list view with sorting (title, last played, play time) and favorites filtering
+- **Game Library:** Browse games in icon or list view with sorting (title, last played, play time), favorites filtering, and search filter (press `/` to filter by title)
 - **ROM Scanning:** Add ROM folders, scan for games with automatic metadata lookup from libretro database
 - **Game Details:** View box art, metadata (developer, publisher, genre, release date), Play/Resume options
 - **Save States:** 10 manual slots per game (F1/F2/F3), auto-save every 5 seconds, resume support
@@ -100,6 +100,11 @@ When launched without a `-rom` argument, the emulator opens a standalone UI:
 **Gamepad** (PlayStation, Xbox, and standard controllers):
 - **Movement:** D-pad or left analog stick
 - **Buttons:** A/Cross (Button 1), B/Circle (Button 2)
+
+**Library Navigation:**
+- **Search/Filter:** `/` (type to filter games by title)
+- **Clear Filter:** ESC
+- **Navigate:** Arrow keys (deactivates filter input but keeps filter visible)
 
 **System Controls:**
 - **Pause Menu:** ESC (during gameplay)

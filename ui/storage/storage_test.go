@@ -370,3 +370,78 @@ func TestUpdatePlayTime(t *testing.T) {
 		t.Error("LastPlayed should be updated")
 	}
 }
+
+func TestGetGamesSortedFiltered(t *testing.T) {
+	lib := DefaultLibrary()
+
+	lib.AddGame(&GameEntry{CRC32: "1", DisplayName: "Sonic the Hedgehog", Name: "Sonic the Hedgehog (USA)"})
+	lib.AddGame(&GameEntry{CRC32: "2", DisplayName: "Alex Kidd in Miracle World", Name: "Alex Kidd in Miracle World (Europe)"})
+	lib.AddGame(&GameEntry{CRC32: "3", DisplayName: "Phantasy Star", Name: "Phantasy Star (Japan)"})
+	lib.AddGame(&GameEntry{CRC32: "4", DisplayName: "Wonder Boy", Name: "Wonder Boy (USA)", Favorite: true})
+
+	// Empty search returns all games
+	games := lib.GetGamesSortedFiltered("title", false, "")
+	if len(games) != 4 {
+		t.Errorf("expected 4 games with empty search, got %d", len(games))
+	}
+
+	// Case-insensitive search by DisplayName
+	games = lib.GetGamesSortedFiltered("title", false, "sonic")
+	if len(games) != 1 {
+		t.Errorf("expected 1 game matching 'sonic', got %d", len(games))
+	}
+	if games[0].CRC32 != "1" {
+		t.Errorf("expected Sonic game, got %s", games[0].DisplayName)
+	}
+
+	// Case-insensitive search - uppercase
+	games = lib.GetGamesSortedFiltered("title", false, "SONIC")
+	if len(games) != 1 {
+		t.Errorf("expected 1 game matching 'SONIC', got %d", len(games))
+	}
+
+	// Search matches Name field (not just DisplayName)
+	games = lib.GetGamesSortedFiltered("title", false, "europe")
+	if len(games) != 1 {
+		t.Errorf("expected 1 game matching 'europe' in Name, got %d", len(games))
+	}
+	if games[0].CRC32 != "2" {
+		t.Errorf("expected Alex Kidd (Europe), got %s", games[0].DisplayName)
+	}
+
+	// Partial match - "world" only matches "Miracle World"
+	games = lib.GetGamesSortedFiltered("title", false, "world")
+	if len(games) != 1 {
+		t.Errorf("expected 1 game matching 'world', got %d", len(games))
+	}
+	if games[0].CRC32 != "2" {
+		t.Errorf("expected Alex Kidd (Miracle World), got %s", games[0].DisplayName)
+	}
+
+	// Combined with favorites filter
+	games = lib.GetGamesSortedFiltered("title", true, "")
+	if len(games) != 1 {
+		t.Errorf("expected 1 favorite game, got %d", len(games))
+	}
+	if games[0].CRC32 != "4" {
+		t.Errorf("expected Wonder Boy (favorite), got %s", games[0].DisplayName)
+	}
+
+	// Combined filters: favorites + search
+	games = lib.GetGamesSortedFiltered("title", true, "wonder")
+	if len(games) != 1 {
+		t.Errorf("expected 1 game matching 'wonder' and favorite, got %d", len(games))
+	}
+
+	// No matches
+	games = lib.GetGamesSortedFiltered("title", false, "nonexistent")
+	if len(games) != 0 {
+		t.Errorf("expected 0 games matching 'nonexistent', got %d", len(games))
+	}
+
+	// No matches with favorites filter
+	games = lib.GetGamesSortedFiltered("title", true, "sonic")
+	if len(games) != 0 {
+		t.Errorf("expected 0 games matching 'sonic' with favorites filter, got %d", len(games))
+	}
+}

@@ -45,6 +45,9 @@ type LibraryScreen struct {
 	// Artwork cache: key = "crc32", value = scaled ebiten.Image
 	artworkCache      map[string]*ebiten.Image
 	cachedWindowWidth int // Track window width to detect resize
+
+	// Search filter
+	searchText string
 }
 
 // NewLibraryScreen creates a new library screen
@@ -87,8 +90,8 @@ func (s *LibraryScreen) Build() *widget.Container {
 	// Clear button references for fresh build
 	s.ClearFocusButtons()
 
-	// Get sorted games
-	s.games = s.library.GetGamesSorted(s.config.Library.SortBy, s.config.Library.FavoritesFilter)
+	// Get sorted and filtered games
+	s.games = s.library.GetGamesSortedFiltered(s.config.Library.SortBy, s.config.Library.FavoritesFilter, s.searchText)
 
 	// Check if library is truly empty vs filtered empty
 	totalGames := s.library.GameCount()
@@ -104,9 +107,13 @@ func (s *LibraryScreen) Build() *widget.Container {
 		// Library is truly empty - no games at all
 		innerContainer.AddChild(s.buildEmptyState())
 	} else if len(s.games) == 0 {
-		// Library has games but filter shows none (e.g., favorites filter with no favorites)
+		// Library has games but filter/search shows none
 		innerContainer.AddChild(s.buildToolbar())
-		innerContainer.AddChild(s.buildFilteredEmptyState())
+		if s.searchText != "" {
+			innerContainer.AddChild(s.buildSearchEmptyState())
+		} else {
+			innerContainer.AddChild(s.buildFilteredEmptyState())
+		}
 		s.setupNavigation(1) // Toolbar only
 	} else {
 		// Toolbar (row 0 - doesn't stretch)
@@ -137,6 +144,19 @@ func (s *LibraryScreen) buildEmptyState() *widget.Container {
 // buildFilteredEmptyState creates the display when filters hide all games
 func (s *LibraryScreen) buildFilteredEmptyState() *widget.Container {
 	return style.EmptyState("No favorites yet", "Turn off the favorites filter to see all games", nil)
+}
+
+// buildSearchEmptyState creates the display when search returns no results
+func (s *LibraryScreen) buildSearchEmptyState() *widget.Container {
+	return style.EmptyState("No matches found", "Try a different search term or press ESC to clear", nil)
+}
+
+// SetSearchText sets the search filter text and resets scroll position
+func (s *LibraryScreen) SetSearchText(text string) {
+	s.searchText = text
+	// Reset scroll positions when search changes
+	s.iconScrollTop = 0
+	s.listScrollTop = 0
 }
 
 // buildToolbar creates the library toolbar
@@ -701,7 +721,7 @@ func (s *LibraryScreen) SaveScrollPosition() {
 
 // OnEnter is called when entering the library screen
 func (s *LibraryScreen) OnEnter() {
-	s.games = s.library.GetGamesSorted(s.config.Library.SortBy, s.config.Library.FavoritesFilter)
+	s.games = s.library.GetGamesSortedFiltered(s.config.Library.SortBy, s.config.Library.FavoritesFilter, s.searchText)
 	s.SetDefaultFocus("toolbar-icon") // Only sets if no pending focus (preserves game selection when returning)
 }
 

@@ -256,3 +256,63 @@ func (lib *Library) UpdatePlayTime(gameCRC string, secondsPlayed int64) {
 		game.LastPlayed = time.Now().Unix()
 	}
 }
+
+// GetGamesSortedFiltered returns a sorted slice of game entries filtered by search text.
+// Search is case-insensitive and matches against DisplayName and Name fields.
+// Empty searchText returns all games (same as GetGamesSorted).
+func (lib *Library) GetGamesSortedFiltered(sortBy string, favoritesOnly bool, searchText string) []*GameEntry {
+	if lib.Games == nil {
+		return nil
+	}
+
+	// Normalize search text for case-insensitive matching
+	searchLower := strings.ToLower(searchText)
+
+	games := make([]*GameEntry, 0, len(lib.Games))
+	for _, game := range lib.Games {
+		if favoritesOnly && !game.Favorite {
+			continue
+		}
+		// Apply search filter if search text is provided
+		if searchText != "" {
+			displayLower := strings.ToLower(game.DisplayName)
+			nameLower := strings.ToLower(game.Name)
+			if !strings.Contains(displayLower, searchLower) && !strings.Contains(nameLower, searchLower) {
+				continue
+			}
+		}
+		games = append(games, game)
+	}
+
+	switch sortBy {
+	case "title":
+		sort.Slice(games, func(i, j int) bool {
+			return compareGamesForSort(games[i], games[j])
+		})
+	case "lastPlayed":
+		sort.Slice(games, func(i, j int) bool {
+			// Primary: most recent first
+			if games[i].LastPlayed != games[j].LastPlayed {
+				return games[i].LastPlayed > games[j].LastPlayed
+			}
+			// Secondary: fall back to title ordering
+			return compareGamesForSort(games[i], games[j])
+		})
+	case "playTime":
+		sort.Slice(games, func(i, j int) bool {
+			// Primary: most played first
+			if games[i].PlayTimeSeconds != games[j].PlayTimeSeconds {
+				return games[i].PlayTimeSeconds > games[j].PlayTimeSeconds
+			}
+			// Secondary: fall back to title ordering
+			return compareGamesForSort(games[i], games[j])
+		})
+	default:
+		// Default to title sort
+		sort.Slice(games, func(i, j int) bool {
+			return compareGamesForSort(games[i], games[j])
+		})
+	}
+
+	return games
+}

@@ -10,6 +10,7 @@ import (
 	"github.com/ebitenui/ebitenui"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/user-none/emkiii/ui/screens"
 	"github.com/user-none/emkiii/ui/shader"
 	"github.com/user-none/emkiii/ui/storage"
@@ -43,6 +44,7 @@ type App struct {
 	notification      *Notification
 	saveStateManager  *SaveStateManager
 	screenshotManager *ScreenshotManager
+	searchOverlay     *SearchOverlay
 
 	// Scan manager
 	scanManager *ScanManager
@@ -104,6 +106,12 @@ func NewApp() (*App, error) {
 	app.screenshotManager = NewScreenshotManager(app.notification)
 	app.inputManager = NewInputManager()
 	app.shaderManager = shader.NewManager()
+	app.searchOverlay = NewSearchOverlay(func(text string) {
+		if app.state == StateLibrary {
+			app.libraryScreen.SetSearchText(text)
+			app.rebuildCurrentScreen()
+		}
+	})
 
 	// Load config
 	config, err := storage.LoadConfig()
@@ -301,7 +309,27 @@ func (a *App) Update() error {
 			a.SwitchToScanProgress(false)
 		}
 	case StateLibrary:
-		nav := a.processUIInput()
+		// Handle search overlay input first
+		if a.searchOverlay.IsActive() {
+			a.searchOverlay.HandleInput()
+		}
+
+		// Check for '/' to activate search (when not already active)
+		if inpututil.IsKeyJustPressed(ebiten.KeySlash) && !a.searchOverlay.IsActive() {
+			a.searchOverlay.Activate()
+		}
+
+		// ESC clears search if visible or active (before normal back handling)
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) && (a.searchOverlay.IsVisible() || a.searchOverlay.IsActive()) {
+			a.searchOverlay.Clear()
+			return nil // Don't process as normal back
+		}
+
+		// Skip normal UI input if search is capturing
+		var nav UINavigation
+		if !a.searchOverlay.IsActive() {
+			nav = a.processUIInput()
+		}
 		a.ui.Update()
 		// Check if state changed during ui.Update (e.g., user clicked a game)
 		if a.state != StateLibrary {
@@ -464,6 +492,9 @@ func (a *App) Draw(screen *ebiten.Image) {
 			a.ui.Draw(screen)
 		}
 		a.notification.Draw(screen)
+		if a.state == StateLibrary {
+			a.searchOverlay.Draw(screen)
+		}
 	} else {
 		// With effects/shaders - use preprocessing pipeline
 		sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
@@ -503,6 +534,9 @@ func (a *App) Draw(screen *ebiten.Image) {
 
 		// Notification drawn after effects, before shaders
 		a.notification.Draw(processed)
+		if a.state == StateLibrary {
+			a.searchOverlay.Draw(processed)
+		}
 
 		// Apply shader chain to final screen
 		a.shaderManager.ApplyShaders(screen, processed, remainingShaders)

@@ -4,6 +4,7 @@ package ui
 
 import (
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/user-none/emkiii/emu"
 	"github.com/user-none/emkiii/romloader"
 	"github.com/user-none/emkiii/ui/achievements"
+	"github.com/user-none/emkiii/ui/rdb"
 	"github.com/user-none/emkiii/ui/storage"
 	"github.com/user-none/emkiii/ui/style"
 )
@@ -30,6 +32,9 @@ type GameplayManager struct {
 
 	// Pause menu
 	pauseMenu *PauseMenu
+
+	// Achievement overlay
+	achievementOverlay *AchievementOverlay
 
 	// Play time tracking
 	playTime PlayTimeTracker
@@ -51,6 +56,7 @@ type GameplayManager struct {
 	library            *storage.Library
 	config             *storage.Config
 	achievementManager *achievements.Manager
+	rdb                *rdb.RDB
 
 	// Callbacks to App
 	onExitToLibrary func()
@@ -72,6 +78,7 @@ func NewGameplayManager(
 	library *storage.Library,
 	config *storage.Config,
 	achievementManager *achievements.Manager,
+	gameRDB *rdb.RDB,
 	onExitToLibrary func(),
 	onExitApp func(),
 ) *GameplayManager {
@@ -83,6 +90,7 @@ func NewGameplayManager(
 		library:            library,
 		config:             config,
 		achievementManager: achievementManager,
+		rdb:                gameRDB,
 		onExitToLibrary:    onExitToLibrary,
 		onExitApp:          onExitApp,
 	}
@@ -105,6 +113,9 @@ func NewGameplayManager(
 			}
 		},
 	)
+
+	// Initialize achievement overlay
+	gm.achievementOverlay = NewAchievementOverlay(achievementManager)
 
 	return gm
 }
@@ -208,15 +219,18 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 			gm.achievementScreenshotMu.Unlock()
 		})
 
-		// Apply config settings
-		gm.achievementManager.SetScreenshotEnabled(gm.config.RetroAchievements.AutoScreenshot)
-		gm.achievementManager.SetUnlockSoundEnabled(gm.config.RetroAchievements.UnlockSound)
-		gm.achievementManager.SetEncoreMode(gm.config.RetroAchievements.EncoreMode)
-		gm.achievementManager.SetSuppressHardcoreWarning(gm.config.RetroAchievements.SuppressHardcoreWarning)
-
 		gm.achievementManager.SetEmulator(gm.emulator)
-		if err := gm.achievementManager.LoadGame(romData, game.File); err != nil {
+		// Look up MD5 from RDB for fast path (avoids re-hashing ROM)
+		var md5Hash string
+		if gm.rdb != nil {
+			crc32, _ := strconv.ParseUint(game.CRC32, 16, 32)
+			md5Hash = gm.rdb.GetMD5ByCRC32(uint32(crc32))
+		}
+		if err := gm.achievementManager.LoadGame(romData, game.File, md5Hash); err != nil {
 			log.Printf("Failed to load achievements: %v", err)
+		} else {
+			// Initialize overlay with achievement data for this game
+			gm.achievementOverlay.InitForGame()
 		}
 	}
 
@@ -226,6 +240,28 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 // Update handles the gameplay update loop. Returns true if pause menu was opened.
 func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
 	if gm.emulator == nil {
+		return false, nil
+	}
+
+	// Check for Tab key to toggle achievement overlay
+	if inpututil.IsKeyJustPressed(ebiten.KeyTab) && !gm.pauseMenu.IsVisible() {
+		if gm.achievementOverlay.IsVisible() {
+			gm.achievementOverlay.Hide()
+			gm.playTime.trackStart = time.Now().Unix()
+			gm.playTime.tracking = true
+		} else if gm.achievementManager != nil && gm.achievementManager.IsGameLoaded() {
+			gm.achievementOverlay.Show()
+			gm.pausePlayTimeTracking()
+		}
+	}
+
+	// Handle achievement overlay if visible
+	if gm.achievementOverlay.IsVisible() {
+		gm.achievementOverlay.Update()
+		// Process achievement idle tasks while overlay is shown
+		if gm.achievementManager != nil {
+			gm.achievementManager.Idle()
+		}
 		return false, nil
 	}
 
@@ -321,6 +357,11 @@ func (gm *GameplayManager) DrawFramebuffer() *ebiten.Image {
 // DrawPauseMenu draws the pause menu overlay
 func (gm *GameplayManager) DrawPauseMenu(screen *ebiten.Image) {
 	gm.pauseMenu.Draw(screen)
+}
+
+// DrawAchievementOverlay draws the achievement overlay
+func (gm *GameplayManager) DrawAchievementOverlay(screen *ebiten.Image) {
+	gm.achievementOverlay.Draw(screen)
 }
 
 // IsPaused returns whether the pause menu is visible

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/user-none/emkiii/ui/storage"
 	"github.com/user-none/go-rcheevos"
 )
 
@@ -34,6 +35,7 @@ type Manager struct {
 	httpClient   *http.Client
 	notification Notification
 	userAgent    string // Cached User-Agent string
+	config       *storage.Config
 
 	// State
 	mu         sync.Mutex
@@ -42,32 +44,41 @@ type Manager struct {
 	username   string
 	token      string
 	gameLoaded bool
-	enabled    bool
 
 	// Callbacks for unlock events
-	screenshotFunc   ScreenshotFunc
-	screenshotEnable bool
+	screenshotFunc ScreenshotFunc
+	onUnlockFunc   func(achievementID uint32) // Called when achievement unlocks
+
+	// Progress dirty flag (set when achievements unlock, cleared when detail screen refreshes)
+	progressDirty bool
 
 	// Unlock sound
-	unlockSoundData   []byte
-	unlockSoundEnable bool
-
-	// Suppress hardcore warning notification
-	suppressHardcoreWarning bool
+	unlockSoundData []byte
 
 	// Badge cache (gameID<<32 | achievementID -> image)
 	badgeCache map[uint64]*ebiten.Image
 	// Game image cache (gameID -> image)
 	gameImageCache map[uint32]*ebiten.Image
+
+	// Cached achievements for the current game session (populated on LoadGame)
+	cachedAchievements []*rcheevos.Achievement
+	cachedGameTitle    string
+
+	// Library data for achievement viewing (pre-fetched)
+	hashLibraryMap   map[string]uint32                      // MD5 hash -> gameID lookup
+	userProgressMap  map[uint32]*rcheevos.UserProgressEntry // gameID -> progress
+	librariesLoaded  bool
+	librariesLoading bool
 }
 
 // NewManager creates a new achievement manager
-func NewManager(notification Notification, appName, appVersion string) *Manager {
+func NewManager(notification Notification, config *storage.Config, appName, appVersion string) *Manager {
 	m := &Manager{
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 		notification:    notification,
+		config:          config,
 		unlockSoundData: generateUnlockSound(),
 		badgeCache:      make(map[uint64]*ebiten.Image),
 		gameImageCache:  make(map[uint32]*ebiten.Image),
@@ -93,39 +104,42 @@ func (m *Manager) IsLoggedIn() bool {
 	return m.loggedIn
 }
 
-// IsEnabled returns whether achievements are enabled
+// IsEnabled returns whether achievements are enabled in config
 func (m *Manager) IsEnabled() bool {
-	return m.enabled
+	return m.config.RetroAchievements.Enabled
 }
 
-// SetEnabled enables or disables achievement processing
-// Called from settings UI on main thread, read during gameplay on main thread
-func (m *Manager) SetEnabled(enabled bool) {
-	m.enabled = enabled
+// IsSpectatorMode returns whether spectator mode is enabled in config
+func (m *Manager) IsSpectatorMode() bool {
+	return m.config.RetroAchievements.SpectatorMode
 }
 
 // SetScreenshotFunc sets the callback for taking screenshots on achievement unlock
-// Must be called before game loop starts (configure then run pattern)
 func (m *Manager) SetScreenshotFunc(fn ScreenshotFunc) {
 	m.screenshotFunc = fn
 }
 
-// SetScreenshotEnabled enables or disables auto-screenshot on unlock
-// Must be called before game loop starts (configure then run pattern)
-func (m *Manager) SetScreenshotEnabled(enabled bool) {
-	m.screenshotEnable = enabled
+// SetOnUnlockCallback sets a callback that's called when an achievement is unlocked.
+// The callback receives the achievement ID. Used by the overlay to update its display.
+func (m *Manager) SetOnUnlockCallback(fn func(achievementID uint32)) {
+	m.mu.Lock()
+	m.onUnlockFunc = fn
+	m.mu.Unlock()
 }
 
-// SetUnlockSoundEnabled enables or disables unlock sound
-// Must be called before game loop starts (configure then run pattern)
-func (m *Manager) SetUnlockSoundEnabled(enabled bool) {
-	m.unlockSoundEnable = enabled
+// IsProgressDirty returns true if achievements were unlocked since the last check.
+// Used by the detail screen to know when to refresh cached progress data.
+func (m *Manager) IsProgressDirty() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.progressDirty
 }
 
-// SetSuppressHardcoreWarning enables or disables suppression of the hardcore warning
-// Must be called before game loop starts (configure then run pattern)
-func (m *Manager) SetSuppressHardcoreWarning(suppress bool) {
-	m.suppressHardcoreWarning = suppress
+// ClearProgressDirty clears the dirty flag after the detail screen refreshes.
+func (m *Manager) ClearProgressDirty() {
+	m.mu.Lock()
+	m.progressDirty = false
+	m.mu.Unlock()
 }
 
 // GetUsername returns the logged in username
@@ -133,13 +147,6 @@ func (m *Manager) GetUsername() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.username
-}
-
-// GetToken returns the stored auth token
-func (m *Manager) GetToken() string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.token
 }
 
 // Login authenticates with RetroAchievements using username and password
@@ -202,18 +209,14 @@ func (m *Manager) Logout() {
 }
 
 // SetEmulator sets the emulator for memory access
-// Must be called before game loop starts (configure then run pattern)
 func (m *Manager) SetEmulator(emu EmulatorInterface) {
 	m.emulator = emu
 }
 
-// SetEncoreMode enables or disables encore mode (re-triggering unlocked achievements)
-func (m *Manager) SetEncoreMode(enabled bool) {
-	m.client.SetEncoreModeEnabled(enabled)
-}
-
-// LoadGame identifies and loads a game for achievement tracking
-func (m *Manager) LoadGame(romData []byte, filePath string) error {
+// LoadGame identifies and loads a game for achievement tracking.
+// If md5Hash is provided and non-empty, it will be used directly (fast path).
+// Otherwise, the hash will be computed from romData (fallback).
+func (m *Manager) LoadGame(romData []byte, filePath string, md5Hash string) error {
 	m.mu.Lock()
 	if !m.loggedIn {
 		m.mu.Unlock()
@@ -221,10 +224,16 @@ func (m *Manager) LoadGame(romData []byte, filePath string) error {
 	}
 	m.mu.Unlock()
 
+	// Apply client settings from config before loading
+	m.client.SetEncoreModeEnabled(m.config.RetroAchievements.EncoreMode)
+	if m.config.RetroAchievements.SpectatorMode {
+		m.client.SetSpectatorModeEnabled(true)
+	}
+
 	// Use a channel to capture the async result
 	done := make(chan error, 1)
 
-	m.client.IdentifyAndLoadGame(rcheevos.ConsoleMasterSystem, filePath, romData, func(result int, errorMessage string) {
+	loadCallback := func(result int, errorMessage string) {
 		if result != rcheevos.OK {
 			done <- fmt.Errorf("failed to load game: %s", errorMessage)
 			return
@@ -234,8 +243,18 @@ func (m *Manager) LoadGame(romData []byte, filePath string) error {
 		m.gameLoaded = true
 		m.mu.Unlock()
 
+		// Cache achievements for this session
+		m.cacheAchievements()
+
 		done <- nil
-	})
+	}
+
+	// Use hash directly if provided, otherwise identify from ROM
+	if md5Hash != "" {
+		m.client.LoadGame(md5Hash, loadCallback)
+	} else {
+		m.client.IdentifyAndLoadGame(rcheevos.ConsoleMasterSystem, filePath, romData, loadCallback)
+	}
 
 	// Wait for the callback with a timeout
 	select {
@@ -337,7 +356,7 @@ func (m *Manager) fetchImage(url string) *ebiten.Image {
 
 // DoFrame processes achievements for the current frame
 func (m *Manager) DoFrame() {
-	if !m.enabled {
+	if !m.config.RetroAchievements.Enabled {
 		return
 	}
 
@@ -372,10 +391,14 @@ func (m *Manager) UnloadGame() {
 	wasLoaded := m.gameLoaded
 	m.gameLoaded = false
 	m.emulator = nil
+	m.cachedAchievements = nil
+	m.cachedGameTitle = ""
 	m.mu.Unlock()
 
 	if wasLoaded {
 		m.client.UnloadGame()
+		// Disable spectator mode after unload so it doesn't persist to next session
+		m.client.SetSpectatorModeEnabled(false)
 	}
 }
 
@@ -489,8 +512,23 @@ func (m *Manager) handleEvent(event *rcheevos.Event) {
 		// Check if this is the hardcore warning and should be suppressed
 		isHardcoreWarning := strings.Contains(title, "Unknown Emulator") ||
 			strings.Contains(description, "Hardcore unlocks cannot be earned")
-		if m.suppressHardcoreWarning && isHardcoreWarning {
+		if m.config.RetroAchievements.SuppressHardcoreWarning && isHardcoreWarning {
 			return
+		}
+
+		// Mark progress as dirty, update cache, and notify callback (for real achievements only)
+		if !isHardcoreWarning {
+			m.mu.Lock()
+			m.progressDirty = true
+			onUnlock := m.onUnlockFunc
+
+			// Update cached achievement to mark as unlocked and move to end of list
+			m.updateCachedAchievementUnlocked(achievementID)
+			m.mu.Unlock()
+
+			if onUnlock != nil {
+				onUnlock(achievementID)
+			}
 		}
 
 		// Get cached badge
@@ -503,32 +541,34 @@ func (m *Manager) handleEvent(event *rcheevos.Event) {
 		}
 
 		// Play unlock sound
-		if m.unlockSoundEnable && len(m.unlockSoundData) > 0 {
+		if m.config.RetroAchievements.UnlockSound && len(m.unlockSoundData) > 0 {
 			m.notification.PlaySound(m.unlockSoundData)
 		}
 
 		// Take screenshot
-		if m.screenshotEnable && m.screenshotFunc != nil {
+		if m.config.RetroAchievements.AutoScreenshot && m.screenshotFunc != nil {
 			m.screenshotFunc()
 		}
 
 		// Show notification
-		if cachedBadge != nil {
-			m.notification.ShowAchievementWithBadge(title, description, cachedBadge)
-		} else {
-			// Show notification immediately without badge, fetch async
-			m.notification.ShowAchievementWithBadge(title, description, nil)
+		if m.config.RetroAchievements.ShowNotification {
+			if cachedBadge != nil {
+				m.notification.ShowAchievementWithBadge(title, description, cachedBadge)
+			} else {
+				// Show notification immediately without badge, fetch async
+				m.notification.ShowAchievementWithBadge(title, description, nil)
 
-			// Fetch badge in background and update notification
-			go func() {
-				badge := m.getBadge(achievementID, badgeURL)
-				if badge != nil {
-					m.notification.SetBadge(badge)
-				}
-			}()
+				// Fetch badge in background and update notification
+				go func() {
+					badge := m.getBadge(achievementID, badgeURL)
+					if badge != nil {
+						m.notification.SetBadge(badge)
+					}
+				}()
+			}
 		}
 	case rcheevos.EventGameCompleted:
-		if m.notification != nil {
+		if m.notification != nil && m.config.RetroAchievements.ShowNotification {
 			// Check cache first
 			game := m.client.GetGame()
 			var cachedImg *ebiten.Image
@@ -556,4 +596,285 @@ func (m *Manager) handleEvent(event *rcheevos.Event) {
 			log.Printf("[RetroAchievements] Server error: %s", event.ServerError.ErrorMessage)
 		}
 	}
+}
+
+// --- Achievement Viewing API ---
+
+// IsGameLoaded returns whether a game is currently loaded for achievements
+func (m *Manager) IsGameLoaded() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.gameLoaded
+}
+
+// cacheAchievements fetches and caches achievements for the current game session.
+// Called internally after LoadGame succeeds.
+func (m *Manager) cacheAchievements() {
+	// Clear old cache first
+	m.mu.Lock()
+	m.cachedAchievements = nil
+	m.cachedGameTitle = ""
+	m.mu.Unlock()
+
+	list := m.client.CreateAchievementList(rcheevos.AchievementCategoryCore, rcheevos.AchievementListGroupingLockState)
+	if list == nil {
+		return
+	}
+	defer list.Destroy()
+
+	allAchievements := list.GetAllAchievements()
+
+	// Filter out 0-point achievements (warnings like "Unknown Emulator")
+	// and sort: locked first, unlocked at bottom
+	var locked []*rcheevos.Achievement
+	var unlocked []*rcheevos.Achievement
+	for _, ach := range allAchievements {
+		if ach.Points == 0 {
+			continue
+		}
+		if ach.Unlocked != rcheevos.AchievementUnlockedNone {
+			unlocked = append(unlocked, ach)
+		} else {
+			locked = append(locked, ach)
+		}
+	}
+
+	m.mu.Lock()
+	m.cachedAchievements = append(locked, unlocked...)
+	if game := m.client.GetGame(); game != nil {
+		m.cachedGameTitle = game.Title
+	}
+	m.mu.Unlock()
+}
+
+// GetCachedAchievements returns the cached achievement list for the current game.
+// Returns nil if no game is loaded. The slice is safe to read; do not modify.
+func (m *Manager) GetCachedAchievements() []*rcheevos.Achievement {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.cachedAchievements
+}
+
+// GetCachedGameTitle returns the cached game title.
+func (m *Manager) GetCachedGameTitle() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.cachedGameTitle
+}
+
+// updateCachedAchievementUnlocked marks an achievement as unlocked in the cache
+// and moves it to the end of the list (unlocked section).
+// Must be called while holding m.mu.
+func (m *Manager) updateCachedAchievementUnlocked(achievementID uint32) {
+	for i, ach := range m.cachedAchievements {
+		if ach.ID == achievementID {
+			// Mark as unlocked
+			ach.Unlocked = rcheevos.AchievementUnlockedSoftcore
+
+			// Move to end of list (unlocked section)
+			m.cachedAchievements = append(m.cachedAchievements[:i], m.cachedAchievements[i+1:]...)
+			m.cachedAchievements = append(m.cachedAchievements, ach)
+			return
+		}
+	}
+}
+
+// GetGame returns information about the currently loaded game.
+// Returns nil if no game is loaded.
+func (m *Manager) GetGame() *rcheevos.Game {
+	return m.client.GetGame()
+}
+
+// GetBadgeImage returns a cached badge image for an achievement.
+// Always returns the colored (unlocked) version - caller applies grayscale if needed.
+// Returns nil if the badge is not yet cached.
+func (m *Manager) GetBadgeImage(achievementID uint32) *ebiten.Image {
+	game := m.client.GetGame()
+	if game == nil {
+		return nil
+	}
+
+	cacheKey := badgeCacheKey(game.ID, achievementID)
+	m.mu.Lock()
+	img := m.badgeCache[cacheKey]
+	m.mu.Unlock()
+	return img
+}
+
+// GetBadgeImageAsync fetches a badge image asynchronously.
+// Always fetches the colored (unlocked) version - caller applies grayscale if needed.
+// The callback is called when the image is ready (may be nil on error).
+func (m *Manager) GetBadgeImageAsync(achievementID uint32, callback func(*ebiten.Image)) {
+	ach := m.client.GetAchievement(achievementID)
+	if ach == nil {
+		if callback != nil {
+			callback(nil)
+		}
+		return
+	}
+
+	// Always fetch the colored (unlocked) badge - grayscale is applied at display time
+	url := m.client.GetAchievementImageURL(ach, rcheevos.AchievementStateUnlocked)
+
+	go func() {
+		badge := m.getBadge(achievementID, url)
+		if callback != nil {
+			callback(badge)
+		}
+	}()
+}
+
+// --- Library Pre-loading API ---
+
+// EnsureLibrariesLoaded fetches the hash library and user progress for SMS if not already cached.
+// Call this when logged in to pre-fetch data for the detail screen.
+func (m *Manager) EnsureLibrariesLoaded(callback func(success bool)) {
+	m.mu.Lock()
+	if m.librariesLoaded {
+		m.mu.Unlock()
+		if callback != nil {
+			callback(true)
+		}
+		return
+	}
+	if m.librariesLoading {
+		m.mu.Unlock()
+		// Another goroutine is loading - wait for it
+		go func() {
+			for {
+				m.mu.Lock()
+				if !m.librariesLoading {
+					loaded := m.librariesLoaded
+					m.mu.Unlock()
+					if callback != nil {
+						callback(loaded)
+					}
+					return
+				}
+				m.mu.Unlock()
+				time.Sleep(50 * time.Millisecond)
+			}
+		}()
+		return
+	}
+	m.librariesLoading = true
+	m.mu.Unlock()
+
+	var wg sync.WaitGroup
+	var hashErr, progressErr error
+
+	wg.Add(2)
+
+	// Fetch hash library
+	m.client.FetchHashLibrary(rcheevos.ConsoleMasterSystem, func(result int, errorMessage string, library *rcheevos.HashLibrary) {
+		defer wg.Done()
+		if result != rcheevos.OK {
+			hashErr = fmt.Errorf("fetch hash library: %s", errorMessage)
+			return
+		}
+		if library != nil {
+			m.mu.Lock()
+			m.hashLibraryMap = make(map[string]uint32, len(library.Entries))
+			for _, entry := range library.Entries {
+				m.hashLibraryMap[entry.Hash] = entry.GameID
+			}
+			m.mu.Unlock()
+		}
+	})
+
+	// Fetch user progress
+	m.client.FetchAllUserProgress(rcheevos.ConsoleMasterSystem, func(result int, errorMessage string, progress *rcheevos.AllUserProgress) {
+		defer wg.Done()
+		if result != rcheevos.OK {
+			progressErr = fmt.Errorf("fetch user progress: %s", errorMessage)
+			return
+		}
+		if progress != nil {
+			m.mu.Lock()
+			m.userProgressMap = make(map[uint32]*rcheevos.UserProgressEntry, len(progress.Entries))
+			for _, entry := range progress.Entries {
+				m.userProgressMap[entry.GameID] = entry
+			}
+			m.mu.Unlock()
+		}
+	})
+
+	// Wait for both to complete
+	go func() {
+		wg.Wait()
+
+		m.mu.Lock()
+		m.librariesLoading = false
+		if hashErr == nil && progressErr == nil {
+			m.librariesLoaded = true
+		} else {
+			if hashErr != nil {
+				log.Printf("[RetroAchievements] %v", hashErr)
+			}
+			if progressErr != nil {
+				log.Printf("[RetroAchievements] %v", progressErr)
+			}
+		}
+		loaded := m.librariesLoaded
+		m.mu.Unlock()
+
+		if callback != nil {
+			callback(loaded)
+		}
+	}()
+}
+
+// RefreshUserProgress re-fetches user progress data from the server.
+// Call this after achievements are unlocked to update cached progress.
+func (m *Manager) RefreshUserProgress(callback func(success bool)) {
+	m.client.FetchAllUserProgress(rcheevos.ConsoleMasterSystem, func(result int, errorMessage string, progress *rcheevos.AllUserProgress) {
+		if result != rcheevos.OK {
+			log.Printf("[RetroAchievements] refresh user progress: %s", errorMessage)
+			if callback != nil {
+				callback(false)
+			}
+			return
+		}
+		if progress != nil {
+			m.mu.Lock()
+			m.userProgressMap = make(map[uint32]*rcheevos.UserProgressEntry, len(progress.Entries))
+			for _, entry := range progress.Entries {
+				m.userProgressMap[entry.GameID] = entry
+			}
+			m.mu.Unlock()
+		}
+		if callback != nil {
+			callback(true)
+		}
+	})
+}
+
+// LookupGameProgress returns user progress for a game by MD5 hash.
+// Returns (false, nil) if the game is not in the RetroAchievements database.
+// Returns (true, nil) if the game exists but user has no progress.
+// Returns (true, progress) if the game exists and user has progress.
+func (m *Manager) LookupGameProgress(md5Hash string) (found bool, progress *rcheevos.UserProgressEntry) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.hashLibraryMap == nil {
+		return false, nil
+	}
+
+	gameID, ok := m.hashLibraryMap[strings.ToLower(md5Hash)]
+	if !ok {
+		return false, nil
+	}
+
+	if m.userProgressMap == nil {
+		return true, nil
+	}
+
+	return true, m.userProgressMap[gameID]
+}
+
+// ComputeGameHash generates the MD5 hash for ROM data in rcheevos format.
+// Use this as a fallback when the MD5 is not in the RDB.
+func (m *Manager) ComputeGameHash(romData []byte) string {
+	return rcheevos.HashFromBuffer(rcheevos.ConsoleMasterSystem, romData)
 }

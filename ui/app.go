@@ -12,6 +12,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/user-none/emkiii/ui/achievements"
+	"github.com/user-none/emkiii/ui/rdb"
 	"github.com/user-none/emkiii/ui/screens"
 	"github.com/user-none/emkiii/ui/shader"
 	"github.com/user-none/emkiii/ui/storage"
@@ -37,6 +38,9 @@ type App struct {
 	settingsScreen *screens.SettingsScreen
 	scanScreen     *screens.ScanProgressScreen
 	errorScreen    *screens.ErrorScreen
+
+	// Metadata for RDB lookups
+	metadata *MetadataManager
 
 	// Gameplay (emulation, input, save states, pause menu)
 	gameplay *GameplayManager
@@ -73,6 +77,9 @@ type App struct {
 
 	// Achievement manager for RetroAchievements integration
 	achievementManager *achievements.Manager
+
+	// Rebuild pending flag (set from goroutines, processed on main thread)
+	rebuildPending bool
 }
 
 // NewApp creates and initializes the application
@@ -110,13 +117,18 @@ func NewApp() (*App, error) {
 	app.screenshotManager = NewScreenshotManager(app.notification)
 	app.inputManager = NewInputManager()
 	app.shaderManager = shader.NewManager()
-	app.achievementManager = achievements.NewManager(app.notification, Name, Version)
 	app.searchOverlay = NewSearchOverlay(func(text string) {
 		if app.state == StateLibrary {
 			app.libraryScreen.SetSearchText(text)
 			app.rebuildCurrentScreen()
 		}
 	})
+
+	// Initialize metadata manager and load RDB (for achievement MD5 lookups)
+	app.metadata = NewMetadataManager()
+	if err := app.metadata.LoadRDB(); err != nil {
+		log.Printf("Failed to load RDB: %v", err)
+	}
 
 	// Load config
 	config, err := storage.LoadConfig()
@@ -128,6 +140,7 @@ func NewApp() (*App, error) {
 		app.errorPath = configPath
 		app.configLoadFailed = true // Don't overwrite the file on exit
 		app.config = storage.DefaultConfig()
+		app.achievementManager = achievements.NewManager(app.notification, app.config, Name, Version)
 		app.library = storage.DefaultLibrary()
 		app.preloadConfiguredShaders()
 		app.initScreens()
@@ -135,6 +148,9 @@ func NewApp() (*App, error) {
 		return app, nil
 	}
 	app.config = config
+
+	// Create achievement manager with config
+	app.achievementManager = achievements.NewManager(app.notification, app.config, Name, Version)
 
 	// Validate and apply theme
 	if !style.IsValidThemeName(app.config.Theme) {
@@ -168,13 +184,10 @@ func NewApp() (*App, error) {
 		app.library,
 		app.config,
 		app.achievementManager,
+		app.metadata.GetRDB(),
 		func() { app.SwitchToLibrary() }, // onExitToLibrary
 		func() { app.Exit() },            // onExitApp
 	)
-
-	// Set up achievement manager state
-	app.achievementManager.SetEnabled(app.config.RetroAchievements.Enabled)
-	app.achievementManager.SetEncoreMode(app.config.RetroAchievements.EncoreMode)
 
 	// Auto-login with stored token if available
 	if app.config.RetroAchievements.Enabled &&
@@ -257,7 +270,7 @@ func (a *App) saveWindowState() {
 // initScreens creates all screen instances
 func (a *App) initScreens() {
 	a.libraryScreen = screens.NewLibraryScreen(a, a.library, a.config)
-	a.detailScreen = screens.NewDetailScreen(a, a.library, a.config)
+	a.detailScreen = screens.NewDetailScreen(a, a.library, a.config, a.achievementManager)
 	a.settingsScreen = screens.NewSettingsScreen(a, a.library, a.config, a.achievementManager)
 	a.scanScreen = screens.NewScanProgressScreen(a)
 	a.errorScreen = screens.NewErrorScreen(a, a.errorFile, a.errorPath, a.handleDeleteAndContinue)
@@ -298,6 +311,12 @@ func (a *App) Update() error {
 	// Track window position while game is running (for save on exit)
 	// Layout() handles width/height, but position must be queried here
 	a.windowX, a.windowY = ebiten.WindowPosition()
+
+	// Process any pending rebuild request (set from goroutines)
+	if a.rebuildPending {
+		a.rebuildPending = false
+		a.rebuildCurrentScreen()
+	}
 
 	// Poll input manager for global keys (F12 screenshot)
 	if a.inputManager.Update() {
@@ -520,6 +539,7 @@ func (a *App) Draw(screen *ebiten.Image) {
 		case StatePlaying:
 			a.gameplay.Draw(screen)
 			a.gameplay.DrawPauseMenu(screen)
+			a.gameplay.DrawAchievementOverlay(screen)
 		default:
 			a.ui.Draw(screen)
 		}
@@ -559,9 +579,10 @@ func (a *App) Draw(screen *ebiten.Image) {
 		processed, remainingShaders := a.shaderManager.ApplyPreprocessEffects(
 			preprocessInput, shaderIDs, sw, sh)
 
-		// For StatePlaying: draw pause menu after effects (so shaders apply to it)
+		// For StatePlaying: draw pause menu and achievement overlay after effects (so shaders apply to them)
 		if a.state == StatePlaying {
 			a.gameplay.DrawPauseMenu(processed)
+			a.gameplay.DrawAchievementOverlay(processed)
 		}
 
 		// Notification drawn after effects, before shaders
@@ -651,6 +672,11 @@ func (a *App) Exit() {
 	// Save window state before exiting
 	a.saveWindowState()
 
+	// Clean up achievement manager resources
+	if a.achievementManager != nil {
+		a.achievementManager.Destroy()
+	}
+
 	// Clean exit using os.Exit to avoid log.Fatal's stack trace
 	os.Exit(0)
 }
@@ -660,15 +686,24 @@ func (a *App) GetWindowWidth() int {
 	return a.windowWidth
 }
 
-// RequestRebuild triggers a UI rebuild for the current screen
+// RequestRebuild triggers a UI rebuild for the current screen.
+// This is safe to call from goroutines - the rebuild happens on the main thread.
 // Focus restoration is handled in the Update loop after ui.Update()
 func (a *App) RequestRebuild() {
-	a.rebuildCurrentScreen()
+	a.rebuildPending = true
 }
 
 // GetPlaceholderImageData returns the raw embedded placeholder image data
 func (a *App) GetPlaceholderImageData() []byte {
 	return placeholderImageData
+}
+
+// GetRDB returns the RDB for metadata lookups
+func (a *App) GetRDB() *rdb.RDB {
+	if a.metadata == nil {
+		return nil
+	}
+	return a.metadata.GetRDB()
 }
 
 // handleDeleteAndContinue handles the delete and continue button
@@ -718,6 +753,7 @@ func (a *App) handleDeleteAndContinue() {
 			a.library,
 			a.config,
 			a.achievementManager,
+			a.metadata.GetRDB(),
 			func() { a.SwitchToLibrary() },
 			func() { a.Exit() },
 		)

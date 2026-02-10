@@ -135,6 +135,11 @@ func (m *MetadataManager) IsRDBLoaded() bool {
 	return m.rdb != nil
 }
 
+// GetRDB returns the loaded RDB, or nil if not loaded
+func (m *MetadataManager) GetRDB() *rdb.RDB {
+	return m.rdb
+}
+
 // LookupByCRC32 looks up a game by CRC32
 // Returns nil if not found or RDB not loaded
 func (m *MetadataManager) LookupByCRC32(crc32 uint32) *rdb.Game {

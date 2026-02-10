@@ -103,15 +103,17 @@ func (r *RetroAchievementsSection) Build(focus types.FocusManager) *widget.Conta
 		r.config.RetroAchievements.Enabled,
 		func() {
 			r.config.RetroAchievements.Enabled = !r.config.RetroAchievements.Enabled
-			if r.achievements != nil {
-				r.achievements.SetEnabled(r.config.RetroAchievements.Enabled)
-			}
 		}))
 
 	// Options (only shown when enabled)
 	if r.config.RetroAchievements.Enabled {
 		// Notifications section
 		section.AddChild(r.buildSectionHeader("Notifications"))
+		section.AddChild(r.buildToggleRow(focus, "ra-notification", "Show Notification", "Display popup on unlock",
+			r.config.RetroAchievements.ShowNotification,
+			func() {
+				r.config.RetroAchievements.ShowNotification = !r.config.RetroAchievements.ShowNotification
+			}))
 		section.AddChild(r.buildToggleRow(focus, "ra-sound", "Unlock Sound", "Play chime on achievement",
 			r.config.RetroAchievements.UnlockSound,
 			func() {
@@ -134,9 +136,11 @@ func (r *RetroAchievementsSection) Build(focus types.FocusManager) *widget.Conta
 			r.config.RetroAchievements.EncoreMode,
 			func() {
 				r.config.RetroAchievements.EncoreMode = !r.config.RetroAchievements.EncoreMode
-				if r.achievements != nil {
-					r.achievements.SetEncoreMode(r.config.RetroAchievements.EncoreMode)
-				}
+			}))
+		section.AddChild(r.buildToggleRow(focus, "ra-spectator", "Spectator Mode", "Watch achievements without submitting unlocks",
+			r.config.RetroAchievements.SpectatorMode,
+			func() {
+				r.config.RetroAchievements.SpectatorMode = !r.config.RetroAchievements.SpectatorMode
 			}))
 	}
 

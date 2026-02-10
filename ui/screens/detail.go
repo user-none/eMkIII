@@ -3,34 +3,49 @@
 package screens
 
 import (
+	"fmt"
 	"image/png"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/user-none/emkiii/romloader"
+	"github.com/user-none/emkiii/ui/achievements"
 	"github.com/user-none/emkiii/ui/storage"
 	"github.com/user-none/emkiii/ui/style"
+	"github.com/user-none/go-rcheevos"
 )
 
 // DetailScreen displays game information and launch options
 type DetailScreen struct {
 	BaseScreen // Embedded for focus restoration
 
-	callback ScreenCallback
-	library  *storage.Library
-	config   *storage.Config
-	game     *storage.GameEntry
+	callback           ScreenCallback
+	library            *storage.Library
+	config             *storage.Config
+	game               *storage.GameEntry
+	achievementManager *achievements.Manager
+
+	// Achievement loading state
+	achMu       sync.Mutex
+	achLoading  bool
+	achLoadErr  error
+	achFound    bool
+	achProgress *rcheevos.UserProgressEntry
 }
 
 // NewDetailScreen creates a new detail screen
-func NewDetailScreen(callback ScreenCallback, library *storage.Library, config *storage.Config) *DetailScreen {
+func NewDetailScreen(callback ScreenCallback, library *storage.Library, config *storage.Config, achievementManager *achievements.Manager) *DetailScreen {
 	s := &DetailScreen{
-		callback: callback,
-		library:  library,
-		config:   config,
+		callback:           callback,
+		library:            library,
+		config:             config,
+		achievementManager: achievementManager,
 	}
 	s.InitBase()
 	return s
@@ -39,6 +54,87 @@ func NewDetailScreen(callback ScreenCallback, library *storage.Library, config *
 // SetGame sets the game to display
 func (s *DetailScreen) SetGame(gameCRC string) {
 	s.game = s.library.GetGame(gameCRC)
+
+	// Reset achievement state
+	s.achMu.Lock()
+	s.achLoading = false
+	s.achLoadErr = nil
+	s.achFound = false
+	s.achProgress = nil
+	s.achMu.Unlock()
+
+	// Start async achievement lookup if logged in
+	if s.achievementManager != nil && s.achievementManager.IsLoggedIn() {
+		s.achMu.Lock()
+		s.achLoading = true
+		s.achMu.Unlock()
+		go s.loadAchievementProgress()
+	}
+}
+
+// loadAchievementProgress loads achievement progress for the current game
+func (s *DetailScreen) loadAchievementProgress() {
+	if s.game == nil || s.achievementManager == nil {
+		s.achMu.Lock()
+		s.achLoading = false
+		s.achMu.Unlock()
+		return
+	}
+
+	// Ensure libraries are loaded first
+	done := make(chan bool, 1)
+	s.achievementManager.EnsureLibrariesLoaded(func(success bool) {
+		done <- success
+	})
+	if !<-done {
+		s.achMu.Lock()
+		s.achLoading = false
+		s.achLoadErr = fmt.Errorf("failed to load achievement data")
+		s.achMu.Unlock()
+		s.callback.RequestRebuild()
+		return
+	}
+
+	// If achievements were unlocked during gameplay, refresh the cached progress
+	if s.achievementManager.IsProgressDirty() {
+		refreshDone := make(chan bool, 1)
+		s.achievementManager.RefreshUserProgress(func(success bool) {
+			refreshDone <- success
+		})
+		<-refreshDone
+		s.achievementManager.ClearProgressDirty()
+	}
+
+	// Get MD5 from RDB (fast path - no ROM loading needed)
+	var md5Hash string
+	rdb := s.callback.GetRDB()
+	if rdb != nil {
+		crc32, _ := strconv.ParseUint(s.game.CRC32, 16, 32)
+		md5Hash = rdb.GetMD5ByCRC32(uint32(crc32))
+	}
+
+	// Fallback: compute hash from ROM if not in RDB
+	if md5Hash == "" {
+		romData, _, err := romloader.LoadROM(s.game.File)
+		if err != nil {
+			s.achMu.Lock()
+			s.achLoading = false
+			s.achLoadErr = err
+			s.achMu.Unlock()
+			s.callback.RequestRebuild()
+			return
+		}
+		md5Hash = s.achievementManager.ComputeGameHash(romData)
+	}
+
+	// Look up progress using MD5
+	found, progress := s.achievementManager.LookupGameProgress(md5Hash)
+	s.achMu.Lock()
+	s.achFound = found
+	s.achProgress = progress
+	s.achLoading = false
+	s.achMu.Unlock()
+	s.callback.RequestRebuild()
 }
 
 // Build creates the detail screen UI
@@ -219,6 +315,12 @@ func (s *DetailScreen) Build() *widget.Container {
 	metadataContainer.AddChild(s.buildMetadataRow("Play Time", style.FormatPlayTime(s.game.PlayTimeSeconds), maxValueChars))
 	metadataContainer.AddChild(s.buildMetadataRow("Last Played", style.FormatLastPlayed(s.game.LastPlayed), maxValueChars))
 	metadataContainer.AddChild(s.buildMetadataRow("Added", style.FormatDate(s.game.Added), maxValueChars))
+
+	// Achievements section (only if logged in)
+	if s.achievementManager != nil && s.achievementManager.IsLoggedIn() {
+		metadataContainer.AddChild(s.buildSectionHeader("Achievements"))
+		metadataContainer.AddChild(s.buildAchievementSection(maxValueChars))
+	}
 
 	// Missing ROM warning
 	if s.game.Missing {
@@ -431,4 +533,55 @@ func (s *DetailScreen) buildMetadataRow(label, value string, maxValueChars int) 
 	row.AddChild(valueText)
 
 	return row
+}
+
+// buildAchievementSection creates the achievements section content
+func (s *DetailScreen) buildAchievementSection(maxValueChars int) *widget.Container {
+	container := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(style.SmallSpacing),
+		)),
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
+		),
+	)
+
+	s.achMu.Lock()
+	loading := s.achLoading
+	loadErr := s.achLoadErr
+	found := s.achFound
+	progress := s.achProgress
+	s.achMu.Unlock()
+
+	if loading {
+		container.AddChild(s.buildMetadataRow("Status", "Loading...", maxValueChars))
+		return container
+	}
+
+	if loadErr != nil {
+		container.AddChild(s.buildMetadataRow("Status", "Unable to load", maxValueChars))
+		return container
+	}
+
+	if !found {
+		container.AddChild(s.buildMetadataRow("Status", "Not found", maxValueChars))
+		return container
+	}
+
+	if progress == nil || progress.NumAchievements == 0 {
+		container.AddChild(s.buildMetadataRow("Status", "No achievements", maxValueChars))
+		return container
+	}
+
+	// Has achievements - show progress
+	pct := 0
+	if progress.NumAchievements > 0 {
+		pct = int(progress.NumUnlockedAchievements * 100 / progress.NumAchievements)
+	}
+	progressText := fmt.Sprintf("%d / %d (%d%%)",
+		progress.NumUnlockedAchievements, progress.NumAchievements, pct)
+	container.AddChild(s.buildMetadataRow("Progress", progressText, maxValueChars))
+
+	return container
 }

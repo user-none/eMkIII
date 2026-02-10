@@ -28,12 +28,14 @@ type Game struct {
 	Size         uint64
 	CRC32        uint32
 	Serial       string
+	MD5          string // MD5 hash for RetroAchievements lookup
 }
 
 // RDB contains all game entries from a parsed RDB file
 type RDB struct {
 	games   []Game
 	byCRC32 map[uint32]*Game // Index for fast CRC32 lookups
+	byMD5   map[string]*Game // Index for fast MD5 lookups
 }
 
 // MessagePack format constants
@@ -72,12 +74,16 @@ func Parse(data []byte) *RDB {
 	rdb := &RDB{
 		games:   games,
 		byCRC32: make(map[uint32]*Game, len(games)),
+		byMD5:   make(map[string]*Game, len(games)),
 	}
 
-	// Build CRC32 index
+	// Build CRC32 and MD5 indexes
 	for i := range rdb.games {
 		if rdb.games[i].CRC32 != 0 {
 			rdb.byCRC32[rdb.games[i].CRC32] = &rdb.games[i]
+		}
+		if rdb.games[i].MD5 != "" {
+			rdb.byMD5[rdb.games[i].MD5] = &rdb.games[i]
 		}
 	}
 
@@ -87,6 +93,19 @@ func Parse(data []byte) *RDB {
 // FindByCRC32 looks up a game by its CRC32 checksum
 func (rdb *RDB) FindByCRC32(crc32 uint32) *Game {
 	return rdb.byCRC32[crc32]
+}
+
+// FindByMD5 looks up a game by its MD5 hash
+func (rdb *RDB) FindByMD5(md5 string) *Game {
+	return rdb.byMD5[md5]
+}
+
+// GetMD5ByCRC32 returns the MD5 hash for a game found by CRC32
+func (rdb *RDB) GetMD5ByCRC32(crc32 uint32) string {
+	if g := rdb.byCRC32[crc32]; g != nil {
+		return g.MD5
+	}
+	return ""
 }
 
 // GameCount returns the number of games in the database
@@ -281,5 +300,8 @@ func setGameField(g *Game, key string, value string) {
 		v := fmt.Sprintf("%x", value)
 		u64, _ := strconv.ParseUint(v, 16, 32)
 		g.CRC32 = uint32(u64)
+	case "md5":
+		// MD5 is stored as raw 16 bytes in RDB, convert to hex string
+		g.MD5 = fmt.Sprintf("%x", value)
 	}
 }

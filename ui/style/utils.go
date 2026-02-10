@@ -133,3 +133,31 @@ func FormatDate(timestamp int64) string {
 	}
 	return time.Unix(timestamp, 0).Format("Jan 2, 2006")
 }
+
+// ApplyGrayscale converts an ebiten image to grayscale.
+// Returns a new image with grayscale applied.
+func ApplyGrayscale(src *ebiten.Image) *ebiten.Image {
+	bounds := src.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+
+	// Read pixels from source
+	pixels := make([]byte, w*h*4)
+	src.ReadPixels(pixels)
+
+	// Convert to grayscale using luminance weights (ITU-R BT.601)
+	for i := 0; i < len(pixels); i += 4 {
+		r := float64(pixels[i])
+		g := float64(pixels[i+1])
+		b := float64(pixels[i+2])
+		gray := uint8(0.299*r + 0.587*g + 0.114*b)
+		pixels[i] = gray
+		pixels[i+1] = gray
+		pixels[i+2] = gray
+		// Alpha (pixels[i+3]) stays unchanged
+	}
+
+	// Create new image with grayscale pixels
+	dst := ebiten.NewImage(w, h)
+	dst.WritePixels(pixels)
+	return dst
+}

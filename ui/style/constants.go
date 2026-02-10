@@ -84,3 +84,12 @@ const (
 const (
 	ScrollWheelSensitivity = 0.05
 )
+
+// Achievement UI constants
+const (
+	AchievementBadgeSize      = 48
+	AchievementRowHeight      = 72
+	AchievementRowSpacing     = 4
+	AchievementOverlayWidth   = 500
+	AchievementOverlayPadding = 16
+)

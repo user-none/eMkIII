@@ -6,6 +6,7 @@ package types
 
 import (
 	"github.com/ebitenui/ebitenui/widget"
+	"github.com/user-none/emkiii/ui/rdb"
 )
 
 // Direction constants for navigation
@@ -42,6 +43,7 @@ type ScreenCallback interface {
 	GetWindowWidth() int             // For responsive layout calculations
 	RequestRebuild()                 // Request UI rebuild after state changes
 	GetPlaceholderImageData() []byte // Get raw placeholder image data for missing artwork
+	GetRDB() *rdb.RDB                // Get RDB for metadata lookups
 }
 
 // FocusRestorer is implemented by screens that support focus restoration after rebuilds

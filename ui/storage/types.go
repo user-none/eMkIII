@@ -17,8 +17,10 @@ type RetroAchievementsConfig struct {
 	Enabled                 bool   `json:"enabled"`
 	EncoreMode              bool   `json:"encoreMode"`              // Allow re-triggering unlocked achievements
 	UnlockSound             bool   `json:"unlockSound"`             // Play sound on achievement unlock
+	ShowNotification        bool   `json:"showNotification"`        // Show popup notification on achievement unlock
 	AutoScreenshot          bool   `json:"autoScreenshot"`          // Take screenshot on achievement unlock
 	SuppressHardcoreWarning bool   `json:"suppressHardcoreWarning"` // Hide "Unknown Emulator" hardcore warning
+	SpectatorMode           bool   `json:"spectatorMode"`           // Watch achievements without submitting unlocks
 	Username                string `json:"username,omitempty"`
 	Token                   string `json:"token,omitempty"` // Auth token (password is never stored)
 }
@@ -125,10 +127,11 @@ func DefaultConfig() *Config {
 			GameShaders: []string{},
 		},
 		RetroAchievements: RetroAchievementsConfig{
-			Enabled:        false,
-			EncoreMode:     false,
-			UnlockSound:    true, // Default ON
-			AutoScreenshot: true, // Default ON
+			Enabled:          false,
+			EncoreMode:       false,
+			UnlockSound:      true, // Default ON
+			ShowNotification: true, // Default ON
+			AutoScreenshot:   true, // Default ON
 		},
 	}
 }

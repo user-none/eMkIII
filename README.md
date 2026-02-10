@@ -108,6 +108,7 @@ When launched without a `-rom` argument, the emulator opens a standalone UI:
 
 **System Controls:**
 - **Pause Menu:** ESC (during gameplay)
+- **Achievements:** Tab (toggle overlay during gameplay)
 - **Save State:** F1
 - **Load State:** F3
 - **Next Slot:** F2
@@ -132,6 +133,12 @@ The standalone UI includes a comprehensive shader system for authentic retro dis
 | Enhancement | Pixel Smoothing (xBR), Phosphor Persistence |
 
 Shaders can be configured separately for UI (menus) and gameplay. Multiple shaders can be stacked and are applied in weighted order for correct visual layering.
+
+#### RetroAchievements
+
+The standalone UI integrates with [RetroAchievements](https://retroachievements.org) to track and unlock achievements while playing. Features include unlock notifications with badges, unlock sound, auto-screenshot, achievement overlay during gameplay (Tab), progress tracking on the game detail screen, Spectator Mode, and Encore Mode. Configure in Settings > RetroAchievements.
+
+**Note:** This emulator is not officially recognized by RetroAchievements, so achievements unlock in softcore mode only.
 
 #### Data Location
 

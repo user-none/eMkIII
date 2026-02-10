@@ -132,11 +132,6 @@ func (n *Notification) ShowShort(message string) {
 	n.Show(message, 1*time.Second)
 }
 
-// ShowAchievement displays a prominent achievement notification
-func (n *Notification) ShowAchievement(title, description string) {
-	n.ShowAchievementWithBadge(title, description, nil)
-}
-
 // ShowAchievementWithBadge displays a prominent achievement notification with a badge image
 func (n *Notification) ShowAchievementWithBadge(title, description string, badge *ebiten.Image) {
 	n.mu.Lock()

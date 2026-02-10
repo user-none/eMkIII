@@ -418,7 +418,8 @@ func (gm *GameplayManager) Exit(saveResume bool) {
 		gm.audioPlayer = nil
 	}
 
-	// Unload achievements
+	// Reset achievement overlay and unload achievements
+	gm.achievementOverlay.Reset()
 	if gm.achievementManager != nil {
 		gm.achievementManager.UnloadGame()
 	}

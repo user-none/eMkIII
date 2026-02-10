@@ -34,6 +34,7 @@ type AchievementOverlay struct {
 	// Cached images
 	cache struct {
 		screenW, screenH   int
+		themeName          string
 		panelW, panelH     int
 		dimOverlay         *ebiten.Image
 		panelBg            *ebiten.Image
@@ -236,9 +237,20 @@ func (o *AchievementOverlay) rebuildCache(screenW, screenH int) {
 	if o.cache.panelBg != nil {
 		o.cache.panelBg.Deallocate()
 	}
+	if o.cache.rowBg != nil {
+		o.cache.rowBg.Deallocate()
+		o.cache.rowBg = nil
+		o.cache.rowBgWidth = 0
+	}
+	if o.cache.placeholderBadge != nil {
+		o.cache.placeholderBadge.Deallocate()
+		o.cache.placeholderBadge = nil
+		o.cache.placeholderBadgeSz = 0
+	}
 
 	o.cache.screenW = screenW
 	o.cache.screenH = screenH
+	o.cache.themeName = style.CurrentThemeName
 
 	// Create dim overlay
 	o.cache.dimOverlay = ebiten.NewImage(screenW, screenH)
@@ -293,8 +305,8 @@ func (o *AchievementOverlay) Draw(screen *ebiten.Image) {
 	screenW := bounds.Dx()
 	screenH := bounds.Dy()
 
-	// Rebuild cache if screen dimensions changed
-	if o.cache.screenW != screenW || o.cache.screenH != screenH {
+	// Rebuild cache if screen dimensions or theme changed
+	if o.cache.screenW != screenW || o.cache.screenH != screenH || o.cache.themeName != style.CurrentThemeName {
 		o.rebuildCache(screenW, screenH)
 	}
 

@@ -83,8 +83,9 @@ func (m *PauseMenu) Update() {
 		return
 	}
 
-	// ESC closes menu (same as Resume)
+	// ESC closes menu (always Resume regardless of selection)
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		m.selectedIndex = int(PauseMenuResume)
 		m.handleSelect()
 		return
 	}

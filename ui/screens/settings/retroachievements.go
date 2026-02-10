@@ -103,6 +103,26 @@ func (r *RetroAchievementsSection) Build(focus types.FocusManager) *widget.Conta
 		r.config.RetroAchievements.Enabled,
 		func() {
 			r.config.RetroAchievements.Enabled = !r.config.RetroAchievements.Enabled
+
+			if r.config.RetroAchievements.Enabled {
+				// Toggling ON: auto-login if we have stored credentials
+				if r.achievements != nil && !r.achievements.IsLoggedIn() && r.hasStoredCredentials() {
+					username := r.config.RetroAchievements.Username
+					token := r.config.RetroAchievements.Token
+					r.achievements.LoginWithToken(username, token, func(success bool, err error) {
+						if !success {
+							// Token expired or invalid - clear it
+							r.config.RetroAchievements.Token = ""
+							storage.SaveConfig(r.config)
+						}
+					})
+				}
+			} else {
+				// Toggling OFF: logout but preserve stored credentials
+				if r.achievements != nil && r.achievements.IsLoggedIn() {
+					r.achievements.Logout()
+				}
+			}
 		}))
 
 	// Options (only shown when enabled)

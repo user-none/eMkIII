@@ -197,7 +197,7 @@ func (m *Manager) LoginWithToken(username, token string, callback func(success b
 	})
 }
 
-// Logout logs out the current user
+// Logout logs out the current user and clears all caches
 func (m *Manager) Logout() {
 	m.client.Logout()
 
@@ -205,6 +205,15 @@ func (m *Manager) Logout() {
 	m.loggedIn = false
 	m.username = ""
 	m.token = ""
+	m.gameLoaded = false
+	m.cachedAchievements = nil
+	m.cachedGameTitle = ""
+	m.progressDirty = false
+	m.badgeCache = make(map[uint64]*ebiten.Image)
+	m.gameImageCache = make(map[uint32]*ebiten.Image)
+	m.hashLibraryMap = nil
+	m.userProgressMap = nil
+	m.librariesLoaded = false
 	m.mu.Unlock()
 }
 

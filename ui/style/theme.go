@@ -3,12 +3,15 @@
 package style
 
 import (
+	"bytes"
 	"image/color"
+	"log"
 
 	"github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/font/gofont/goregular"
 )
 
 // Theme colors (package-level variables updated by ApplyTheme)
@@ -193,12 +196,31 @@ func ApplyThemeByName(name string) {
 // fontFace is the cached font face
 var fontFace text.Face
 
+// largeFontFace is the cached large font face for achievements
+var largeFontFace *text.GoTextFace
+
 // FontFace returns the font face to use for UI text
 func FontFace() *text.Face {
 	if fontFace == nil {
 		fontFace = text.NewGoXFace(basicfont.Face7x13)
 	}
 	return &fontFace
+}
+
+// LargeFontFace returns a larger font face for prominent displays like achievements
+func LargeFontFace() *text.GoTextFace {
+	if largeFontFace == nil {
+		source, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
+		if err != nil {
+			log.Printf("Failed to load large font: %v", err)
+			return nil
+		}
+		largeFontFace = &text.GoTextFace{
+			Source: source,
+			Size:   24,
+		}
+	}
+	return largeFontFace
 }
 
 // ButtonImage creates a standard button image set

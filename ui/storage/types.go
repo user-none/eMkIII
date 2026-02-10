@@ -2,13 +2,25 @@ package storage
 
 // Config represents the application configuration stored in config.json
 type Config struct {
-	Version int          `json:"version"`
-	Theme   string       `json:"theme"` // Theme name: "Default", "Dark", "Light", "Retro"
-	Video   VideoConfig  `json:"video"`
-	Audio   AudioConfig  `json:"audio"`
-	Window  WindowConfig `json:"window"`
-	Library LibraryView  `json:"library"`
-	Shaders ShaderConfig `json:"shaders"`
+	Version           int                     `json:"version"`
+	Theme             string                  `json:"theme"` // Theme name: "Default", "Dark", "Light", "Retro"
+	Video             VideoConfig             `json:"video"`
+	Audio             AudioConfig             `json:"audio"`
+	Window            WindowConfig            `json:"window"`
+	Library           LibraryView             `json:"library"`
+	Shaders           ShaderConfig            `json:"shaders"`
+	RetroAchievements RetroAchievementsConfig `json:"retroAchievements"`
+}
+
+// RetroAchievementsConfig contains RetroAchievements integration settings
+type RetroAchievementsConfig struct {
+	Enabled                 bool   `json:"enabled"`
+	EncoreMode              bool   `json:"encoreMode"`              // Allow re-triggering unlocked achievements
+	UnlockSound             bool   `json:"unlockSound"`             // Play sound on achievement unlock
+	AutoScreenshot          bool   `json:"autoScreenshot"`          // Take screenshot on achievement unlock
+	SuppressHardcoreWarning bool   `json:"suppressHardcoreWarning"` // Hide "Unknown Emulator" hardcore warning
+	Username                string `json:"username,omitempty"`
+	Token                   string `json:"token,omitempty"` // Auth token (password is never stored)
 }
 
 // VideoConfig contains video-related settings
@@ -111,6 +123,12 @@ func DefaultConfig() *Config {
 		Shaders: ShaderConfig{
 			UIShaders:   []string{},
 			GameShaders: []string{},
+		},
+		RetroAchievements: RetroAchievementsConfig{
+			Enabled:        false,
+			EncoreMode:     false,
+			UnlockSound:    true, // Default ON
+			AutoScreenshot: true, // Default ON
 		},
 	}
 }

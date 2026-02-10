@@ -5,6 +5,7 @@ package screens
 import (
 	"github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
+	"github.com/user-none/emkiii/ui/achievements"
 	"github.com/user-none/emkiii/ui/screens/settings"
 	"github.com/user-none/emkiii/ui/storage"
 	"github.com/user-none/emkiii/ui/style"
@@ -19,19 +20,21 @@ type SettingsScreen struct {
 	selectedSection int
 
 	// Encapsulated sections
-	library    *settings.LibrarySection
-	appearance *settings.AppearanceSection
-	video      *settings.VideoSection
+	library           *settings.LibrarySection
+	appearance        *settings.AppearanceSection
+	video             *settings.VideoSection
+	retroAchievements *settings.RetroAchievementsSection
 }
 
 // NewSettingsScreen creates a new settings screen
-func NewSettingsScreen(callback ScreenCallback, library *storage.Library, config *storage.Config) *SettingsScreen {
+func NewSettingsScreen(callback ScreenCallback, library *storage.Library, config *storage.Config, achievementMgr *achievements.Manager) *SettingsScreen {
 	s := &SettingsScreen{
-		callback:        callback,
-		selectedSection: 0,
-		library:         settings.NewLibrarySection(callback, library),
-		appearance:      settings.NewAppearanceSection(callback, config),
-		video:           settings.NewVideoSection(callback, config),
+		callback:          callback,
+		selectedSection:   0,
+		library:           settings.NewLibrarySection(callback, library),
+		appearance:        settings.NewAppearanceSection(callback, config),
+		video:             settings.NewVideoSection(callback, config),
+		retroAchievements: settings.NewRetroAchievementsSection(callback, config, achievementMgr),
 	}
 	s.InitBase()
 	return s
@@ -52,10 +55,16 @@ func (s *SettingsScreen) SetLibrary(library *storage.Library) {
 	s.library.SetLibrary(library)
 }
 
-// SetConfig updates the config reference in the appearance and video sections
+// SetConfig updates the config reference in the appearance, video, and retroachievements sections
 func (s *SettingsScreen) SetConfig(config *storage.Config) {
 	s.appearance.SetConfig(config)
 	s.video.SetConfig(config)
+	s.retroAchievements.SetConfig(config)
+}
+
+// SetAchievements updates the achievement manager reference
+func (s *SettingsScreen) SetAchievements(mgr *achievements.Manager) {
+	s.retroAchievements.SetAchievements(mgr)
 }
 
 // Build creates the settings screen UI
@@ -174,6 +183,26 @@ func (s *SettingsScreen) Build() *widget.Container {
 	s.RegisterFocusButton("section-video", videoBtn)
 	sidebar.AddChild(videoBtn)
 
+	// RetroAchievements section button
+	raBtn := widget.NewButton(
+		widget.ButtonOpts.Image(style.ActiveButtonImage(s.selectedSection == 3)),
+		widget.ButtonOpts.Text("Achievements", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
+		}),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			s.selectedSection = 3
+			s.SetPendingFocus("section-achievements")
+			s.callback.RequestRebuild()
+		}),
+		widget.ButtonOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
+		),
+	)
+	s.RegisterFocusButton("section-achievements", raBtn)
+	sidebar.AddChild(raBtn)
+
 	// Future sections (disabled) - use containers instead of buttons so they're not focusable
 	sidebar.AddChild(style.DisabledSidebarItem("Audio*"))
 	sidebar.AddChild(style.DisabledSidebarItem("Input*"))
@@ -203,6 +232,8 @@ func (s *SettingsScreen) Build() *widget.Container {
 		contentArea.AddChild(s.appearance.Build(s))
 	case 2:
 		contentArea.AddChild(s.video.Build(s))
+	case 3:
+		contentArea.AddChild(s.retroAchievements.Build(s))
 	}
 
 	mainContent.AddChild(contentArea)
@@ -217,7 +248,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 // setupNavigation registers navigation zones for settings screen
 func (s *SettingsScreen) setupNavigation() {
 	// Sidebar zone (vertical)
-	sidebarKeys := []string{"section-library", "section-appearance", "section-video"}
+	sidebarKeys := []string{"section-library", "section-appearance", "section-video", "section-achievements"}
 	s.RegisterNavZone("sidebar", types.NavZoneVertical, sidebarKeys, 0)
 
 	// Set up transitions from sidebar to content
@@ -234,6 +265,9 @@ func (s *SettingsScreen) setupNavigation() {
 		s.SetNavTransition("sidebar", types.DirRight, "video-crop", types.NavIndexFirst)
 		s.SetNavTransition("video-crop", types.DirLeft, "sidebar", types.NavIndexFirst)
 		s.SetNavTransition("video-shaders", types.DirLeft, "sidebar", types.NavIndexFirst)
+	case 3: // RetroAchievements
+		s.SetNavTransition("sidebar", types.DirRight, "ra-settings", types.NavIndexFirst)
+		s.SetNavTransition("ra-settings", types.DirLeft, "sidebar", types.NavIndexFirst)
 	}
 }
 
@@ -246,4 +280,12 @@ func (s *SettingsScreen) OnEnter() {
 func (s *SettingsScreen) EnsureFocusedVisible(focused widget.Focuser) {
 	// Use the base implementation - all theme buttons should trigger scrolling
 	s.BaseScreen.EnsureFocusedVisible(focused, nil)
+}
+
+// Update handles per-frame updates for settings sections
+func (s *SettingsScreen) Update() {
+	// Only call section-specific updates for sections that need them
+	if s.selectedSection == 3 {
+		s.retroAchievements.Update()
+	}
 }

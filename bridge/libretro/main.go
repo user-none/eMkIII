@@ -109,8 +109,8 @@ func retro_init() {
 
 	// Allocate C strings once to prevent memory leaks
 	if !stringsReady {
-		libNameStr = C.CString("eMKIII")
-		libVerStr = C.CString("1.0.0")
+		libNameStr = C.CString(Name)
+		libVerStr = C.CString(Version)
 		validExtStr = C.CString("sms")
 
 		// Allocate option strings
@@ -156,8 +156,8 @@ func retro_get_system_info(info *C.struct_retro_system_info) {
 		info.valid_extensions = validExtStr
 	} else {
 		// Fallback for when called before retro_init (some frontends do this)
-		libNameStr = C.CString("eMKIII")
-		libVerStr = C.CString("1.0.0")
+		libNameStr = C.CString(Name)
+		libVerStr = C.CString(Version)
 		validExtStr = C.CString("sms")
 		stringsReady = true
 		info.library_name = libNameStr

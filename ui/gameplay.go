@@ -13,6 +13,7 @@ import (
 	emubridge "github.com/user-none/emkiii/bridge/ebiten"
 	"github.com/user-none/emkiii/emu"
 	"github.com/user-none/emkiii/romloader"
+	"github.com/user-none/emkiii/ui/achievements"
 	"github.com/user-none/emkiii/ui/storage"
 	"github.com/user-none/emkiii/ui/style"
 )
@@ -39,11 +40,17 @@ type GameplayManager struct {
 	autoSaving       bool
 	autoSaveWg       sync.WaitGroup
 
+	// Achievement screenshot (set by callback, processed in Draw)
+	achievementScreenshotPending bool
+	achievementScreenshotMu      sync.Mutex
+
 	// External dependencies (not owned by GameplayManager)
-	saveStateManager *SaveStateManager
-	notification     *Notification
-	library          *storage.Library
-	config           *storage.Config
+	saveStateManager   *SaveStateManager
+	screenshotManager  *ScreenshotManager
+	notification       *Notification
+	library            *storage.Library
+	config             *storage.Config
+	achievementManager *achievements.Manager
 
 	// Callbacks to App
 	onExitToLibrary func()
@@ -60,20 +67,24 @@ type PlayTimeTracker struct {
 // NewGameplayManager creates a new gameplay manager
 func NewGameplayManager(
 	saveStateManager *SaveStateManager,
+	screenshotManager *ScreenshotManager,
 	notification *Notification,
 	library *storage.Library,
 	config *storage.Config,
+	achievementManager *achievements.Manager,
 	onExitToLibrary func(),
 	onExitApp func(),
 ) *GameplayManager {
 	gm := &GameplayManager{
-		autoSaveInterval: style.AutoSaveInterval,
-		saveStateManager: saveStateManager,
-		notification:     notification,
-		library:          library,
-		config:           config,
-		onExitToLibrary:  onExitToLibrary,
-		onExitApp:        onExitApp,
+		autoSaveInterval:   style.AutoSaveInterval,
+		saveStateManager:   saveStateManager,
+		screenshotManager:  screenshotManager,
+		notification:       notification,
+		library:            library,
+		config:             config,
+		achievementManager: achievementManager,
+		onExitToLibrary:    onExitToLibrary,
+		onExitApp:          onExitApp,
 	}
 
 	// Initialize pause menu with callbacks
@@ -149,7 +160,7 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 	gm.currentGame = game
 	gm.saveStateManager.SetGame(gameCRC)
 
-	// Create audio player
+	// Create audio player for game audio
 	player, err := NewAudioPlayer()
 	if err != nil {
 		log.Printf("Failed to init audio: %v", err)
@@ -188,6 +199,27 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 	// Initialize pause menu
 	gm.pauseMenu.Hide()
 
+	// Set up RetroAchievements if enabled and logged in
+	if gm.achievementManager != nil && gm.achievementManager.IsEnabled() && gm.achievementManager.IsLoggedIn() {
+		// Set up screenshot callback
+		gm.achievementManager.SetScreenshotFunc(func() {
+			gm.achievementScreenshotMu.Lock()
+			gm.achievementScreenshotPending = true
+			gm.achievementScreenshotMu.Unlock()
+		})
+
+		// Apply config settings
+		gm.achievementManager.SetScreenshotEnabled(gm.config.RetroAchievements.AutoScreenshot)
+		gm.achievementManager.SetUnlockSoundEnabled(gm.config.RetroAchievements.UnlockSound)
+		gm.achievementManager.SetEncoreMode(gm.config.RetroAchievements.EncoreMode)
+		gm.achievementManager.SetSuppressHardcoreWarning(gm.config.RetroAchievements.SuppressHardcoreWarning)
+
+		gm.achievementManager.SetEmulator(gm.emulator)
+		if err := gm.achievementManager.LoadGame(romData, game.File); err != nil {
+			log.Printf("Failed to load achievements: %v", err)
+		}
+	}
+
 	return true
 }
 
@@ -220,6 +252,10 @@ func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
 	// Handle pause menu if visible
 	if gm.pauseMenu.IsVisible() {
 		gm.pauseMenu.Update()
+		// Process achievement idle tasks while paused
+		if gm.achievementManager != nil {
+			gm.achievementManager.Idle()
+		}
 		return false, nil
 	}
 
@@ -228,6 +264,11 @@ func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
 
 	// Run one frame of emulation
 	gm.emulator.RunFrame()
+
+	// Process RetroAchievements
+	if gm.achievementManager != nil {
+		gm.achievementManager.DoFrame()
+	}
 
 	// Queue audio samples
 	if gm.audioPlayer != nil {
@@ -254,6 +295,18 @@ func (gm *GameplayManager) Draw(screen *ebiten.Image) {
 
 	// Use emulator's DrawToScreen for rendering
 	gm.emulator.DrawToScreen(screen, gm.cropBorder)
+
+	// Check for pending achievement screenshot
+	gm.achievementScreenshotMu.Lock()
+	takeScreenshot := gm.achievementScreenshotPending
+	gm.achievementScreenshotPending = false
+	gm.achievementScreenshotMu.Unlock()
+
+	if takeScreenshot && gm.screenshotManager != nil && gm.currentGame != nil {
+		if err := gm.screenshotManager.TakeScreenshot(screen, gm.currentGame.CRC32); err != nil {
+			log.Printf("Failed to take achievement screenshot: %v", err)
+		}
+	}
 }
 
 // DrawFramebuffer returns the native-resolution VDP framebuffer for xBR processing.
@@ -322,6 +375,11 @@ func (gm *GameplayManager) Exit(saveResume bool) {
 	if gm.audioPlayer != nil {
 		gm.audioPlayer.Close()
 		gm.audioPlayer = nil
+	}
+
+	// Unload achievements
+	if gm.achievementManager != nil {
+		gm.achievementManager.UnloadGame()
 	}
 
 	// Close emulator

@@ -4,9 +4,13 @@ package style
 
 import (
 	"image/color"
+	"runtime"
 
 	"github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"golang.design/x/clipboard"
 )
 
 // ScrollSlider creates a vertical scroll slider bound to a scroll container.
@@ -338,4 +342,115 @@ func AlternatingRowColor(index int) color.Color {
 		return Background
 	}
 	return Surface
+}
+
+// TextInputGroup manages a group of text inputs with clipboard support.
+// Call Update() each frame to handle Ctrl/Cmd+A/C/V/X shortcuts.
+type TextInputGroup struct {
+	inputs          []*widget.TextInput
+	clipboardInited bool
+}
+
+// NewTextInputGroup creates a new text input group for clipboard handling.
+func NewTextInputGroup() *TextInputGroup {
+	return &TextInputGroup{}
+}
+
+// Add registers a text input with the group for clipboard handling.
+func (g *TextInputGroup) Add(input *widget.TextInput) {
+	g.inputs = append(g.inputs, input)
+}
+
+// Update handles clipboard shortcuts (Ctrl/Cmd+A/C/V/X) for the focused input.
+// Call this each frame from your screen's Update method.
+func (g *TextInputGroup) Update() {
+	// Initialize clipboard on first use
+	if !g.clipboardInited {
+		if err := clipboard.Init(); err == nil {
+			g.clipboardInited = true
+		}
+	}
+
+	// Check for modifier key (Ctrl on Windows/Linux, Cmd on macOS)
+	var modPressed bool
+	if runtime.GOOS == "darwin" {
+		modPressed = ebiten.IsKeyPressed(ebiten.KeyMeta) ||
+			ebiten.IsKeyPressed(ebiten.KeyMetaLeft) ||
+			ebiten.IsKeyPressed(ebiten.KeyMetaRight)
+	} else {
+		modPressed = ebiten.IsKeyPressed(ebiten.KeyControl) ||
+			ebiten.IsKeyPressed(ebiten.KeyControlLeft) ||
+			ebiten.IsKeyPressed(ebiten.KeyControlRight)
+	}
+
+	if !modPressed {
+		return
+	}
+
+	// Find the focused text input
+	var focused *widget.TextInput
+	for _, input := range g.inputs {
+		if input != nil && input.IsFocused() {
+			focused = input
+			break
+		}
+	}
+
+	if focused == nil {
+		return
+	}
+
+	// Ctrl/Cmd+A: Select all
+	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
+		focused.SelectAll()
+	}
+
+	// Ctrl/Cmd+V: Paste
+	if inpututil.IsKeyJustPressed(ebiten.KeyV) {
+		if text := clipboard.Read(clipboard.FmtText); text != nil {
+			focused.DeleteSelectedText()
+			focused.Insert(string(text))
+		}
+	}
+
+	// Ctrl/Cmd+C: Copy
+	if inpututil.IsKeyJustPressed(ebiten.KeyC) {
+		if selected := focused.SelectedText(); selected != "" {
+			clipboard.Write(clipboard.FmtText, []byte(selected))
+		}
+	}
+
+	// Ctrl/Cmd+X: Cut
+	if inpututil.IsKeyJustPressed(ebiten.KeyX) {
+		if selected := focused.SelectedText(); selected != "" {
+			clipboard.Write(clipboard.FmtText, []byte(selected))
+			focused.DeleteSelectedText()
+		}
+	}
+}
+
+// StyledTextInput creates a text input with consistent styling.
+func StyledTextInput(placeholder string, secure bool, minWidth int) *widget.TextInput {
+	return widget.NewTextInput(
+		widget.TextInputOpts.Image(&widget.TextInputImage{
+			Idle:     image.NewNineSliceColor(Surface),
+			Disabled: image.NewNineSliceColor(Border),
+		}),
+		widget.TextInputOpts.Face(FontFace()),
+		widget.TextInputOpts.Color(&widget.TextInputColor{
+			Idle:          Text,
+			Disabled:      TextSecondary,
+			Caret:         Text,
+			DisabledCaret: TextSecondary,
+		}),
+		widget.TextInputOpts.Padding(widget.NewInsetsSimple(SmallSpacing)),
+		widget.TextInputOpts.Placeholder(placeholder),
+		widget.TextInputOpts.Secure(secure),
+		widget.TextInputOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
+				Position: widget.RowLayoutPositionCenter,
+			}),
+			widget.WidgetOpts.MinSize(minWidth, 0),
+		),
+	)
 }

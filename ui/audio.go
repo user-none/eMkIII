@@ -24,25 +24,35 @@ type AudioPlayer struct {
 	audioBytes []byte // Pre-allocated buffer for byte conversion
 }
 
-// audioInitOnce ensures SDL library is loaded only once across all AudioPlayer instances
-var audioInitOnce sync.Once
+// SDL audio state
+var (
+	sdlInitOnce   sync.Once
+	sdlAvailable  bool
+	sdlInitFailed bool
+)
+
+// ensureSDLAudio initializes SDL audio on first use. Returns true if available.
+func ensureSDLAudio() bool {
+	sdlInitOnce.Do(func() {
+		if err := loadSDLLibrary(); err != nil {
+			log.Printf("Warning: Failed to load SDL library: %v", err)
+			sdlInitFailed = true
+			return
+		}
+		if err := sdl.Init(sdl.INIT_AUDIO); err != nil {
+			log.Printf("Warning: Failed to init SDL audio: %v", err)
+			sdlInitFailed = true
+			return
+		}
+		sdlAvailable = true
+	})
+	return sdlAvailable
+}
 
 // NewAudioPlayer creates and initializes SDL audio.
 func NewAudioPlayer() (*AudioPlayer, error) {
-	var loadErr error
-
-	// Load SDL library once (required before any SDL calls)
-	audioInitOnce.Do(func() {
-		if err := loadSDLLibrary(); err != nil {
-			loadErr = err
-		}
-	})
-	if loadErr != nil {
-		return nil, loadErr
-	}
-
-	if err := sdl.Init(sdl.INIT_AUDIO); err != nil {
-		return nil, fmt.Errorf("failed to init SDL audio: %w", err)
+	if !ensureSDLAudio() {
+		return nil, fmt.Errorf("SDL audio not available")
 	}
 
 	spec := sdl.AudioSpec{
@@ -53,13 +63,11 @@ func NewAudioPlayer() (*AudioPlayer, error) {
 
 	stream := sdl.AUDIO_DEVICE_DEFAULT_PLAYBACK.OpenAudioDeviceStream(&spec, 0)
 	if stream == nil {
-		sdl.Quit()
 		return nil, fmt.Errorf("failed to open audio stream")
 	}
 
 	if err := stream.ResumeDevice(); err != nil {
 		stream.Destroy()
-		sdl.Quit()
 		return nil, fmt.Errorf("failed to resume audio: %w", err)
 	}
 
@@ -92,7 +100,7 @@ func (a *AudioPlayer) Close() {
 		a.stream.Destroy()
 		a.stream = nil
 	}
-	sdl.Quit()
+	// Don't call sdl.Quit() - other audio streams may still be active
 }
 
 // loadSDLLibrary attempts to load the SDL3 library from multiple locations.

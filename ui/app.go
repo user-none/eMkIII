@@ -11,6 +11,7 @@ import (
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/user-none/emkiii/ui/achievements"
 	"github.com/user-none/emkiii/ui/screens"
 	"github.com/user-none/emkiii/ui/shader"
 	"github.com/user-none/emkiii/ui/storage"
@@ -69,6 +70,9 @@ type App struct {
 	// Shader manager for visual effects
 	shaderManager *shader.Manager
 	shaderBuffer  *ebiten.Image // Intermediate buffer for shader rendering
+
+	// Achievement manager for RetroAchievements integration
+	achievementManager *achievements.Manager
 }
 
 // NewApp creates and initializes the application
@@ -106,6 +110,7 @@ func NewApp() (*App, error) {
 	app.screenshotManager = NewScreenshotManager(app.notification)
 	app.inputManager = NewInputManager()
 	app.shaderManager = shader.NewManager()
+	app.achievementManager = achievements.NewManager(app.notification, Name, Version)
 	app.searchOverlay = NewSearchOverlay(func(text string) {
 		if app.state == StateLibrary {
 			app.libraryScreen.SetSearchText(text)
@@ -158,12 +163,38 @@ func NewApp() (*App, error) {
 	// Initialize gameplay manager with callbacks
 	app.gameplay = NewGameplayManager(
 		app.saveStateManager,
+		app.screenshotManager,
 		app.notification,
 		app.library,
 		app.config,
+		app.achievementManager,
 		func() { app.SwitchToLibrary() }, // onExitToLibrary
 		func() { app.Exit() },            // onExitApp
 	)
+
+	// Set up achievement manager state
+	app.achievementManager.SetEnabled(app.config.RetroAchievements.Enabled)
+	app.achievementManager.SetEncoreMode(app.config.RetroAchievements.EncoreMode)
+
+	// Auto-login with stored token if available
+	if app.config.RetroAchievements.Enabled &&
+		app.config.RetroAchievements.Username != "" &&
+		app.config.RetroAchievements.Token != "" {
+		go func() {
+			app.achievementManager.LoginWithToken(
+				app.config.RetroAchievements.Username,
+				app.config.RetroAchievements.Token,
+				func(success bool, err error) {
+					if !success {
+						log.Printf("RetroAchievements auto-login failed: %v", err)
+						// Clear invalid token
+						app.config.RetroAchievements.Token = ""
+						storage.SaveConfig(app.config)
+					}
+				},
+			)
+		}()
+	}
 
 	// Preload configured shaders
 	app.preloadConfiguredShaders()
@@ -227,7 +258,7 @@ func (a *App) saveWindowState() {
 func (a *App) initScreens() {
 	a.libraryScreen = screens.NewLibraryScreen(a, a.library, a.config)
 	a.detailScreen = screens.NewDetailScreen(a, a.library, a.config)
-	a.settingsScreen = screens.NewSettingsScreen(a, a.library, a.config)
+	a.settingsScreen = screens.NewSettingsScreen(a, a.library, a.config, a.achievementManager)
 	a.scanScreen = screens.NewScanProgressScreen(a)
 	a.errorScreen = screens.NewErrorScreen(a, a.errorFile, a.errorPath, a.handleDeleteAndContinue)
 }
@@ -294,6 +325,7 @@ func (a *App) Update() error {
 		return nil
 	case StateSettings:
 		nav := a.processUIInput()
+		a.settingsScreen.Update() // Handle section-specific updates (e.g., clipboard shortcuts)
 		a.ui.Update()
 		// Check if state changed during ui.Update (e.g., user navigated away)
 		if a.state != StateSettings {
@@ -681,9 +713,11 @@ func (a *App) handleDeleteAndContinue() {
 	if a.gameplay == nil {
 		a.gameplay = NewGameplayManager(
 			a.saveStateManager,
+			a.screenshotManager,
 			a.notification,
 			a.library,
 			a.config,
+			a.achievementManager,
 			func() { a.SwitchToLibrary() },
 			func() { a.Exit() },
 		)

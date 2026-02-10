@@ -291,10 +291,18 @@ func (a *App) rebuildCurrentScreen() {
 		a.libraryScreen.SetConfig(a.config)
 		container = a.libraryScreen.Build()
 	case StateDetail:
+		// Save focused button before rebuild so async rebuilds (e.g., achievement
+		// loading) restore focus to the previously focused button.
+		if a.ui != nil {
+			a.detailScreen.SaveFocusState(a.ui.GetFocusedWidget())
+		}
 		container = a.detailScreen.Build()
 	case StateSettings:
-		// Save scroll position before rebuilding
+		// Save scroll position and focused button before rebuilding
 		a.settingsScreen.SaveScrollPosition()
+		if a.ui != nil {
+			a.settingsScreen.SaveFocusState(a.ui.GetFocusedWidget())
+		}
 		container = a.settingsScreen.Build()
 	case StateScanProgress:
 		container = a.scanScreen.Build()

@@ -85,6 +85,26 @@ func (b *BaseScreen) RegisterFocusButton(key string, btn *widget.Button) {
 	b.focusButtons[key] = btn
 }
 
+// SaveFocusState checks which registered focus button currently has focus
+// and saves its key as pending focus. This preserves focus across rebuilds
+// triggered by async operations (e.g., achievement loading).
+// Does nothing if pendingFocus is already set (e.g., by OnEnter).
+func (b *BaseScreen) SaveFocusState(focused widget.Focuser) {
+	if b.pendingFocus != "" || focused == nil {
+		return
+	}
+	focusedWidget := focused.GetWidget()
+	if focusedWidget == nil {
+		return
+	}
+	for key, btn := range b.focusButtons {
+		if btn.GetWidget() == focusedWidget {
+			b.pendingFocus = key
+			return
+		}
+	}
+}
+
 // ClearFocusButtons clears all registered focus buttons and navigation zones.
 // Call this at the start of Build() before registering new buttons.
 func (b *BaseScreen) ClearFocusButtons() {

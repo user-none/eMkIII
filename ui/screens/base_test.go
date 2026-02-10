@@ -3,8 +3,11 @@
 package screens
 
 import (
+	"image/color"
 	"testing"
 
+	eimage "github.com/ebitenui/ebitenui/image"
+	"github.com/ebitenui/ebitenui/widget"
 	"github.com/user-none/emkiii/ui/types"
 )
 
@@ -550,5 +553,73 @@ func TestFindFocusInDirectionNoButtons(t *testing.T) {
 	btn := b.FindFocusInDirection(nil, types.DirDown)
 	if btn != nil {
 		t.Error("should return nil with no buttons")
+	}
+}
+
+// --- SaveFocusState ---
+
+// testButtonImage creates a minimal ButtonImage for testing
+func testButtonImage() *widget.ButtonImage {
+	return &widget.ButtonImage{
+		Idle: eimage.NewNineSliceColor(color.NRGBA{}),
+	}
+}
+
+// testButton creates a minimal Button for testing
+func testButton() *widget.Button {
+	return widget.NewButton(widget.ButtonOpts.Image(testButtonImage()))
+}
+
+func TestSaveFocusStateNilFocused(t *testing.T) {
+	b := &BaseScreen{}
+	b.InitBase()
+
+	b.SaveFocusState(nil)
+	if b.pendingFocus != "" {
+		t.Errorf("pendingFocus should be empty, got %q", b.pendingFocus)
+	}
+}
+
+func TestSaveFocusStatePendingAlreadySet(t *testing.T) {
+	b := &BaseScreen{}
+	b.InitBase()
+
+	btn := testButton()
+	b.RegisterFocusButton("play", btn)
+	b.SetPendingFocus("play")
+
+	// Pass the same button as focused - should NOT override existing pending
+	b.SaveFocusState(btn)
+	if b.pendingFocus != "play" {
+		t.Errorf("pendingFocus should remain 'play', got %q", b.pendingFocus)
+	}
+}
+
+func TestSaveFocusStateMatchesRegistered(t *testing.T) {
+	b := &BaseScreen{}
+	b.InitBase()
+
+	btn := testButton()
+	b.RegisterFocusButton("play", btn)
+
+	// Pass the registered button as focused - should save its key
+	b.SaveFocusState(btn)
+	if b.pendingFocus != "play" {
+		t.Errorf("pendingFocus = %q, want 'play'", b.pendingFocus)
+	}
+}
+
+func TestSaveFocusStateNoMatch(t *testing.T) {
+	b := &BaseScreen{}
+	b.InitBase()
+
+	btn1 := testButton()
+	btn2 := testButton()
+	b.RegisterFocusButton("play", btn1)
+
+	// Pass a different button as focused - should not set pendingFocus
+	b.SaveFocusState(btn2)
+	if b.pendingFocus != "" {
+		t.Errorf("pendingFocus should be empty, got %q", b.pendingFocus)
 	}
 }

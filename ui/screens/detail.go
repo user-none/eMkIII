@@ -3,7 +3,6 @@
 package screens
 
 import (
-	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -130,12 +129,9 @@ func (s *DetailScreen) Build() *widget.Container {
 	}
 	contentContainer.AddChild(artContainer)
 
-	// Metadata container
-	metadataContainer := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewRowLayout(
-			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Spacing(style.SmallSpacing),
-		)),
+	// Outer metadata container that anchors content to top-left
+	metadataOuter := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
 				Stretch: true,
@@ -143,84 +139,108 @@ func (s *DetailScreen) Build() *widget.Container {
 		),
 	)
 
-	// Calculate max characters for metadata text based on available width
-	// Available width = window width - art width - padding/spacing
-	metadataWidth := windowWidth - artWidth - 80 // 80 for padding and spacing
-	maxChars := metadataWidth / 7                // ~7 pixels per character with basic font
-	if maxChars < 20 {
-		maxChars = 20
+	// Calculate available width for metadata based on window size
+	// Use all available space: window - art - padding (left + right) - spacing between art and metadata
+	metadataWidth := windowWidth - artWidth - style.DefaultPadding*2 - style.LargeSpacing
+	if metadataWidth < 200 {
+		metadataWidth = 200
 	}
-	if maxChars > 80 {
-		maxChars = 80
+
+	// Calculate max characters for value text
+	// Value column = metadataWidth - label width (80) - grid spacing (16) - grid padding (16)
+	valueWidth := metadataWidth - 80 - style.DefaultSpacing - style.SmallSpacing*2
+	maxValueChars := valueWidth / 7 // ~7 pixels per character
+	if maxValueChars < 15 {
+		maxValueChars = 15
 	}
+
+	// Inner metadata container with fixed width
+	metadataContainer := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(style.SmallSpacing),
+		)),
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
+				HorizontalPosition: widget.AnchorLayoutPositionStart,
+				VerticalPosition:   widget.AnchorLayoutPositionStart,
+			}),
+			widget.WidgetOpts.MinSize(metadataWidth, 0),
+		),
+	)
+
+	// Game Info section
+	metadataContainer.AddChild(s.buildSectionHeader("Game Info"))
 
 	// Title (with warning icon if missing)
 	titleText := s.game.DisplayName
 	if s.game.Missing {
 		titleText = "[!] " + titleText
 	}
-	metadataContainer.AddChild(s.createMetadataLabel(titleText, maxChars, style.Text))
+	metadataContainer.AddChild(s.buildMetadataRow("Title", titleText, maxValueChars))
 
-	// Full name (No-Intro format)
 	if s.game.Name != "" && s.game.Name != s.game.DisplayName {
-		metadataContainer.AddChild(s.createMetadataLabel("Name: "+s.game.Name, maxChars, style.TextSecondary))
+		metadataContainer.AddChild(s.buildMetadataRow("Name", s.game.Name, maxValueChars))
 	}
-
-	// Region
 	region := strings.ToUpper(s.game.Region)
 	if region == "" {
 		region = "Unknown"
 	}
-	metadataContainer.AddChild(s.createMetadataLabel("Region: "+region, maxChars, style.TextSecondary))
+	metadataContainer.AddChild(s.buildMetadataRow("Region", region, maxValueChars))
 
-	// Developer
-	if s.game.Developer != "" {
-		metadataContainer.AddChild(s.createMetadataLabel("Developer: "+s.game.Developer, maxChars, style.TextSecondary))
+	// Production section
+	hasProduction := s.game.Developer != "" || s.game.Publisher != "" ||
+		s.game.Genre != "" || s.game.Franchise != "" ||
+		s.game.ReleaseDate != "" || s.game.ESRBRating != ""
+	if hasProduction {
+		metadataContainer.AddChild(s.buildSectionHeader("Production"))
+		if s.game.Developer != "" {
+			metadataContainer.AddChild(s.buildMetadataRow("Developer", s.game.Developer, maxValueChars))
+		}
+		if s.game.Publisher != "" {
+			metadataContainer.AddChild(s.buildMetadataRow("Publisher", s.game.Publisher, maxValueChars))
+		}
+		if s.game.Genre != "" {
+			metadataContainer.AddChild(s.buildMetadataRow("Genre", s.game.Genre, maxValueChars))
+		}
+		if s.game.Franchise != "" {
+			metadataContainer.AddChild(s.buildMetadataRow("Franchise", s.game.Franchise, maxValueChars))
+		}
+		if s.game.ReleaseDate != "" {
+			metadataContainer.AddChild(s.buildMetadataRow("Released", s.game.ReleaseDate, maxValueChars))
+		}
+		if s.game.ESRBRating != "" {
+			metadataContainer.AddChild(s.buildMetadataRow("ESRB", s.game.ESRBRating, maxValueChars))
+		}
 	}
 
-	// Publisher
-	if s.game.Publisher != "" {
-		metadataContainer.AddChild(s.createMetadataLabel("Publisher: "+s.game.Publisher, maxChars, style.TextSecondary))
-	}
-
-	// Genre
-	if s.game.Genre != "" {
-		metadataContainer.AddChild(s.createMetadataLabel("Genre: "+s.game.Genre, maxChars, style.TextSecondary))
-	}
-
-	// Franchise
-	if s.game.Franchise != "" {
-		metadataContainer.AddChild(s.createMetadataLabel("Franchise: "+s.game.Franchise, maxChars, style.TextSecondary))
-	}
-
-	// Release Date
-	if s.game.ReleaseDate != "" {
-		metadataContainer.AddChild(s.createMetadataLabel("Released: "+s.game.ReleaseDate, maxChars, style.TextSecondary))
-	}
-
-	// ESRB Rating
-	if s.game.ESRBRating != "" {
-		metadataContainer.AddChild(s.createMetadataLabel("ESRB: "+s.game.ESRBRating, maxChars, style.TextSecondary))
-	}
-
-	// Play time
-	metadataContainer.AddChild(s.createMetadataLabel("Play Time: "+style.FormatPlayTime(s.game.PlayTimeSeconds), maxChars, style.TextSecondary))
-
-	// Last played
-	metadataContainer.AddChild(s.createMetadataLabel("Last Played: "+style.FormatLastPlayed(s.game.LastPlayed), maxChars, style.TextSecondary))
-
-	// Added date
-	metadataContainer.AddChild(s.createMetadataLabel("Added: "+style.FormatDate(s.game.Added), maxChars, style.TextSecondary))
+	// Activity section
+	metadataContainer.AddChild(s.buildSectionHeader("Activity"))
+	metadataContainer.AddChild(s.buildMetadataRow("Play Time", style.FormatPlayTime(s.game.PlayTimeSeconds), maxValueChars))
+	metadataContainer.AddChild(s.buildMetadataRow("Last Played", style.FormatLastPlayed(s.game.LastPlayed), maxValueChars))
+	metadataContainer.AddChild(s.buildMetadataRow("Added", style.FormatDate(s.game.Added), maxValueChars))
 
 	// Missing ROM warning
 	if s.game.Missing {
-		warningLabel := widget.NewText(
-			widget.TextOpts.Text("ROM file not found", style.FontFace(), style.TextSecondary),
+		metadataContainer.AddChild(s.buildSectionHeader("Warning"))
+		warningRow := widget.NewContainer(
+			widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Surface)),
+			widget.ContainerOpts.Layout(widget.NewRowLayout(
+				widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(style.SmallSpacing)),
+			)),
+			widget.ContainerOpts.WidgetOpts(
+				widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
+			),
 		)
-		metadataContainer.AddChild(warningLabel)
+		warningLabel := widget.NewText(
+			widget.TextOpts.Text("ROM file not found", style.FontFace(), style.Accent),
+		)
+		warningRow.AddChild(warningLabel)
+		metadataContainer.AddChild(warningRow)
 	}
 
-	contentContainer.AddChild(metadataContainer)
+	metadataOuter.AddChild(metadataContainer)
+	contentContainer.AddChild(metadataOuter)
 	rootContainer.AddChild(contentContainer)
 
 	// Button container
@@ -332,29 +352,83 @@ func (s *DetailScreen) OnEnter() {
 	}
 }
 
-// createMetadataLabel creates a text label with optional truncation and tooltip
-func (s *DetailScreen) createMetadataLabel(text string, maxChars int, textColor color.Color) *widget.Text {
-	displayText := text
-	needsTooltip := false
+// buildSectionHeader creates a section header label with accent color
+func (s *DetailScreen) buildSectionHeader(title string) *widget.Container {
+	container := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(style.TinySpacing),
+		)),
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
+		),
+	)
 
-	if len(text) > maxChars {
-		displayText = text[:maxChars-3] + "..."
-		needsTooltip = true
+	label := widget.NewText(
+		widget.TextOpts.Text(title, style.FontFace(), style.Accent),
+	)
+	container.AddChild(label)
+
+	return container
+}
+
+// buildMetadataRow creates a metadata row with background, label on left, value on right
+// maxValueChars specifies the maximum characters for the value before truncation
+func (s *DetailScreen) buildMetadataRow(label, value string, maxValueChars int) *widget.Container {
+	row := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Surface)),
+		widget.ContainerOpts.Layout(widget.NewGridLayout(
+			widget.GridLayoutOpts.Columns(2),
+			widget.GridLayoutOpts.Stretch([]bool{false, true}, []bool{true}),
+			widget.GridLayoutOpts.Spacing(style.DefaultSpacing, 0),
+			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(style.SmallSpacing)),
+		)),
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
+		),
+	)
+
+	// Label (fixed width for alignment)
+	labelText := widget.NewText(
+		widget.TextOpts.Text(label, style.FontFace(), style.TextSecondary),
+		widget.TextOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
+				VerticalPosition: widget.GridLayoutPositionCenter,
+			}),
+			widget.WidgetOpts.MinSize(80, 0),
+		),
+	)
+	row.AddChild(labelText)
+
+	// Value (truncated if necessary)
+	displayValue, wasTruncated := style.TruncateEnd(value, maxValueChars)
+
+	valueOpts := []widget.TextOpt{
+		widget.TextOpts.Text(displayValue, style.FontFace(), style.Text),
 	}
 
-	opts := []widget.TextOpt{
-		widget.TextOpts.Text(displayText, style.FontFace(), textColor),
-	}
-
-	if needsTooltip {
-		opts = append(opts, widget.TextOpts.WidgetOpts(
+	// Add tooltip with full value if truncated
+	if wasTruncated {
+		valueOpts = append(valueOpts, widget.TextOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
+				VerticalPosition: widget.GridLayoutPositionCenter,
+			}),
 			widget.WidgetOpts.ToolTip(
 				widget.NewToolTip(
-					widget.ToolTipOpts.Content(style.TooltipContent(text)),
+					widget.ToolTipOpts.Content(style.TooltipContent(value)),
 				),
 			),
 		))
+	} else {
+		valueOpts = append(valueOpts, widget.TextOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
+				VerticalPosition: widget.GridLayoutPositionCenter,
+			}),
+		))
 	}
 
-	return widget.NewText(opts...)
+	valueText := widget.NewText(valueOpts...)
+	row.AddChild(valueText)
+
+	return row
 }

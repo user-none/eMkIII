@@ -223,7 +223,77 @@ func (s *DetailScreen) Build() *widget.Container {
 		)
 		artContainer.AddChild(artPlaceholder)
 	}
-	contentContainer.AddChild(artContainer)
+
+	// Left column: art + buttons, independent of metadata height
+	leftColumn := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
+		)),
+	)
+	leftColumn.AddChild(artContainer)
+
+	// Button container
+	buttonContainer := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
+			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
+		)),
+	)
+
+	// Check if resume state exists
+	hasResume := s.hasResumeState()
+
+	if !s.game.Missing {
+		// Play button
+		playButton := style.PrimaryTextButton("Play", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
+			s.callback.LaunchGame(s.game.CRC32, false)
+		})
+		s.RegisterFocusButton("play", playButton)
+		buttonContainer.AddChild(playButton)
+
+		// Resume button (enabled only if resume state exists)
+		resumeImage := style.ButtonImage()
+		if !hasResume {
+			resumeImage = style.DisabledButtonImage()
+		}
+
+		resumeButton := widget.NewButton(
+			widget.ButtonOpts.Image(resumeImage),
+			widget.ButtonOpts.Text("Resume", style.FontFace(), style.ButtonTextColor()),
+			widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingMedium)),
+			widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+				if hasResume {
+					s.callback.LaunchGame(s.game.CRC32, true)
+				}
+			}),
+		)
+		buttonContainer.AddChild(resumeButton)
+	} else {
+		// Remove from Library button for missing games
+		removeButton := style.TextButton("Remove from Library", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
+			s.library.RemoveGame(s.game.CRC32)
+			storage.SaveLibrary(s.library)
+			s.callback.SwitchToLibrary()
+		})
+		s.RegisterFocusButton("remove", removeButton)
+		buttonContainer.AddChild(removeButton)
+	}
+
+	// Favorite toggle
+	favText := "Add to Favorites"
+	if s.game.Favorite {
+		favText = "Remove from Favorites"
+	}
+	favButton := style.TextButton(favText, 12, func(args *widget.ButtonClickedEventArgs) {
+		s.game.Favorite = !s.game.Favorite
+		storage.SaveLibrary(s.library)
+		s.callback.RequestRebuild()
+	})
+	buttonContainer.AddChild(favButton)
+
+	leftColumn.AddChild(buttonContainer)
+	contentContainer.AddChild(leftColumn)
 
 	// Outer metadata container that anchors content to top-left
 	metadataOuter := widget.NewContainer(
@@ -344,67 +414,6 @@ func (s *DetailScreen) Build() *widget.Container {
 	metadataOuter.AddChild(metadataContainer)
 	contentContainer.AddChild(metadataOuter)
 	rootContainer.AddChild(contentContainer)
-
-	// Button container
-	buttonContainer := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewRowLayout(
-			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
-			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
-		)),
-	)
-
-	// Check if resume state exists
-	hasResume := s.hasResumeState()
-
-	if !s.game.Missing {
-		// Play button
-		playButton := style.PrimaryTextButton("Play", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
-			s.callback.LaunchGame(s.game.CRC32, false)
-		})
-		s.RegisterFocusButton("play", playButton)
-		buttonContainer.AddChild(playButton)
-
-		// Resume button (enabled only if resume state exists)
-		resumeImage := style.ButtonImage()
-		if !hasResume {
-			resumeImage = style.DisabledButtonImage()
-		}
-
-		resumeButton := widget.NewButton(
-			widget.ButtonOpts.Image(resumeImage),
-			widget.ButtonOpts.Text("Resume", style.FontFace(), style.ButtonTextColor()),
-			widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingMedium)),
-			widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-				if hasResume {
-					s.callback.LaunchGame(s.game.CRC32, true)
-				}
-			}),
-		)
-		buttonContainer.AddChild(resumeButton)
-	} else {
-		// Remove from Library button for missing games
-		removeButton := style.TextButton("Remove from Library", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
-			s.library.RemoveGame(s.game.CRC32)
-			storage.SaveLibrary(s.library)
-			s.callback.SwitchToLibrary()
-		})
-		s.RegisterFocusButton("remove", removeButton)
-		buttonContainer.AddChild(removeButton)
-	}
-
-	// Favorite toggle
-	favText := "Add to Favorites"
-	if s.game.Favorite {
-		favText = "Remove from Favorites"
-	}
-	favButton := style.TextButton(favText, 12, func(args *widget.ButtonClickedEventArgs) {
-		s.game.Favorite = !s.game.Favorite
-		storage.SaveLibrary(s.library)
-		s.callback.RequestRebuild()
-	})
-	buttonContainer.AddChild(favButton)
-
-	rootContainer.AddChild(buttonContainer)
 
 	return rootContainer
 }

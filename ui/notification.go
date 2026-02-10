@@ -30,7 +30,6 @@ type Notification struct {
 	startTime  time.Time
 	duration   time.Duration
 	notifyType NotificationType
-	largeFace  *text.GoTextFace // Cached large font for achievements
 
 	// Badge image (pre-cached by achievement manager)
 	badgeImage *ebiten.Image
@@ -47,9 +46,7 @@ type Notification struct {
 
 // NewNotification creates a new notification system
 func NewNotification() *Notification {
-	return &Notification{
-		largeFace: style.LargeFontFace(),
-	}
+	return &Notification{}
 }
 
 // ensureAudioStream lazily initializes the audio stream when first needed
@@ -223,7 +220,7 @@ func (n *Notification) drawDefaultWithData(screen *ebiten.Image, message string)
 
 	// Draw text centered in background
 	textOpts := &text.DrawOptions{}
-	textOpts.GeoM.Translate(float64(bgX+padding), float64(bgY+padding+int(textHeight)))
+	textOpts.GeoM.Translate(float64(bgX+padding), float64(bgY+padding))
 	textOpts.ColorScale.ScaleWithColor(style.Text)
 	text.Draw(screen, message, *style.FontFace(), textOpts)
 }
@@ -234,10 +231,7 @@ func (n *Notification) drawAchievementWithData(screen *ebiten.Image, titleText, 
 	screenWidth := bounds.Dx()
 
 	// Use large font for title, regular for description
-	largeFace := n.largeFace
-	if largeFace == nil {
-		largeFace = style.LargeFontFace()
-	}
+	largeFace := style.LargeFontFace()
 	if largeFace == nil {
 		// Fallback to default notification if large font unavailable
 		n.drawDefaultWithData(screen, titleText)
@@ -259,6 +253,32 @@ func (n *Notification) drawAchievementWithData(screen *ebiten.Image, titleText, 
 		descWidth, descHeight = text.Measure(descText, *style.FontFace(), 0)
 	}
 
+	// Calculate box size
+	paddingH := 20
+	paddingV := 16
+	spacing := 6
+	margin := 20
+
+	// Maximum background width: screen width minus margin on each side
+	maxBgWidth := screenWidth - margin*2
+
+	// Maximum text width based on available space
+	badgeArea := 0
+	if badge != nil {
+		badgeArea = badgeSize + badgeSpacing
+	}
+	maxAvailTextWidth := float64(maxBgWidth - paddingH*2 - badgeArea)
+
+	// Truncate title and description if they exceed available text width
+	if titleWidth > maxAvailTextWidth {
+		titleText, _ = style.TruncateToWidth(titleText, largeFace, maxAvailTextWidth)
+		titleWidth, titleHeight = text.Measure(titleText, largeFace, 0)
+	}
+	if descWidth > maxAvailTextWidth {
+		descText, _ = style.TruncateToWidth(descText, *style.FontFace(), maxAvailTextWidth)
+		descWidth, descHeight = text.Measure(descText, *style.FontFace(), 0)
+	}
+
 	// Calculate content width (text area)
 	maxTextWidth := headerWidth
 	if titleWidth > maxTextWidth {
@@ -268,11 +288,6 @@ func (n *Notification) drawAchievementWithData(screen *ebiten.Image, titleText, 
 		maxTextWidth = descWidth
 	}
 
-	// Calculate box size
-	paddingH := 20
-	paddingV := 16
-	spacing := 6
-
 	// Content width includes badge + spacing + text
 	contentWidth := int(maxTextWidth)
 	if badge != nil {
@@ -280,6 +295,9 @@ func (n *Notification) drawAchievementWithData(screen *ebiten.Image, titleText, 
 	}
 
 	bgWidth := contentWidth + paddingH*2
+	if bgWidth > maxBgWidth {
+		bgWidth = maxBgWidth
+	}
 	bgHeight := paddingV*2 + int(headerHeight) + spacing + int(titleHeight)
 	if descText != "" {
 		bgHeight += spacing + int(descHeight)

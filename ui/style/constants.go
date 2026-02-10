@@ -21,10 +21,10 @@ const (
 	ButtonPaddingMedium = 12
 )
 
-// List view constants for table-style layouts
-const (
-	ListRowHeight    = 30
-	ListHeaderHeight = 28
+// Font-dependent layout values (updated by ApplyFontSize)
+var (
+	ListRowHeight    = 40
+	ListHeaderHeight = 38
 
 	// Column widths for library list view
 	ListColFavorite   = 24
@@ -32,12 +32,14 @@ const (
 	ListColRegion     = 50
 	ListColPlayTime   = 80
 	ListColLastPlayed = 100
+
+	// Icon view
+	IconCardTextHeight = 34
 )
 
 // Icon view constants for grid layouts
 const (
 	IconMinCardWidth       = 200
-	IconCardTextHeight     = 24
 	IconDefaultWindowWidth = 800 // Fallback when window width unavailable
 )
 
@@ -49,10 +51,12 @@ const (
 
 // Settings screen constants
 const (
-	SettingsRowHeight           = 28
-	SettingsSidebarMinWidth     = 160
+	SettingsSidebarMinWidth     = 180
 	SettingsFolderListMinHeight = 100
 )
+
+// Font-dependent settings layout value (updated by ApplyFontSize)
+var SettingsRowHeight = 38
 
 // Progress bar constants
 const (
@@ -60,11 +64,8 @@ const (
 	ProgressBarHeight = 20
 )
 
-// Scroll estimation constants
-const (
-	// Used when estimating scroll position before layout is complete
-	EstimatedViewportHeight = 400
-)
+// Font-dependent scroll estimation (updated by ApplyFontSize)
+var EstimatedViewportHeight = 400
 
 // Gamepad navigation timing constants
 const (
@@ -87,9 +88,13 @@ const (
 
 // Achievement UI constants
 const (
-	AchievementBadgeSize      = 48
-	AchievementRowHeight      = 72
-	AchievementRowSpacing     = 4
+	AchievementRowSpacing = 4
+)
+
+// Font-dependent achievement values (updated by ApplyFontSize)
+var (
+	AchievementBadgeSize      = 56
+	AchievementRowHeight      = 92
 	AchievementOverlayWidth   = 500
 	AchievementOverlayPadding = 16
 )

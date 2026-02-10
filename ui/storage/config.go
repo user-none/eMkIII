@@ -99,6 +99,11 @@ func migrateConfig(config *Config) *Config {
 		config.Theme = "Default"
 	}
 
+	// Font size default for existing configs
+	if config.FontSize == 0 {
+		config.FontSize = 14
+	}
+
 	// Rewind defaults for existing configs
 	if config.Rewind.BufferSizeMB == 0 {
 		config.Rewind.BufferSizeMB = 40

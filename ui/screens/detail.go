@@ -143,18 +143,39 @@ func (s *DetailScreen) Build() *widget.Container {
 
 	rootContainer := widget.NewContainer(
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Background)),
-		widget.ContainerOpts.Layout(widget.NewRowLayout(
-			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(style.DefaultPadding)),
-			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
+		widget.ContainerOpts.Layout(widget.NewGridLayout(
+			widget.GridLayoutOpts.Columns(1),
+			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(style.DefaultPadding)),
+			widget.GridLayoutOpts.Spacing(0, style.DefaultSpacing),
+			widget.GridLayoutOpts.Stretch([]bool{true}, []bool{false, true}),
 		)),
 	)
 
-	// Back button
+	// Toolbar: Back button on left, action buttons on right
+	toolbar := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewGridLayout(
+			widget.GridLayoutOpts.Columns(2),
+			widget.GridLayoutOpts.Stretch([]bool{true, false}, nil),
+			widget.GridLayoutOpts.Spacing(style.SmallSpacing, 0),
+		)),
+	)
+
+	toolbarLeft := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
+		)),
+	)
 	backButton := style.TextButton("Back", style.ButtonPaddingSmall, func(args *widget.ButtonClickedEventArgs) {
 		s.callback.SwitchToLibrary()
 	})
-	rootContainer.AddChild(backButton)
+	toolbarLeft.AddChild(backButton)
+	toolbar.AddChild(toolbarLeft)
+
+	toolbarRight := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
+	)
+	toolbar.AddChild(toolbarRight)
+	rootContainer.AddChild(toolbar)
 
 	if s.game == nil {
 		errorLabel := widget.NewText(
@@ -164,11 +185,74 @@ func (s *DetailScreen) Build() *widget.Container {
 		return rootContainer
 	}
 
-	// Main content container (horizontal: box art | metadata)
-	contentContainer := widget.NewContainer(
+	// Action buttons in toolbar right section
+	buttonContainer := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
-			widget.RowLayoutOpts.Spacing(style.LargeSpacing),
+			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
+		)),
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
+				HorizontalPosition: widget.AnchorLayoutPositionEnd,
+			}),
+		),
+	)
+
+	hasResume := s.hasResumeState()
+
+	if !s.game.Missing {
+		playButton := style.PrimaryTextButton("Play", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
+			s.callback.LaunchGame(s.game.CRC32, false)
+		})
+		s.RegisterFocusButton("play", playButton)
+		buttonContainer.AddChild(playButton)
+
+		resumeImage := style.ButtonImage()
+		if !hasResume {
+			resumeImage = style.DisabledButtonImage()
+		}
+
+		resumeButton := widget.NewButton(
+			widget.ButtonOpts.Image(resumeImage),
+			widget.ButtonOpts.Text("Resume", style.FontFace(), style.ButtonTextColor()),
+			widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingMedium)),
+			widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+				if hasResume {
+					s.callback.LaunchGame(s.game.CRC32, true)
+				}
+			}),
+		)
+		buttonContainer.AddChild(resumeButton)
+	} else {
+		removeButton := style.TextButton("Remove from Library", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
+			s.library.RemoveGame(s.game.CRC32)
+			storage.SaveLibrary(s.library)
+			s.callback.SwitchToLibrary()
+		})
+		s.RegisterFocusButton("remove", removeButton)
+		buttonContainer.AddChild(removeButton)
+	}
+
+	favText := "Add to Favorites"
+	if s.game.Favorite {
+		favText = "Remove from Favorites"
+	}
+	favButton := style.TextButton(favText, 12, func(args *widget.ButtonClickedEventArgs) {
+		s.game.Favorite = !s.game.Favorite
+		storage.SaveLibrary(s.library)
+		s.callback.RequestRebuild()
+	})
+	buttonContainer.AddChild(favButton)
+
+	toolbarRight.AddChild(buttonContainer)
+
+	// Main content container (horizontal: box art | metadata)
+	// Uses GridLayout so the metadata column stretches to fill remaining width
+	contentContainer := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewGridLayout(
+			widget.GridLayoutOpts.Columns(2),
+			widget.GridLayoutOpts.Spacing(style.LargeSpacing, 0),
+			widget.GridLayoutOpts.Stretch([]bool{false, true}, nil),
 		)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
@@ -224,101 +308,31 @@ func (s *DetailScreen) Build() *widget.Container {
 		artContainer.AddChild(artPlaceholder)
 	}
 
-	// Left column: art + buttons, independent of metadata height
+	// Wrap art in a RowLayout so the grid doesn't stretch it to full row height
 	leftColumn := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
 		)),
 	)
 	leftColumn.AddChild(artContainer)
-
-	// Button container
-	buttonContainer := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewRowLayout(
-			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
-			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
-		)),
-	)
-
-	// Check if resume state exists
-	hasResume := s.hasResumeState()
-
-	if !s.game.Missing {
-		// Play button
-		playButton := style.PrimaryTextButton("Play", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
-			s.callback.LaunchGame(s.game.CRC32, false)
-		})
-		s.RegisterFocusButton("play", playButton)
-		buttonContainer.AddChild(playButton)
-
-		// Resume button (enabled only if resume state exists)
-		resumeImage := style.ButtonImage()
-		if !hasResume {
-			resumeImage = style.DisabledButtonImage()
-		}
-
-		resumeButton := widget.NewButton(
-			widget.ButtonOpts.Image(resumeImage),
-			widget.ButtonOpts.Text("Resume", style.FontFace(), style.ButtonTextColor()),
-			widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingMedium)),
-			widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
-				if hasResume {
-					s.callback.LaunchGame(s.game.CRC32, true)
-				}
-			}),
-		)
-		buttonContainer.AddChild(resumeButton)
-	} else {
-		// Remove from Library button for missing games
-		removeButton := style.TextButton("Remove from Library", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
-			s.library.RemoveGame(s.game.CRC32)
-			storage.SaveLibrary(s.library)
-			s.callback.SwitchToLibrary()
-		})
-		s.RegisterFocusButton("remove", removeButton)
-		buttonContainer.AddChild(removeButton)
-	}
-
-	// Favorite toggle
-	favText := "Add to Favorites"
-	if s.game.Favorite {
-		favText = "Remove from Favorites"
-	}
-	favButton := style.TextButton(favText, 12, func(args *widget.ButtonClickedEventArgs) {
-		s.game.Favorite = !s.game.Favorite
-		storage.SaveLibrary(s.library)
-		s.callback.RequestRebuild()
-	})
-	buttonContainer.AddChild(favButton)
-
-	leftColumn.AddChild(buttonContainer)
 	contentContainer.AddChild(leftColumn)
 
 	// Outer metadata container that anchors content to top-left
 	metadataOuter := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
-				Stretch: true,
-			}),
-		),
 	)
 
 	// Calculate available width for metadata based on window size
-	// Use all available space: window - art - padding (left + right) - spacing between art and metadata
-	metadataWidth := windowWidth - artWidth - style.DefaultPadding*2 - style.LargeSpacing
+	// Use all available space: window - art - padding - spacing - scrollbar
+	metadataWidth := windowWidth - artWidth - style.DefaultPadding*2 - style.LargeSpacing - style.ScrollbarWidth - style.TinySpacing
 	if metadataWidth < 200 {
 		metadataWidth = 200
 	}
 
-	// Calculate max characters for value text
-	// Value column = metadataWidth - label width (80) - grid spacing (16) - grid padding (16)
-	valueWidth := metadataWidth - 80 - style.DefaultSpacing - style.SmallSpacing*2
-	maxValueChars := valueWidth / 7 // ~7 pixels per character
-	if maxValueChars < 15 {
-		maxValueChars = 15
-	}
+	// Calculate pixel width for value text column
+	// Label width scales with font size; value column = metadataWidth - label - grid spacing - grid padding
+	labelWidth := int(80 * style.FontScale())
+	valueWidth := metadataWidth - labelWidth - style.DefaultSpacing - style.SmallSpacing*2
 
 	// Inner metadata container with fixed width
 	metadataContainer := widget.NewContainer(
@@ -330,6 +344,7 @@ func (s *DetailScreen) Build() *widget.Container {
 			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
 				HorizontalPosition: widget.AnchorLayoutPositionStart,
 				VerticalPosition:   widget.AnchorLayoutPositionStart,
+				StretchHorizontal:  true,
 			}),
 			widget.WidgetOpts.MinSize(metadataWidth, 0),
 		),
@@ -343,16 +358,16 @@ func (s *DetailScreen) Build() *widget.Container {
 	if s.game.Missing {
 		titleText = "[!] " + titleText
 	}
-	metadataContainer.AddChild(s.buildMetadataRow("Title", titleText, maxValueChars))
+	metadataContainer.AddChild(s.buildMetadataRow("Title", titleText, valueWidth))
 
 	if s.game.Name != "" && s.game.Name != s.game.DisplayName {
-		metadataContainer.AddChild(s.buildMetadataRow("Name", s.game.Name, maxValueChars))
+		metadataContainer.AddChild(s.buildMetadataRow("Name", s.game.Name, valueWidth))
 	}
 	region := strings.ToUpper(s.game.Region)
 	if region == "" {
 		region = "Unknown"
 	}
-	metadataContainer.AddChild(s.buildMetadataRow("Region", region, maxValueChars))
+	metadataContainer.AddChild(s.buildMetadataRow("Region", region, valueWidth))
 
 	// Production section
 	hasProduction := s.game.Developer != "" || s.game.Publisher != "" ||
@@ -361,35 +376,35 @@ func (s *DetailScreen) Build() *widget.Container {
 	if hasProduction {
 		metadataContainer.AddChild(s.buildSectionHeader("Production"))
 		if s.game.Developer != "" {
-			metadataContainer.AddChild(s.buildMetadataRow("Developer", s.game.Developer, maxValueChars))
+			metadataContainer.AddChild(s.buildMetadataRow("Developer", s.game.Developer, valueWidth))
 		}
 		if s.game.Publisher != "" {
-			metadataContainer.AddChild(s.buildMetadataRow("Publisher", s.game.Publisher, maxValueChars))
+			metadataContainer.AddChild(s.buildMetadataRow("Publisher", s.game.Publisher, valueWidth))
 		}
 		if s.game.Genre != "" {
-			metadataContainer.AddChild(s.buildMetadataRow("Genre", s.game.Genre, maxValueChars))
+			metadataContainer.AddChild(s.buildMetadataRow("Genre", s.game.Genre, valueWidth))
 		}
 		if s.game.Franchise != "" {
-			metadataContainer.AddChild(s.buildMetadataRow("Franchise", s.game.Franchise, maxValueChars))
+			metadataContainer.AddChild(s.buildMetadataRow("Franchise", s.game.Franchise, valueWidth))
 		}
 		if s.game.ReleaseDate != "" {
-			metadataContainer.AddChild(s.buildMetadataRow("Released", s.game.ReleaseDate, maxValueChars))
+			metadataContainer.AddChild(s.buildMetadataRow("Released", s.game.ReleaseDate, valueWidth))
 		}
 		if s.game.ESRBRating != "" {
-			metadataContainer.AddChild(s.buildMetadataRow("ESRB", s.game.ESRBRating, maxValueChars))
+			metadataContainer.AddChild(s.buildMetadataRow("ESRB", s.game.ESRBRating, valueWidth))
 		}
 	}
 
 	// Activity section
 	metadataContainer.AddChild(s.buildSectionHeader("Activity"))
-	metadataContainer.AddChild(s.buildMetadataRow("Play Time", style.FormatPlayTime(s.game.PlayTimeSeconds), maxValueChars))
-	metadataContainer.AddChild(s.buildMetadataRow("Last Played", style.FormatLastPlayed(s.game.LastPlayed), maxValueChars))
-	metadataContainer.AddChild(s.buildMetadataRow("Added", style.FormatDate(s.game.Added), maxValueChars))
+	metadataContainer.AddChild(s.buildMetadataRow("Play Time", style.FormatPlayTime(s.game.PlayTimeSeconds), valueWidth))
+	metadataContainer.AddChild(s.buildMetadataRow("Last Played", style.FormatLastPlayed(s.game.LastPlayed), valueWidth))
+	metadataContainer.AddChild(s.buildMetadataRow("Added", style.FormatDate(s.game.Added), valueWidth))
 
 	// Achievements section (only if logged in)
 	if s.achievementManager != nil && s.achievementManager.IsLoggedIn() {
 		metadataContainer.AddChild(s.buildSectionHeader("Achievements"))
-		metadataContainer.AddChild(s.buildAchievementSection(maxValueChars))
+		metadataContainer.AddChild(s.buildAchievementSection(valueWidth))
 	}
 
 	// Missing ROM warning
@@ -413,7 +428,25 @@ func (s *DetailScreen) Build() *widget.Container {
 
 	metadataOuter.AddChild(metadataContainer)
 	contentContainer.AddChild(metadataOuter)
-	rootContainer.AddChild(contentContainer)
+
+	// Wrap content in a scrollable container so metadata scrolls when window is small
+	scrollContent := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
+		)),
+	)
+	scrollContent.AddChild(contentContainer)
+
+	scrollContainer, vSlider, scrollWrapper := style.ScrollableContainer(style.ScrollableOpts{
+		Content: scrollContent,
+		BgColor: style.Background,
+		Spacing: style.TinySpacing,
+	})
+	s.SetScrollWidgets(scrollContainer, vSlider)
+	s.RestoreScrollPosition()
+
+	rootContainer.AddChild(scrollWrapper)
 
 	return rootContainer
 }
@@ -484,8 +517,8 @@ func (s *DetailScreen) buildSectionHeader(title string) *widget.Container {
 }
 
 // buildMetadataRow creates a metadata row with background, label on left, value on right
-// maxValueChars specifies the maximum characters for the value before truncation
-func (s *DetailScreen) buildMetadataRow(label, value string, maxValueChars int) *widget.Container {
+// valuePixelWidth specifies the maximum pixel width for the value before truncation
+func (s *DetailScreen) buildMetadataRow(label, value string, valuePixelWidth int) *widget.Container {
 	row := widget.NewContainer(
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Surface)),
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
@@ -499,20 +532,20 @@ func (s *DetailScreen) buildMetadataRow(label, value string, maxValueChars int) 
 		),
 	)
 
-	// Label (fixed width for alignment)
+	// Label (fixed width for alignment, scales with font size)
 	labelText := widget.NewText(
 		widget.TextOpts.Text(label, style.FontFace(), style.TextSecondary),
 		widget.TextOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
 				VerticalPosition: widget.GridLayoutPositionCenter,
 			}),
-			widget.WidgetOpts.MinSize(80, 0),
+			widget.WidgetOpts.MinSize(int(80*style.FontScale()), 0),
 		),
 	)
 	row.AddChild(labelText)
 
-	// Value (truncated if necessary)
-	displayValue, wasTruncated := style.TruncateEnd(value, maxValueChars)
+	// Value (truncated if necessary using pixel-based measurement)
+	displayValue, wasTruncated := style.TruncateToWidth(value, *style.FontFace(), float64(valuePixelWidth))
 
 	valueOpts := []widget.TextOpt{
 		widget.TextOpts.Text(displayValue, style.FontFace(), style.Text),
@@ -545,7 +578,7 @@ func (s *DetailScreen) buildMetadataRow(label, value string, maxValueChars int) 
 }
 
 // buildAchievementSection creates the achievements section content
-func (s *DetailScreen) buildAchievementSection(maxValueChars int) *widget.Container {
+func (s *DetailScreen) buildAchievementSection(valuePixelWidth int) *widget.Container {
 	container := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
@@ -564,22 +597,22 @@ func (s *DetailScreen) buildAchievementSection(maxValueChars int) *widget.Contai
 	s.achMu.Unlock()
 
 	if loading {
-		container.AddChild(s.buildMetadataRow("Status", "Loading...", maxValueChars))
+		container.AddChild(s.buildMetadataRow("Status", "Loading...", valuePixelWidth))
 		return container
 	}
 
 	if loadErr != nil {
-		container.AddChild(s.buildMetadataRow("Status", "Unable to load", maxValueChars))
+		container.AddChild(s.buildMetadataRow("Status", "Unable to load", valuePixelWidth))
 		return container
 	}
 
 	if !found {
-		container.AddChild(s.buildMetadataRow("Status", "Not found", maxValueChars))
+		container.AddChild(s.buildMetadataRow("Status", "Not found", valuePixelWidth))
 		return container
 	}
 
 	if progress == nil || progress.NumAchievements == 0 {
-		container.AddChild(s.buildMetadataRow("Status", "No achievements", maxValueChars))
+		container.AddChild(s.buildMetadataRow("Status", "No achievements", valuePixelWidth))
 		return container
 	}
 
@@ -590,7 +623,7 @@ func (s *DetailScreen) buildAchievementSection(maxValueChars int) *widget.Contai
 	}
 	progressText := fmt.Sprintf("%d / %d (%d%%)",
 		progress.NumUnlockedAchievements, progress.NumAchievements, pct)
-	container.AddChild(s.buildMetadataRow("Progress", progressText, maxValueChars))
+	container.AddChild(s.buildMetadataRow("Progress", progressText, valuePixelWidth))
 
 	return container
 }

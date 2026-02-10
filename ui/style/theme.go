@@ -10,7 +10,6 @@ import (
 	"github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
-	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/font/gofont/goregular"
 )
 
@@ -215,16 +214,42 @@ func ApplyThemeByName(name string) {
 	ApplyTheme(GetThemeByName(name))
 }
 
+// currentFontSize is the current font size in points (default 14)
+var currentFontSize float64 = 14
+
+// sharedFontSource is the cached TrueType font source shared by all font faces
+var sharedFontSource *text.GoTextFaceSource
+
 // fontFace is the cached font face
 var fontFace text.Face
 
 // largeFontFace is the cached large font face for achievements
 var largeFontFace *text.GoTextFace
 
+// loadFontSource loads the shared GoTextFaceSource from goregular.TTF (once)
+func loadFontSource() *text.GoTextFaceSource {
+	if sharedFontSource == nil {
+		source, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
+		if err != nil {
+			log.Printf("Failed to load font source: %v", err)
+			return nil
+		}
+		sharedFontSource = source
+	}
+	return sharedFontSource
+}
+
 // FontFace returns the font face to use for UI text
 func FontFace() *text.Face {
 	if fontFace == nil {
-		fontFace = text.NewGoXFace(basicfont.Face7x13)
+		source := loadFontSource()
+		if source == nil {
+			return &fontFace
+		}
+		fontFace = &text.GoTextFace{
+			Source: source,
+			Size:   currentFontSize,
+		}
 	}
 	return &fontFace
 }
@@ -232,17 +257,69 @@ func FontFace() *text.Face {
 // LargeFontFace returns a larger font face for prominent displays like achievements
 func LargeFontFace() *text.GoTextFace {
 	if largeFontFace == nil {
-		source, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
-		if err != nil {
-			log.Printf("Failed to load large font: %v", err)
+		source := loadFontSource()
+		if source == nil {
 			return nil
+		}
+		largeSize := currentFontSize * 2
+		if largeSize > 48 {
+			largeSize = 48
 		}
 		largeFontFace = &text.GoTextFace{
 			Source: source,
-			Size:   24,
+			Size:   largeSize,
 		}
 	}
 	return largeFontFace
+}
+
+// FontScale returns the current font scale factor relative to the base size (14pt).
+func FontScale() float64 {
+	return currentFontSize / 14.0
+}
+
+// ApplyFontSize sets the font size and recalculates all font-dependent layout values.
+func ApplyFontSize(size int) {
+	s := float64(size)
+	currentFontSize = s
+
+	// Replace font faces in-place rather than nil-ing them. Existing widgets hold
+	// &fontFace (a pointer to the package var), so setting fontFace = nil would cause
+	// widgets to see a nil face and crash before the UI rebuild completes.
+	source := loadFontSource()
+	if source != nil {
+		fontFace = &text.GoTextFace{
+			Source: source,
+			Size:   s,
+		}
+		largeSize := s * 2
+		if largeSize > 48 {
+			largeSize = 48
+		}
+		largeFontFace = &text.GoTextFace{
+			Source: source,
+			Size:   largeSize,
+		}
+	}
+
+	// Scale font-dependent layout constants
+	scale := s / 14.0
+	ListRowHeight = int(40 * scale)
+	ListHeaderHeight = int(38 * scale)
+	IconCardTextHeight = int(34 * scale)
+	// Badge and row use dampened scaling so they don't grow disproportionately
+	badgeScale := (1 + scale) / 2
+	AchievementRowHeight = int(92 * badgeScale)
+	AchievementBadgeSize = int(56 * badgeScale)
+	AchievementOverlayWidth = int(500 * scale)
+	AchievementOverlayPadding = int(16 * scale)
+	SettingsRowHeight = int(38 * scale)
+	EstimatedViewportHeight = int(400 * scale)
+	ListColGenre = int(100 * scale)
+	ListColRegion = int(50 * scale)
+	ListColPlayTime = int(80 * scale)
+	ListColLastPlayed = int(100 * scale)
+	ListColFavorite = int(24 * scale)
 }
 
 // ButtonImage creates a standard button image set

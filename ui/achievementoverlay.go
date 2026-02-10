@@ -28,13 +28,14 @@ type AchievementOverlay struct {
 	// Scroll state
 	scrollOffset float64
 	scrollMax    float64
-	itemHeight   int
 	visibleItems int
 
 	// Cached images
 	cache struct {
 		screenW, screenH   int
 		themeName          string
+		fontScale          float64
+		achCount           int
 		panelW, panelH     int
 		dimOverlay         *ebiten.Image
 		panelBg            *ebiten.Image
@@ -53,7 +54,6 @@ type AchievementOverlay struct {
 func NewAchievementOverlay(manager *achievements.Manager) *AchievementOverlay {
 	o := &AchievementOverlay{
 		manager:         manager,
-		itemHeight:      style.AchievementRowHeight,
 		badgesPending:   make(map[uint32]bool),
 		grayscaleBadges: make(map[uint32]*ebiten.Image),
 	}
@@ -228,8 +228,8 @@ func (o *AchievementOverlay) Update() {
 	}
 }
 
-// rebuildCache recreates cached images when screen dimensions change
-func (o *AchievementOverlay) rebuildCache(screenW, screenH int) {
+// rebuildCache recreates cached images when screen dimensions or content change
+func (o *AchievementOverlay) rebuildCache(screenW, screenH, achCount int) {
 	// Deallocate old images
 	if o.cache.dimOverlay != nil {
 		o.cache.dimOverlay.Deallocate()
@@ -251,6 +251,8 @@ func (o *AchievementOverlay) rebuildCache(screenW, screenH int) {
 	o.cache.screenW = screenW
 	o.cache.screenH = screenH
 	o.cache.themeName = style.CurrentThemeName
+	o.cache.fontScale = style.FontScale()
+	o.cache.achCount = achCount
 
 	// Create dim overlay
 	o.cache.dimOverlay = ebiten.NewImage(screenW, screenH)
@@ -258,12 +260,35 @@ func (o *AchievementOverlay) rebuildCache(screenW, screenH int) {
 	dimColor.A = 160
 	o.cache.dimOverlay.Fill(dimColor)
 
-	// Calculate panel dimensions (centered, fixed width)
+	// Calculate panel dimensions (centered, scaled width)
 	panelWidth := style.AchievementOverlayWidth
 	if panelWidth > screenW-40 {
 		panelWidth = screenW - 40
 	}
-	panelHeight := screenH * 70 / 100
+
+	padding := style.AchievementOverlayPadding
+
+	// Calculate header and footer heights from font measurements
+	_, fontH := text.Measure("M", *style.FontFace(), 0)
+	lineGap := int(fontH * 0.4)
+	// Reserve space for: title + spectator line + summary + separator gap
+	headerHeight := (int(fontH)+lineGap)*3 + lineGap
+	// Footer: gap + close hint text + bottom margin
+	footerHeight := lineGap + int(fontH) + lineGap
+
+	// Size panel to content: header + items + footer + padding
+	itemsHeight := achCount * style.AchievementRowHeight
+	if achCount == 0 {
+		// Reserve space for "not available" message
+		itemsHeight = int(fontH) + lineGap*2
+	}
+	panelHeight := padding*2 + headerHeight + itemsHeight + footerHeight
+
+	// Cap at 70% of screen height
+	maxHeight := screenH * 70 / 100
+	if panelHeight > maxHeight {
+		panelHeight = maxHeight
+	}
 	if panelHeight < 200 {
 		panelHeight = 200
 	}
@@ -271,10 +296,9 @@ func (o *AchievementOverlay) rebuildCache(screenW, screenH int) {
 	o.cache.panelW = panelWidth
 	o.cache.panelH = panelHeight
 
-	// Calculate visible items
-	headerHeight := 80 // Space for title and summary
-	contentHeight := panelHeight - headerHeight - style.AchievementOverlayPadding*2
-	o.visibleItems = contentHeight / o.itemHeight
+	// Calculate visible items from available content space
+	contentHeight := panelHeight - padding*2 - headerHeight - footerHeight
+	o.visibleItems = contentHeight / style.AchievementRowHeight
 	if o.visibleItems < 1 {
 		o.visibleItems = 1
 	}
@@ -305,9 +329,10 @@ func (o *AchievementOverlay) Draw(screen *ebiten.Image) {
 	screenW := bounds.Dx()
 	screenH := bounds.Dy()
 
-	// Rebuild cache if screen dimensions or theme changed
-	if o.cache.screenW != screenW || o.cache.screenH != screenH || o.cache.themeName != style.CurrentThemeName {
-		o.rebuildCache(screenW, screenH)
+	// Rebuild cache if screen dimensions, theme, font size, or achievement count changed
+	achCount := len(o.getAchievements())
+	if o.cache.screenW != screenW || o.cache.screenH != screenH || o.cache.themeName != style.CurrentThemeName || o.cache.fontScale != style.FontScale() || o.cache.achCount != achCount {
+		o.rebuildCache(screenW, screenH, achCount)
 	}
 
 	// Draw dim overlay
@@ -324,8 +349,11 @@ func (o *AchievementOverlay) Draw(screen *ebiten.Image) {
 
 	padding := style.AchievementOverlayPadding
 	contentX := panelX + padding
-	contentY := panelY + padding
 	contentW := o.cache.panelW - padding*2
+
+	// Font measurements for layout
+	_, fontH := text.Measure("M", *style.FontFace(), 0)
+	lineGap := int(fontH * 0.4)
 
 	// Get data from manager's cache
 	achievements := o.getAchievements()
@@ -337,26 +365,30 @@ func (o *AchievementOverlay) Draw(screen *ebiten.Image) {
 		title = gameTitle
 	}
 
+	// Truncate title if wider than content area
+	titleW, _ := text.Measure(title, *style.FontFace(), 0)
+	if titleW > float64(contentW) {
+		title, _ = style.TruncateToWidth(title, *style.FontFace(), float64(contentW))
+	}
+
+	curY := panelY + padding
+
 	o.textOpts = text.DrawOptions{}
-	o.textOpts.GeoM.Translate(float64(contentX+contentW/2), float64(contentY+10))
+	o.textOpts.GeoM.Translate(float64(contentX+contentW/2), float64(curY))
 	o.textOpts.PrimaryAlign = text.AlignCenter
 	o.textOpts.ColorScale.ScaleWithColor(style.Text)
 	text.Draw(screen, title, *style.FontFace(), &o.textOpts)
+	curY += int(fontH) + lineGap
 
 	// Draw spectator mode indicator if enabled
 	spectatorMode := o.manager.IsSpectatorMode()
 	if spectatorMode {
 		o.textOpts = text.DrawOptions{}
-		o.textOpts.GeoM.Translate(float64(contentX+contentW/2), float64(contentY+28))
+		o.textOpts.GeoM.Translate(float64(contentX+contentW/2), float64(curY))
 		o.textOpts.PrimaryAlign = text.AlignCenter
 		o.textOpts.ColorScale.ScaleWithColor(style.Accent)
 		text.Draw(screen, "[SPECTATOR MODE]", *style.FontFace(), &o.textOpts)
-	}
-
-	// Calculate vertical offset for content below title (accounts for spectator mode banner)
-	headerOffset := 0
-	if spectatorMode {
-		headerOffset = 18
+		curY += int(fontH) + lineGap
 	}
 
 	// Draw summary
@@ -369,21 +401,28 @@ func (o *AchievementOverlay) Draw(screen *ebiten.Image) {
 		summaryText := fmt.Sprintf("Progress: %d/%d (%d%%)    Points: %d/%d",
 			numUnlocked, numTotal, pct, pointsUnlocked, pointsTotal)
 
+		// Truncate summary if wider than content area
+		summaryW, _ := text.Measure(summaryText, *style.FontFace(), 0)
+		if summaryW > float64(contentW) {
+			summaryText, _ = style.TruncateToWidth(summaryText, *style.FontFace(), float64(contentW))
+		}
+
 		o.textOpts = text.DrawOptions{}
-		o.textOpts.GeoM.Translate(float64(contentX+contentW/2), float64(contentY+35+headerOffset))
+		o.textOpts.GeoM.Translate(float64(contentX+contentW/2), float64(curY))
 		o.textOpts.PrimaryAlign = text.AlignCenter
 		o.textOpts.ColorScale.ScaleWithColor(style.TextSecondary)
 		text.Draw(screen, summaryText, *style.FontFace(), &o.textOpts)
+		curY += int(fontH) + lineGap
 	}
 
 	// Draw separator line
-	separatorY := contentY + 55 + headerOffset
 	for x := contentX; x < contentX+contentW; x++ {
-		screen.Set(x, separatorY, style.Border)
+		screen.Set(x, curY, style.Border)
 	}
+	curY += lineGap
 
 	// Draw achievement list or "not available" message
-	listY := separatorY + 10
+	listY := curY
 
 	if len(achievements) == 0 {
 		// Show message when no achievements are available
@@ -402,10 +441,10 @@ func (o *AchievementOverlay) Draw(screen *ebiten.Image) {
 
 		for i := startIdx; i < endIdx; i++ {
 			ach := achievements[i]
-			rowY := listY + (i-startIdx)*o.itemHeight
+			rowY := listY + (i-startIdx)*style.AchievementRowHeight
 
 			// Skip if row would be below panel
-			if rowY+o.itemHeight > panelY+o.cache.panelH-padding {
+			if rowY+style.AchievementRowHeight > panelY+o.cache.panelH-padding {
 				break
 			}
 
@@ -414,7 +453,7 @@ func (o *AchievementOverlay) Draw(screen *ebiten.Image) {
 	}
 
 	// Draw close hint at bottom
-	hintY := panelY + o.cache.panelH - padding - 5
+	hintY := panelY + o.cache.panelH - padding - int(fontH)
 	o.textOpts = text.DrawOptions{}
 	o.textOpts.GeoM.Translate(float64(contentX+contentW/2), float64(hintY))
 	o.textOpts.PrimaryAlign = text.AlignCenter
@@ -429,16 +468,28 @@ func (o *AchievementOverlay) drawAchievementRow(screen *ebiten.Image, ach *rchee
 	}
 
 	isUnlocked := ach.Unlocked != rcheevos.AchievementUnlockedNone
-	badgeSize := 48
-	textX := x + badgeSize + 10 // Badge + padding
-	textWidth := width - badgeSize - 20
+	badgeSize := style.AchievementBadgeSize
 
-	// Draw row background (same for locked and unlocked) - use cached image
+	// Font measurements for row layout
+	_, fontH := text.Measure("M", *style.FontFace(), 0)
+	rowPad := int(fontH * 0.3)
+	rowBgHeight := style.AchievementRowHeight - style.AchievementRowSpacing
+
+	// Text area starts after badge + padding
+	textX := x + rowPad + badgeSize + rowPad
+	// Points text width for title truncation
+	pointsText := fmt.Sprintf("%d pts", ach.Points)
+	pointsW, _ := text.Measure(pointsText, *style.FontFace(), 0)
+	// Description gets full text width, title reserves space for points
+	descWidth := float64(x+width-rowPad) - float64(textX)
+	titleWidth := descWidth - pointsW - float64(rowPad)
+
+	// Draw row background - use cached image
 	if o.cache.rowBg == nil || o.cache.rowBgWidth != width {
 		if o.cache.rowBg != nil {
 			o.cache.rowBg.Deallocate()
 		}
-		o.cache.rowBg = ebiten.NewImage(width, o.itemHeight-4)
+		o.cache.rowBg = ebiten.NewImage(width, rowBgHeight)
 		o.cache.rowBg.Fill(style.Background)
 		o.cache.rowBgWidth = width
 	}
@@ -447,38 +498,42 @@ func (o *AchievementOverlay) drawAchievementRow(screen *ebiten.Image, ach *rchee
 	o.drawOpts.GeoM.Translate(float64(x), float64(y))
 	screen.DrawImage(o.cache.rowBg, &o.drawOpts)
 
-	// Draw badge
-	o.drawBadge(screen, ach, x+5, y+2, badgeSize)
+	// Draw badge - vertically centered in row
+	badgeY := y + (rowBgHeight-badgeSize)/2
+	o.drawBadge(screen, ach, x+rowPad, badgeY, badgeSize)
 
 	// Title - unlocked uses primary text, locked uses secondary
 	titleColor := style.Text
 	if !isUnlocked {
 		titleColor = style.TextSecondary
 	}
+	titleText, _ := style.TruncateToWidth(ach.Title, *style.FontFace(), titleWidth)
+
+	// Vertically center the text block (title + gap + description) within the row
+	textGap := rowPad / 2
+	textBlockH := int(fontH)*2 + textGap
+	titleY := y + (rowBgHeight-textBlockH)/2
+
 	o.textOpts = text.DrawOptions{}
-	o.textOpts.GeoM.Translate(float64(textX), float64(y+5))
+	o.textOpts.GeoM.Translate(float64(textX), float64(titleY))
 	o.textOpts.ColorScale.ScaleWithColor(titleColor)
-	text.Draw(screen, ach.Title, *style.FontFace(), &o.textOpts)
+	text.Draw(screen, titleText, *style.FontFace(), &o.textOpts)
 
 	// Description (truncate if needed)
-	desc := ach.Description
-	maxDescLen := textWidth / 8
-	if len(desc) > maxDescLen && maxDescLen > 3 {
-		desc = desc[:maxDescLen-3] + "..."
-	}
+	desc, _ := style.TruncateToWidth(ach.Description, *style.FontFace(), descWidth)
+	descY := titleY + int(fontH) + textGap
 	o.textOpts = text.DrawOptions{}
-	o.textOpts.GeoM.Translate(float64(textX), float64(y+25))
+	o.textOpts.GeoM.Translate(float64(textX), float64(descY))
 	o.textOpts.ColorScale.ScaleWithColor(style.TextSecondary)
 	text.Draw(screen, desc, *style.FontFace(), &o.textOpts)
 
-	// Points (right-aligned) - use primary color for unlocked, secondary for locked
-	pointsText := fmt.Sprintf("%d pts", ach.Points)
+	// Points (right-aligned) - same Y as title
 	pointsColor := style.TextSecondary
 	if isUnlocked {
 		pointsColor = style.Primary
 	}
 	o.textOpts = text.DrawOptions{}
-	o.textOpts.GeoM.Translate(float64(x+width-10), float64(y+15))
+	o.textOpts.GeoM.Translate(float64(x+width-rowPad), float64(titleY))
 	o.textOpts.PrimaryAlign = text.AlignEnd
 	o.textOpts.ColorScale.ScaleWithColor(pointsColor)
 	text.Draw(screen, pointsText, *style.FontFace(), &o.textOpts)

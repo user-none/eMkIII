@@ -130,7 +130,7 @@ func (s *SearchOverlay) Draw(screen *ebiten.Image) {
 
 	// Draw text
 	textOpts := &text.DrawOptions{}
-	textOpts.GeoM.Translate(float64(bgX+padding), float64(bgY+padding+int(textHeight)))
+	textOpts.GeoM.Translate(float64(bgX+padding), float64(bgY+padding))
 	textOpts.ColorScale.ScaleWithColor(style.Text)
 	text.Draw(screen, displayText, *style.FontFace(), textOpts)
 }

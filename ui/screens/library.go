@@ -309,6 +309,83 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 	selectedIndex := -1
 
+	// Compute responsive column widths based on available window width
+	windowWidth := s.callback.GetWindowWidth()
+	if windowWidth < 400 {
+		windowWidth = style.IconDefaultWindowWidth
+	}
+
+	// Available width for the list content (subtract screen padding, scrollbar, and spacing)
+	availableWidth := windowWidth - style.DefaultPadding*2 - style.ScrollbarWidth - style.TinySpacing
+
+	// Grid overhead: 5 column gaps + left/right padding inside the grid
+	gridOverhead := 5*style.SmallSpacing + 2*style.SmallSpacing
+
+	// Preferred fixed column widths (from scaled constants)
+	prefFav := style.ListColFavorite
+	prefGenre := style.ListColGenre
+	prefRegion := style.ListColRegion
+	prefPlayTime := style.ListColPlayTime
+	prefLastPlayed := style.ListColLastPlayed
+	totalFixed := prefFav + prefGenre + prefRegion + prefPlayTime + prefLastPlayed
+
+	// Minimum title width to keep usable
+	minTitleWidth := 150
+
+	// Compute actual column widths, shrinking if needed
+	favW := prefFav
+	genreW := prefGenre
+	regionW := prefRegion
+	playTimeW := prefPlayTime
+	lastPlayedW := prefLastPlayed
+
+	maxFixed := availableWidth - gridOverhead - minTitleWidth
+	if totalFixed > maxFixed && maxFixed > 0 {
+		// Compute minimum widths from header text measurement + padding
+		minGenre := int(style.MeasureWidth("Genre")) + style.SmallSpacing
+		minRegion := int(style.MeasureWidth("Region")) + style.SmallSpacing
+		minPlayTime := int(style.MeasureWidth("Play Time")) + style.SmallSpacing
+		minLastPlayed := int(style.MeasureWidth("Last Played")) + style.SmallSpacing
+		minFav := prefFav // Favorite column has no text header, keep as-is
+
+		// Proportionally shrink each column, floored at minimum
+		shrinkGenre := prefGenre * maxFixed / totalFixed
+		if shrinkGenre < minGenre {
+			shrinkGenre = minGenre
+		}
+		shrinkRegion := prefRegion * maxFixed / totalFixed
+		if shrinkRegion < minRegion {
+			shrinkRegion = minRegion
+		}
+		shrinkPlayTime := prefPlayTime * maxFixed / totalFixed
+		if shrinkPlayTime < minPlayTime {
+			shrinkPlayTime = minPlayTime
+		}
+		shrinkLastPlayed := prefLastPlayed * maxFixed / totalFixed
+		if shrinkLastPlayed < minLastPlayed {
+			shrinkLastPlayed = minLastPlayed
+		}
+		shrinkFav := prefFav * maxFixed / totalFixed
+		if shrinkFav < minFav {
+			shrinkFav = minFav
+		}
+
+		favW = shrinkFav
+		genreW = shrinkGenre
+		regionW = shrinkRegion
+		playTimeW = shrinkPlayTime
+		lastPlayedW = shrinkLastPlayed
+	}
+
+	// Compute actual title width for truncation
+	actualFixed := favW + genreW + regionW + playTimeW + lastPlayedW
+	titleWidth := availableWidth - gridOverhead - actualFixed
+	if titleWidth < minTitleWidth {
+		titleWidth = minTitleWidth
+	}
+
+	fontFace := *style.FontFace()
+
 	// Build header row
 	header := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
@@ -322,12 +399,12 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 		),
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Surface)),
 	)
-	header.AddChild(style.TableHeaderCell("", style.ListColFavorite, style.ListHeaderHeight)) // Favorite column (no header text)
-	header.AddChild(style.TableHeaderCell("Title", 0, style.ListHeaderHeight))                // Title stretches
-	header.AddChild(style.TableHeaderCell("Genre", style.ListColGenre, style.ListHeaderHeight))
-	header.AddChild(style.TableHeaderCell("Region", style.ListColRegion, style.ListHeaderHeight))
-	header.AddChild(style.TableHeaderCell("Play Time", style.ListColPlayTime, style.ListHeaderHeight))
-	header.AddChild(style.TableHeaderCell("Last Played", style.ListColLastPlayed, style.ListHeaderHeight))
+	header.AddChild(style.TableHeaderCell("", favW, style.ListHeaderHeight))
+	header.AddChild(style.TableHeaderCell("Title", 0, style.ListHeaderHeight))
+	header.AddChild(style.TableHeaderCell("Genre", genreW, style.ListHeaderHeight))
+	header.AddChild(style.TableHeaderCell("Region", regionW, style.ListHeaderHeight))
+	header.AddChild(style.TableHeaderCell("Play Time", playTimeW, style.ListHeaderHeight))
+	header.AddChild(style.TableHeaderCell("Last Played", lastPlayedW, style.ListHeaderHeight))
 
 	// Create vertical container for all game rows
 	listContent := widget.NewContainer(
@@ -379,13 +456,20 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 			),
 		)
 
+		// Truncate cell content to fit computed column widths
+		displayName, _ := style.TruncateToWidth(g.DisplayName, fontFace, float64(titleWidth))
+		truncGenre, _ := style.TruncateToWidth(genre, fontFace, float64(genreW))
+		truncRegion, _ := style.TruncateToWidth(region, fontFace, float64(regionW))
+		truncPlayTime, _ := style.TruncateToWidth(playTime, fontFace, float64(playTimeW))
+		truncLastPlayed, _ := style.TruncateToWidth(lastPlayed, fontFace, float64(lastPlayedW))
+
 		// Add cells
-		row.AddChild(style.TableCell(fav, style.ListColFavorite, style.ListRowHeight, style.Accent))
-		row.AddChild(style.TableCell(g.DisplayName, 0, style.ListRowHeight, style.Text))
-		row.AddChild(style.TableCell(genre, style.ListColGenre, style.ListRowHeight, style.TextSecondary))
-		row.AddChild(style.TableCell(region, style.ListColRegion, style.ListRowHeight, style.TextSecondary))
-		row.AddChild(style.TableCell(playTime, style.ListColPlayTime, style.ListRowHeight, style.TextSecondary))
-		row.AddChild(style.TableCell(lastPlayed, style.ListColLastPlayed, style.ListRowHeight, style.TextSecondary))
+		row.AddChild(style.TableCell(fav, favW, style.ListRowHeight, style.Accent))
+		row.AddChild(style.TableCell(displayName, 0, style.ListRowHeight, style.Text))
+		row.AddChild(style.TableCell(truncGenre, genreW, style.ListRowHeight, style.TextSecondary))
+		row.AddChild(style.TableCell(truncRegion, regionW, style.ListRowHeight, style.TextSecondary))
+		row.AddChild(style.TableCell(truncPlayTime, playTimeW, style.ListRowHeight, style.TextSecondary))
+		row.AddChild(style.TableCell(truncLastPlayed, lastPlayedW, style.ListRowHeight, style.TextSecondary))
 
 		// Create button with alternating row color as idle, focus/hover colors for interaction
 		gameCRC := g.CRC32 // Capture for closure
@@ -622,12 +706,8 @@ func (s *LibraryScreen) buildGameCardSized(game *storage.GameEntry, cardWidth, c
 
 	cardContent.AddChild(artButton)
 
-	// Game title (truncated based on card width)
-	maxChars := cardWidth / 7 // Approximate chars that fit
-	if maxChars < 10 {
-		maxChars = 10
-	}
-	displayName, _ := style.TruncateEnd(game.DisplayName, maxChars)
+	// Game title (truncated based on card pixel width)
+	displayName, _ := style.TruncateToWidth(game.DisplayName, *style.FontFace(), float64(cardWidth-4))
 	titleLabel := widget.NewText(
 		widget.TextOpts.Text(displayName, style.FontFace(), style.Text),
 		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionStart),

@@ -140,10 +140,49 @@ func (v *VideoSection) buildShadersList(focus types.FocusManager) widget.Preferr
 	return scrollWrapper
 }
 
+// maxShaderLabelWidth calculates the maximum pixel width for text labels in shader rows,
+// based on the current window width and font-dependent sidebar size.
+func (v *VideoSection) maxShaderLabelWidth() float64 {
+	windowWidth := v.callback.GetWindowWidth()
+	if windowWidth == 0 {
+		windowWidth = 1100
+	}
+
+	// Estimate sidebar width: max of min size or measured widest label + padding
+	sidebarWidth := style.SettingsSidebarMinWidth
+	measuredSidebar := int(style.MeasureWidth("Achievements")) +
+		style.SmallSpacing*2 + style.ButtonPaddingSmall*2
+	if measuredSidebar > sidebarWidth {
+		sidebarWidth = measuredSidebar
+	}
+
+	// Measure button column widths
+	uiBtnW := int(style.MeasureWidth("UI")) + style.ButtonPaddingSmall*2
+	gameBtnW := int(style.MeasureWidth("Game")) + style.ButtonPaddingSmall*2
+
+	// Layout overhead: root padding + sidebar + main spacing + content area padding +
+	// scroll wrapper padding + scrollbar + 2 grid spacings + UI button + Game button
+	overhead := style.DefaultPadding*2 + sidebarWidth + style.DefaultSpacing +
+		style.DefaultPadding*2 + style.SmallSpacing*2 + style.ScrollbarWidth +
+		style.DefaultSpacing*2 + uiBtnW + gameBtnW
+
+	available := windowWidth - overhead
+	if available < 150 {
+		available = 150
+	}
+	return float64(available)
+}
+
 // buildShaderRow creates a row for a single shader with UI and Game toggle buttons
 func (v *VideoSection) buildShaderRow(info shader.ShaderInfo, focus types.FocusManager) *widget.Container {
 	uiEnabled := v.isShaderEnabledForUI(info.ID)
 	gameEnabled := v.isShaderEnabledForGame(info.ID)
+
+	// Truncate text to prevent pushing buttons off-screen at large font sizes
+	maxW := v.maxShaderLabelWidth()
+	face := *style.FontFace()
+	displayName, _ := style.TruncateToWidth(info.Name, face, maxW)
+	displayDesc, _ := style.TruncateToWidth(info.Description, face, maxW)
 
 	// Use grid layout: [Info (stretch)] [UI toggle] [Game toggle]
 	row := widget.NewContainer(
@@ -166,12 +205,12 @@ func (v *VideoSection) buildShaderRow(info shader.ShaderInfo, focus types.FocusM
 	)
 
 	nameLabel := widget.NewText(
-		widget.TextOpts.Text(info.Name, style.FontFace(), style.Text),
+		widget.TextOpts.Text(displayName, style.FontFace(), style.Text),
 	)
 	infoContainer.AddChild(nameLabel)
 
 	descLabel := widget.NewText(
-		widget.TextOpts.Text(info.Description, style.FontFace(), style.TextSecondary),
+		widget.TextOpts.Text(displayDesc, style.FontFace(), style.TextSecondary),
 	)
 	infoContainer.AddChild(descLabel)
 

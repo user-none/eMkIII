@@ -3,7 +3,8 @@ package storage
 // Config represents the application configuration stored in config.json
 type Config struct {
 	Version           int                     `json:"version"`
-	Theme             string                  `json:"theme"` // Theme name: "Default", "Dark", "Light", "Retro"
+	Theme             string                  `json:"theme"`    // Theme name: "Default", "Dark", "Light", "Retro"
+	FontSize          int                     `json:"fontSize"` // 10-32, default 14
 	Video             VideoConfig             `json:"video"`
 	Audio             AudioConfig             `json:"audio"`
 	Window            WindowConfig            `json:"window"`
@@ -107,11 +108,33 @@ type GameSettings struct {
 	SaveSlot       int    `json:"saveSlot,omitempty"`       // Last-used save state slot (0-9)
 }
 
+// FontSizePresets lists the available font size options
+var FontSizePresets = []int{10, 12, 14, 16, 18, 20, 24, 28, 32}
+
+// ValidFontSize returns the nearest valid preset font size.
+func ValidFontSize(size int) int {
+	best := FontSizePresets[0]
+	for _, p := range FontSizePresets {
+		if abs(p-size) < abs(best-size) {
+			best = p
+		}
+	}
+	return best
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 // DefaultConfig returns a new Config with default values
 func DefaultConfig() *Config {
 	return &Config{
-		Version: 1,
-		Theme:   "Default",
+		Version:  1,
+		Theme:    "Default",
+		FontSize: 14,
 		Video: VideoConfig{
 			CropBorder: false,
 		},

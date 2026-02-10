@@ -7,8 +7,10 @@ import (
 	goimage "image"
 	"image/draw"
 	"time"
+	"unicode/utf8"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	xdraw "golang.org/x/image/draw"
 )
 
@@ -72,6 +74,70 @@ func TruncateEnd(s string, maxLen int) (string, bool) {
 		return s[:maxLen], true
 	}
 	return s[:maxLen-3] + "...", true
+}
+
+// MeasureWidth returns the pixel width of s rendered at the current font size.
+func MeasureWidth(s string) float64 {
+	w, _ := text.Measure(s, *FontFace(), 0)
+	return w
+}
+
+// TruncateToWidth truncates a string to fit within a given pixel width using actual font measurement.
+// Returns the truncated string (with "..." suffix if truncated) and whether truncation occurred.
+// Uses binary search on rune boundaries for efficiency with proportional fonts.
+func TruncateToWidth(s string, face text.Face, maxWidth float64) (string, bool) {
+	if s == "" {
+		return s, false
+	}
+	w, _ := text.Measure(s, face, 0)
+	if w <= maxWidth {
+		return s, false
+	}
+
+	ellipsis := "..."
+	ellipsisW, _ := text.Measure(ellipsis, face, 0)
+	if ellipsisW > maxWidth {
+		return ellipsis, true
+	}
+
+	// Count runes for binary search bounds
+	runeCount := utf8.RuneCountInString(s)
+
+	// Binary search for the largest rune prefix that fits with ellipsis
+	lo, hi := 0, runeCount
+	best := 0
+
+	for lo <= hi {
+		mid := (lo + hi) / 2
+		// Extract first mid runes
+		prefix := truncateRunes(s, mid)
+		candidate := prefix + ellipsis
+		cw, _ := text.Measure(candidate, face, 0)
+		if cw <= maxWidth {
+			best = mid
+			lo = mid + 1
+		} else {
+			hi = mid - 1
+		}
+	}
+
+	if best == 0 {
+		return ellipsis, true
+	}
+	return truncateRunes(s, best) + ellipsis, true
+}
+
+// truncateRunes returns the first n runes of s as a string.
+func truncateRunes(s string, n int) string {
+	i := 0
+	for j := 0; j < n; j++ {
+		_, size := utf8.DecodeRuneInString(s[i:])
+		if size == 0 {
+			break
+		}
+		i += size
+	}
+	return s[:i]
 }
 
 // FormatPlayTime formats a duration in seconds into a human-readable string.

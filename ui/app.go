@@ -158,6 +158,9 @@ func NewApp() (*App, error) {
 	}
 	style.ApplyThemeByName(app.config.Theme)
 
+	// Apply font size
+	style.ApplyFontSize(storage.ValidFontSize(app.config.FontSize))
+
 	// Load library
 	library, err := storage.LoadLibrary()
 	if err != nil {
@@ -324,11 +327,19 @@ func (a *App) Update() error {
 	}
 
 	// Check for window resize that needs UI rebuild (for responsive layouts)
-	// Rebuild when width changes in icon mode (or if never built with real width)
-	if a.state == StateLibrary && a.config.Library.ViewMode == "icon" {
-		if a.windowWidth > 0 && a.windowWidth != a.lastBuildWidth {
-			a.rebuildCurrentScreen()
-		}
+	// Rebuild when width changes for screens with responsive layout
+	needsResizeRebuild := false
+	if a.state == StateLibrary {
+		needsResizeRebuild = true
+	}
+	if a.state == StateDetail {
+		needsResizeRebuild = true
+	}
+	if a.state == StateSettings {
+		needsResizeRebuild = true
+	}
+	if needsResizeRebuild && a.windowWidth > 0 && a.windowWidth != a.lastBuildWidth {
+		a.rebuildCurrentScreen()
 	}
 
 	switch a.state {

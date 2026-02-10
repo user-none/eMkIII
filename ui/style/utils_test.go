@@ -4,6 +4,8 @@ package style
 
 import (
 	"testing"
+
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
 func TestTruncateStart(t *testing.T) {
@@ -135,6 +137,160 @@ func TestFormatLastPlayed(t *testing.T) {
 		got := FormatLastPlayed(1609459200)
 		if got == "Never" || got == "Today" || got == "Yesterday" {
 			t.Errorf("FormatLastPlayed(1609459200) = %q, expected a date with year", got)
+		}
+	})
+}
+
+func TestApplyFontSize(t *testing.T) {
+	// Save original values
+	origListRowHeight := ListRowHeight
+	origAchievementRowHeight := AchievementRowHeight
+	origAchievementBadgeSize := AchievementBadgeSize
+	origAchievementOverlayWidth := AchievementOverlayWidth
+	origAchievementOverlayPadding := AchievementOverlayPadding
+
+	// Restore after test
+	defer func() {
+		ApplyFontSize(14)
+		// Verify restore
+		if ListRowHeight != origListRowHeight {
+			t.Errorf("failed to restore ListRowHeight")
+		}
+	}()
+
+	// Apply at default 14pt - values should match defaults
+	ApplyFontSize(14)
+	if ListRowHeight != 40 {
+		t.Errorf("at 14pt, ListRowHeight = %d, want 40", ListRowHeight)
+	}
+	if AchievementRowHeight != 92 {
+		t.Errorf("at 14pt, AchievementRowHeight = %d, want 92", AchievementRowHeight)
+	}
+
+	// Apply at 28pt (2x scale)
+	ApplyFontSize(28)
+	if ListRowHeight != 80 {
+		t.Errorf("at 28pt, ListRowHeight = %d, want 80", ListRowHeight)
+	}
+	if ListHeaderHeight != 76 {
+		t.Errorf("at 28pt, ListHeaderHeight = %d, want 76", ListHeaderHeight)
+	}
+	if AchievementRowHeight != 138 {
+		t.Errorf("at 28pt, AchievementRowHeight = %d, want 138", AchievementRowHeight)
+	}
+	if AchievementBadgeSize != 84 {
+		t.Errorf("at 28pt, AchievementBadgeSize = %d, want 84", AchievementBadgeSize)
+	}
+	if AchievementOverlayWidth != 1000 {
+		t.Errorf("at 28pt, AchievementOverlayWidth = %d, want 1000", AchievementOverlayWidth)
+	}
+	if AchievementOverlayPadding != 32 {
+		t.Errorf("at 28pt, AchievementOverlayPadding = %d, want 32", AchievementOverlayPadding)
+	}
+
+	// Apply at 10pt (scale = 10/14 ≈ 0.714)
+	ApplyFontSize(10)
+	// 40 * 10 / 14 = 28.57 -> int truncates to 28
+	if ListRowHeight != 28 {
+		t.Errorf("at 10pt, ListRowHeight = %d, want 28", ListRowHeight)
+	}
+
+	// Restore to 14
+	ApplyFontSize(14)
+	if ListRowHeight != origListRowHeight {
+		t.Errorf("after restore, ListRowHeight = %d, want %d", ListRowHeight, origListRowHeight)
+	}
+	if AchievementRowHeight != origAchievementRowHeight {
+		t.Errorf("after restore, AchievementRowHeight = %d, want %d", AchievementRowHeight, origAchievementRowHeight)
+	}
+	if AchievementBadgeSize != origAchievementBadgeSize {
+		t.Errorf("after restore, AchievementBadgeSize = %d, want %d", AchievementBadgeSize, origAchievementBadgeSize)
+	}
+	if AchievementOverlayWidth != origAchievementOverlayWidth {
+		t.Errorf("after restore, AchievementOverlayWidth = %d, want %d", AchievementOverlayWidth, origAchievementOverlayWidth)
+	}
+	if AchievementOverlayPadding != origAchievementOverlayPadding {
+		t.Errorf("after restore, AchievementOverlayPadding = %d, want %d", AchievementOverlayPadding, origAchievementOverlayPadding)
+	}
+}
+
+func TestFontScale(t *testing.T) {
+	defer ApplyFontSize(14) // Restore
+
+	ApplyFontSize(14)
+	if FontScale() != 1.0 {
+		t.Errorf("at 14pt, FontScale() = %f, want 1.0", FontScale())
+	}
+
+	ApplyFontSize(28)
+	if FontScale() != 2.0 {
+		t.Errorf("at 28pt, FontScale() = %f, want 2.0", FontScale())
+	}
+
+	ApplyFontSize(7)
+	if FontScale() != 0.5 {
+		t.Errorf("at 7pt, FontScale() = %f, want 0.5", FontScale())
+	}
+}
+
+func TestTruncateToWidth(t *testing.T) {
+	// Initialize font face for testing
+	face := FontFace()
+	if face == nil || *face == nil {
+		t.Fatal("FontFace() returned nil")
+	}
+
+	t.Run("string that fits returns unchanged", func(t *testing.T) {
+		got, truncated := TruncateToWidth("Hi", *face, 500)
+		if truncated {
+			t.Errorf("expected no truncation for short string, got truncated=%v result=%q", truncated, got)
+		}
+		if got != "Hi" {
+			t.Errorf("expected %q, got %q", "Hi", got)
+		}
+	})
+
+	t.Run("long string is truncated with ellipsis", func(t *testing.T) {
+		long := "Sonic The Hedgehog (USA, Europe, Brazil) (En,Fr,De,Es,It,Pt)"
+		got, truncated := TruncateToWidth(long, *face, 200)
+		if !truncated {
+			t.Error("expected truncation for long string")
+		}
+		if len(got) < 4 {
+			t.Errorf("truncated result too short: %q", got)
+		}
+		// Must end with ellipsis
+		if got[len(got)-3:] != "..." {
+			t.Errorf("expected ellipsis suffix, got %q", got)
+		}
+		// Must be shorter than original
+		if len(got) >= len(long) {
+			t.Errorf("truncated result should be shorter than original: %q vs %q", got, long)
+		}
+		// Verify it actually fits
+		w, _ := text.Measure(got, *face, 0)
+		if w > 200 {
+			t.Errorf("truncated string width %.1f exceeds max 200", w)
+		}
+	})
+
+	t.Run("empty string returns empty", func(t *testing.T) {
+		got, truncated := TruncateToWidth("", *face, 100)
+		if truncated {
+			t.Error("expected no truncation for empty string")
+		}
+		if got != "" {
+			t.Errorf("expected empty string, got %q", got)
+		}
+	})
+
+	t.Run("very narrow width returns ellipsis", func(t *testing.T) {
+		got, truncated := TruncateToWidth("Hello World", *face, 5)
+		if !truncated {
+			t.Error("expected truncation for very narrow width")
+		}
+		if got != "..." {
+			t.Errorf("expected %q for very narrow width, got %q", "...", got)
 		}
 	})
 }

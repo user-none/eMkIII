@@ -225,18 +225,18 @@ func (m *PauseMenu) rebuildCache(screenW, screenH int) {
 	if panelWidth < 150 {
 		panelWidth = 150
 	}
-	if panelWidth > 300 {
-		panelWidth = 300
+	if panelWidth > 350 {
+		panelWidth = 350
 	}
 
 	// Calculate button dimensions
 	buttonWidth := panelWidth * 80 / 100
 	buttonHeight := screenH * 8 / 100
-	if buttonHeight < 30 {
-		buttonHeight = 30
+	if buttonHeight < 40 {
+		buttonHeight = 40
 	}
-	if buttonHeight > 50 {
-		buttonHeight = 50
+	if buttonHeight > 60 {
+		buttonHeight = 60
 	}
 
 	buttonSpacing := buttonHeight / 4

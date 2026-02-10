@@ -48,24 +48,20 @@ func (r *RewindSection) SetConfig(config *storage.Config) {
 
 // Build creates the rewind section UI
 func (r *RewindSection) Build(focus types.FocusManager) *widget.Container {
-	// Outer container that anchors content to top-left
+	// Outer container with grid layout so scrollable content can stretch
 	outer := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
+		widget.ContainerOpts.Layout(widget.NewGridLayout(
+			widget.GridLayoutOpts.Columns(1),
+			widget.GridLayoutOpts.Stretch([]bool{true}, []bool{true}),
+		)),
 	)
 
-	// Inner container with fixed width
+	// Content container
 	section := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
 			widget.RowLayoutOpts.Spacing(style.SmallSpacing),
 		)),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-				HorizontalPosition: widget.AnchorLayoutPositionStart,
-				VerticalPosition:   widget.AnchorLayoutPositionStart,
-			}),
-			widget.WidgetOpts.MinSize(settingsMaxWidth, 0),
-		),
 	)
 
 	// Enabled toggle
@@ -117,7 +113,17 @@ func (r *RewindSection) Build(focus types.FocusManager) *widget.Container {
 
 	r.setupNavigation(focus)
 
-	outer.AddChild(section)
+	// Wrap in scrollable container
+	scrollContainer, vSlider, scrollWrapper := style.ScrollableContainer(style.ScrollableOpts{
+		Content:     section,
+		BgColor:     style.Background,
+		BorderColor: style.Border,
+		Spacing:     0,
+		Padding:     style.SmallSpacing,
+	})
+	focus.SetScrollWidgets(scrollContainer, vSlider)
+	focus.RestoreScrollPosition()
+	outer.AddChild(scrollWrapper)
 	return outer
 }
 

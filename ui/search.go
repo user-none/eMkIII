@@ -3,8 +3,6 @@
 package ui
 
 import (
-	"image/color"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -122,7 +120,9 @@ func (s *SearchOverlay) Draw(screen *ebiten.Image) {
 
 	// Draw background (black at 60% opacity)
 	bg := ebiten.NewImage(bgWidth, bgHeight)
-	bg.Fill(color.RGBA{0, 0, 0, 153}) // 60% opacity = 0.6 * 255 = 153
+	overlayBg := style.OverlayBackground
+	overlayBg.A = 153 // 60% opacity
+	bg.Fill(overlayBg)
 
 	opts := &ebiten.DrawImageOptions{}
 	opts.GeoM.Translate(float64(bgX), float64(bgY))

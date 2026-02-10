@@ -4,7 +4,6 @@ package ui
 
 import (
 	"image"
-	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -215,7 +214,9 @@ func (m *PauseMenu) rebuildCache(screenW, screenH int) {
 
 	// Create dim overlay
 	m.cache.dimOverlay = ebiten.NewImage(screenW, screenH)
-	m.cache.dimOverlay.Fill(color.RGBA{0, 0, 0, 128})
+	dimColor := style.DimOverlay
+	dimColor.A = 128
+	m.cache.dimOverlay.Fill(dimColor)
 
 	// Calculate panel dimensions
 	panelWidth := screenW * 40 / 100

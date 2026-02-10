@@ -4,7 +4,6 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -243,7 +242,9 @@ func (o *AchievementOverlay) rebuildCache(screenW, screenH int) {
 
 	// Create dim overlay
 	o.cache.dimOverlay = ebiten.NewImage(screenW, screenH)
-	o.cache.dimOverlay.Fill(color.RGBA{0, 0, 0, 160})
+	dimColor := style.DimOverlay
+	dimColor.A = 160
+	o.cache.dimOverlay.Fill(dimColor)
 
 	// Calculate panel dimensions (centered, fixed width)
 	panelWidth := style.AchievementOverlayWidth

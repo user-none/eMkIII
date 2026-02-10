@@ -4,7 +4,6 @@ package ui
 
 import (
 	"image"
-	"image/color"
 	"log"
 	"sync"
 	"time"
@@ -214,7 +213,9 @@ func (n *Notification) drawDefaultWithData(screen *ebiten.Image, message string)
 		n.defaultBg = ebiten.NewImage(bgWidth, bgHeight)
 	}
 	n.defaultBg.Clear()
-	n.defaultBg.Fill(color.RGBA{0, 0, 0, 153}) // 60% opacity
+	overlayBg := style.OverlayBackground
+	overlayBg.A = 153 // 60% opacity
+	n.defaultBg.Fill(overlayBg)
 
 	opts := &ebiten.DrawImageOptions{}
 	opts.GeoM.Translate(float64(bgX), float64(bgY))
@@ -299,7 +300,9 @@ func (n *Notification) drawAchievementWithData(screen *ebiten.Image, titleText, 
 		n.lastBgHeight = bgHeight
 
 		// Fill with dark background
-		n.achievementBg.Fill(color.RGBA{0x1a, 0x1a, 0x2e, 240}) // Dark blue-gray, 94% opacity
+		achieveBg := style.OverlayBackground
+		achieveBg.A = 240 // 94% opacity
+		n.achievementBg.Fill(achieveBg)
 
 		// Draw gold border (2px)
 		gold := style.Accent

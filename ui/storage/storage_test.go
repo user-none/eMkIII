@@ -445,3 +445,231 @@ func TestGetGamesSortedFiltered(t *testing.T) {
 		t.Errorf("expected 0 games matching 'sonic' with favorites filter, got %d", len(games))
 	}
 }
+
+func TestConfigMigrationAlreadyCurrent(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		Theme:   "Dark",
+		Audio:   AudioConfig{Volume: 0.5},
+		Window:  WindowConfig{Width: 1024, Height: 768},
+		Library: LibraryView{ViewMode: "list", SortBy: "lastPlayed"},
+	}
+
+	migrated := migrateConfig(config)
+
+	// Should preserve existing values, not overwrite with defaults
+	if migrated.Audio.Volume != 0.5 {
+		t.Errorf("volume should remain 0.5, got %f", migrated.Audio.Volume)
+	}
+	if migrated.Window.Width != 1024 {
+		t.Errorf("width should remain 1024, got %d", migrated.Window.Width)
+	}
+	if migrated.Window.Height != 768 {
+		t.Errorf("height should remain 768, got %d", migrated.Window.Height)
+	}
+	if migrated.Library.ViewMode != "list" {
+		t.Errorf("view mode should remain 'list', got '%s'", migrated.Library.ViewMode)
+	}
+	if migrated.Library.SortBy != "lastPlayed" {
+		t.Errorf("sort by should remain 'lastPlayed', got '%s'", migrated.Library.SortBy)
+	}
+	if migrated.Theme != "Dark" {
+		t.Errorf("theme should remain 'Dark', got '%s'", migrated.Theme)
+	}
+}
+
+func TestConfigMigrationPartialFields(t *testing.T) {
+	// Some fields set, others zero-valued
+	config := &Config{
+		Version: 0,
+		Audio:   AudioConfig{Volume: 0.8},
+		Window:  WindowConfig{Width: 0, Height: 0}, // Zero = need defaults
+		Library: LibraryView{ViewMode: "list"},     // SortBy empty = need default
+	}
+
+	migrated := migrateConfig(config)
+
+	if migrated.Version != 1 {
+		t.Errorf("version should be 1, got %d", migrated.Version)
+	}
+	if migrated.Audio.Volume != 0.8 {
+		t.Errorf("volume should remain 0.8, got %f", migrated.Audio.Volume)
+	}
+	if migrated.Window.Width != 900 {
+		t.Errorf("width should default to 900, got %d", migrated.Window.Width)
+	}
+	if migrated.Window.Height != 650 {
+		t.Errorf("height should default to 650, got %d", migrated.Window.Height)
+	}
+	if migrated.Library.ViewMode != "list" {
+		t.Errorf("view mode should remain 'list', got '%s'", migrated.Library.ViewMode)
+	}
+	if migrated.Library.SortBy != "title" {
+		t.Errorf("sort by should default to 'title', got '%s'", migrated.Library.SortBy)
+	}
+	if migrated.Theme != "Default" {
+		t.Errorf("theme should default to 'Default', got '%s'", migrated.Theme)
+	}
+}
+
+func TestAtomicWriteJSONInvalidDir(t *testing.T) {
+	// Writing to a path under a file (not a directory) should fail
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "not_a_dir")
+	os.WriteFile(filePath, []byte("file"), 0644)
+
+	err := AtomicWriteJSON(filepath.Join(filePath, "sub", "test.json"), "data")
+	if err == nil {
+		t.Error("expected error when writing to invalid directory path")
+	}
+}
+
+func TestReadJSONInvalidJSON(t *testing.T) {
+	tempDir := t.TempDir()
+	path := filepath.Join(tempDir, "bad.json")
+
+	// Write invalid JSON
+	os.WriteFile(path, []byte("{invalid json}"), 0644)
+
+	var result map[string]string
+	err := ReadJSON(path, &result)
+	if err == nil {
+		t.Error("expected error for invalid JSON")
+	}
+}
+
+func TestReadJSONNonexistentFile(t *testing.T) {
+	var result map[string]string
+	err := ReadJSON("/nonexistent/path/file.json", &result)
+	if err == nil {
+		t.Error("expected error for nonexistent file")
+	}
+}
+
+func TestLibraryNilGamesMap(t *testing.T) {
+	lib := &Library{Games: nil}
+
+	// These should not panic with nil Games map
+	if lib.GameCount() != 0 {
+		t.Errorf("expected 0, got %d", lib.GameCount())
+	}
+	if g := lib.GetGame("test"); g != nil {
+		t.Errorf("expected nil, got %+v", g)
+	}
+
+	lib.RemoveGame("test") // Should not panic
+
+	games := lib.GetGamesSorted("title", false)
+	if games != nil {
+		t.Errorf("expected nil, got %v", games)
+	}
+
+	filtered := lib.GetGamesSortedFiltered("title", false, "test")
+	if filtered != nil {
+		t.Errorf("expected nil, got %v", filtered)
+	}
+}
+
+func TestLibraryAddGameInitializesMap(t *testing.T) {
+	lib := &Library{Games: nil}
+
+	lib.AddGame(&GameEntry{CRC32: "abc", DisplayName: "Test"})
+
+	if lib.Games == nil {
+		t.Fatal("Games map should be initialized")
+	}
+	if lib.GameCount() != 1 {
+		t.Errorf("expected 1, got %d", lib.GameCount())
+	}
+}
+
+func TestLibraryDefaultSortOrder(t *testing.T) {
+	lib := DefaultLibrary()
+	lib.AddGame(&GameEntry{CRC32: "1", DisplayName: "Zelda"})
+	lib.AddGame(&GameEntry{CRC32: "2", DisplayName: "Alex Kidd"})
+
+	// "unknown_sort" should fall back to title sort
+	games := lib.GetGamesSorted("unknown_sort", false)
+	if len(games) != 2 {
+		t.Fatalf("expected 2 games, got %d", len(games))
+	}
+	if games[0].DisplayName != "Alex Kidd" {
+		t.Errorf("expected Alex Kidd first with default sort, got %s", games[0].DisplayName)
+	}
+}
+
+func TestMigrateLibrary(t *testing.T) {
+	lib := &Library{
+		Version: 0,
+		Games:   make(map[string]*GameEntry),
+	}
+
+	migrated := migrateLibrary(lib)
+	if migrated.Version != 1 {
+		t.Errorf("expected version 1, got %d", migrated.Version)
+	}
+
+	// Already current version should stay the same
+	lib2 := &Library{Version: 1}
+	migrated2 := migrateLibrary(lib2)
+	if migrated2.Version != 1 {
+		t.Errorf("expected version 1, got %d", migrated2.Version)
+	}
+}
+
+func TestUpdatePlayTimeNonexistentGame(t *testing.T) {
+	lib := DefaultLibrary()
+
+	// Should not panic for non-existent game
+	lib.UpdatePlayTime("nonexistent", 100)
+}
+
+func TestAddScanDirectoryRecursiveFlag(t *testing.T) {
+	lib := DefaultLibrary()
+
+	lib.AddScanDirectory("/roms", true)
+	if len(lib.ScanDirectories) != 1 {
+		t.Fatalf("expected 1 directory, got %d", len(lib.ScanDirectories))
+	}
+	if !lib.ScanDirectories[0].Recursive {
+		t.Error("expected recursive to be true")
+	}
+
+	// Adding same path again should be ignored regardless of recursive flag
+	lib.AddScanDirectory("/roms", false)
+	if len(lib.ScanDirectories) != 1 {
+		t.Errorf("duplicate should be ignored, got %d", len(lib.ScanDirectories))
+	}
+}
+
+func TestRemoveScanDirectoryNotFound(t *testing.T) {
+	lib := DefaultLibrary()
+	lib.AddScanDirectory("/roms", true)
+
+	// Removing non-existent should not affect list
+	lib.RemoveScanDirectory("/nonexistent")
+	if len(lib.ScanDirectories) != 1 {
+		t.Errorf("expected 1 directory, got %d", len(lib.ScanDirectories))
+	}
+}
+
+func TestRemoveExcludedPathNotFound(t *testing.T) {
+	lib := DefaultLibrary()
+	lib.AddExcludedPath("/exclude")
+
+	// Removing non-existent should not affect list
+	lib.RemoveExcludedPath("/nonexistent")
+	if len(lib.ExcludedPaths) != 1 {
+		t.Errorf("expected 1 excluded path, got %d", len(lib.ExcludedPaths))
+	}
+}
+
+func TestAddExcludedPathDuplicate(t *testing.T) {
+	lib := DefaultLibrary()
+	lib.AddExcludedPath("/exclude")
+	lib.AddExcludedPath("/exclude")
+
+	if len(lib.ExcludedPaths) != 1 {
+		t.Errorf("duplicate should be ignored, got %d", len(lib.ExcludedPaths))
+	}
+}

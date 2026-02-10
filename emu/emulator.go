@@ -289,7 +289,7 @@ func (e *EmulatorBase) SetPause() {
 // =============================================================================
 
 // SerializeSize returns the total size in bytes needed for a save state.
-func (e *EmulatorBase) SerializeSize() int {
+func SerializeSize() int {
 	// Header: 22 bytes
 	// CPU: ~32 bytes
 	// Memory: 8KB RAM + 32KB cartRAM + 3 bankSlot + 1 ramControl = 40964 bytes
@@ -322,7 +322,7 @@ func (e *EmulatorBase) SerializeSize() int {
 
 // Serialize creates a save state and returns it as a byte slice.
 func (e *EmulatorBase) Serialize() ([]byte, error) {
-	size := e.SerializeSize()
+	size := SerializeSize()
 	data := make([]byte, size)
 
 	// Write header
@@ -385,7 +385,7 @@ func (e *EmulatorBase) Deserialize(data []byte) error {
 // VerifyState checks if a save state is valid without loading it.
 func (e *EmulatorBase) VerifyState(data []byte) error {
 	// Check minimum length (must be at least header + expected state data)
-	expectedSize := e.SerializeSize()
+	expectedSize := SerializeSize()
 	if len(data) < expectedSize {
 		return errors.New("save state too short")
 	}

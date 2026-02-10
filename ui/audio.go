@@ -94,6 +94,14 @@ func (a *AudioPlayer) QueueSamples(samples []int16) {
 	}
 }
 
+// ClearQueue flushes any buffered audio from the SDL stream.
+// Used when entering rewind mode to prevent stale audio playback.
+func (a *AudioPlayer) ClearQueue() {
+	if a.stream != nil {
+		a.stream.Clear()
+	}
+}
+
 // Close cleans up SDL audio resources.
 func (a *AudioPlayer) Close() {
 	if a.stream != nil {

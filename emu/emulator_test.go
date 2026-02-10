@@ -438,10 +438,8 @@ func createTestEmulatorBase() *EmulatorBase {
 
 // TestSerializeSize verifies consistent size returned
 func TestSerializeSize(t *testing.T) {
-	emu := createTestEmulatorBase()
-
-	size1 := emu.SerializeSize()
-	size2 := emu.SerializeSize()
+	size1 := SerializeSize()
+	size2 := SerializeSize()
 
 	if size1 != size2 {
 		t.Errorf("SerializeSize not consistent: %d vs %d", size1, size2)
@@ -455,61 +453,61 @@ func TestSerializeSize(t *testing.T) {
 
 // TestSerializeDeserializeRoundTrip tests save state round-trip
 func TestSerializeDeserializeRoundTrip(t *testing.T) {
-	emu := createTestEmulatorBase()
+	base := createTestEmulatorBase()
 
 	// Run a few CPU steps to change state
 	for i := 0; i < 100; i++ {
-		emu.cpu.Step()
+		base.cpu.Step()
 	}
 
 	// Write some values to RAM to test memory serialization
-	emu.mem.Set(0xC000, 0xAB)
-	emu.mem.Set(0xC001, 0xCD)
+	base.mem.Set(0xC000, 0xAB)
+	base.mem.Set(0xC001, 0xCD)
 
 	// Write to VDP registers
-	emu.vdp.WriteControl(0x55)
-	emu.vdp.WriteControl(0x80) // Register 0 = 0x55
+	base.vdp.WriteControl(0x55)
+	base.vdp.WriteControl(0x80) // Register 0 = 0x55
 
 	// Save state
-	state, err := emu.Serialize()
+	state, err := base.Serialize()
 	if err != nil {
 		t.Fatalf("Serialize failed: %v", err)
 	}
 
 	// Modify emulator state
-	emu.mem.Set(0xC000, 0xFF)
-	emu.mem.Set(0xC001, 0xFF)
+	base.mem.Set(0xC000, 0xFF)
+	base.mem.Set(0xC001, 0xFF)
 
 	// Restore state
-	err = emu.Deserialize(state)
+	err = base.Deserialize(state)
 	if err != nil {
 		t.Fatalf("Deserialize failed: %v", err)
 	}
 
 	// Verify RAM was restored
-	if emu.mem.Get(0xC000) != 0xAB {
-		t.Errorf("RAM[0xC000]: expected 0xAB, got 0x%02X", emu.mem.Get(0xC000))
+	if base.mem.Get(0xC000) != 0xAB {
+		t.Errorf("RAM[0xC000]: expected 0xAB, got 0x%02X", base.mem.Get(0xC000))
 	}
-	if emu.mem.Get(0xC001) != 0xCD {
-		t.Errorf("RAM[0xC001]: expected 0xCD, got 0x%02X", emu.mem.Get(0xC001))
+	if base.mem.Get(0xC001) != 0xCD {
+		t.Errorf("RAM[0xC001]: expected 0xCD, got 0x%02X", base.mem.Get(0xC001))
 	}
 
 	// Verify VDP register was restored
-	if emu.vdp.GetRegister(0) != 0x55 {
-		t.Errorf("VDP Register 0: expected 0x55, got 0x%02X", emu.vdp.GetRegister(0))
+	if base.vdp.GetRegister(0) != 0x55 {
+		t.Errorf("VDP Register 0: expected 0x55, got 0x%02X", base.vdp.GetRegister(0))
 	}
 }
 
 // TestVerifyState_ValidState tests that a valid state passes verification
 func TestVerifyState_ValidState(t *testing.T) {
-	emu := createTestEmulatorBase()
+	base := createTestEmulatorBase()
 
-	state, err := emu.Serialize()
+	state, err := base.Serialize()
 	if err != nil {
 		t.Fatalf("Serialize failed: %v", err)
 	}
 
-	err = emu.VerifyState(state)
+	err = base.VerifyState(state)
 	if err != nil {
 		t.Errorf("VerifyState should pass for valid state: %v", err)
 	}
@@ -517,9 +515,9 @@ func TestVerifyState_ValidState(t *testing.T) {
 
 // TestVerifyState_InvalidMagic tests wrong magic bytes rejection
 func TestVerifyState_InvalidMagic(t *testing.T) {
-	emu := createTestEmulatorBase()
+	base := createTestEmulatorBase()
 
-	state, err := emu.Serialize()
+	state, err := base.Serialize()
 	if err != nil {
 		t.Fatalf("Serialize failed: %v", err)
 	}
@@ -527,7 +525,7 @@ func TestVerifyState_InvalidMagic(t *testing.T) {
 	// Corrupt magic bytes
 	state[0] = 'X'
 
-	err = emu.VerifyState(state)
+	err = base.VerifyState(state)
 	if err == nil {
 		t.Error("VerifyState should reject invalid magic bytes")
 	}
@@ -535,9 +533,9 @@ func TestVerifyState_InvalidMagic(t *testing.T) {
 
 // TestVerifyState_UnsupportedVersion tests future version rejection
 func TestVerifyState_UnsupportedVersion(t *testing.T) {
-	emu := createTestEmulatorBase()
+	base := createTestEmulatorBase()
 
-	state, err := emu.Serialize()
+	state, err := base.Serialize()
 	if err != nil {
 		t.Fatalf("Serialize failed: %v", err)
 	}
@@ -545,7 +543,7 @@ func TestVerifyState_UnsupportedVersion(t *testing.T) {
 	// Set a future version number
 	binary.LittleEndian.PutUint16(state[12:14], 9999)
 
-	err = emu.VerifyState(state)
+	err = base.VerifyState(state)
 	if err == nil {
 		t.Error("VerifyState should reject unsupported version")
 	}
@@ -553,9 +551,9 @@ func TestVerifyState_UnsupportedVersion(t *testing.T) {
 
 // TestVerifyState_CorruptData tests bad CRC32 rejection
 func TestVerifyState_CorruptData(t *testing.T) {
-	emu := createTestEmulatorBase()
+	base := createTestEmulatorBase()
 
-	state, err := emu.Serialize()
+	state, err := base.Serialize()
 	if err != nil {
 		t.Fatalf("Serialize failed: %v", err)
 	}
@@ -565,7 +563,7 @@ func TestVerifyState_CorruptData(t *testing.T) {
 		state[stateHeaderSize+5] ^= 0xFF
 	}
 
-	err = emu.VerifyState(state)
+	err = base.VerifyState(state)
 	if err == nil {
 		t.Error("VerifyState should reject corrupted data")
 	}
@@ -573,9 +571,9 @@ func TestVerifyState_CorruptData(t *testing.T) {
 
 // TestVerifyState_WrongROM tests mismatched ROM CRC32 rejection
 func TestVerifyState_WrongROM(t *testing.T) {
-	emu1 := createTestEmulatorBase()
+	base1 := createTestEmulatorBase()
 
-	state, err := emu1.Serialize()
+	state, err := base1.Serialize()
 	if err != nil {
 		t.Fatalf("Serialize failed: %v", err)
 	}
@@ -585,10 +583,10 @@ func TestVerifyState_WrongROM(t *testing.T) {
 	for i := range differentROM {
 		differentROM[i] = byte(i & 0xFF)
 	}
-	base := InitEmulatorBase(differentROM, RegionNTSC)
-	emu2 := &base
+	init2 := InitEmulatorBase(differentROM, RegionNTSC)
+	base2 := &init2
 
-	err = emu2.VerifyState(state)
+	err = base2.VerifyState(state)
 	if err == nil {
 		t.Error("VerifyState should reject state from different ROM")
 	}
@@ -596,12 +594,12 @@ func TestVerifyState_WrongROM(t *testing.T) {
 
 // TestVerifyState_TooShort tests rejection of truncated data
 func TestVerifyState_TooShort(t *testing.T) {
-	emu := createTestEmulatorBase()
+	base := createTestEmulatorBase()
 
 	// Create data smaller than header
 	state := make([]byte, stateHeaderSize-1)
 
-	err := emu.VerifyState(state)
+	err := base.VerifyState(state)
 	if err == nil {
 		t.Error("VerifyState should reject data smaller than header")
 	}
@@ -611,41 +609,41 @@ func TestVerifyState_TooShort(t *testing.T) {
 func TestDeserialize_PreservesRegion(t *testing.T) {
 	// Create emulator with NTSC
 	ntscROM := createTestROM(4)
-	ntscBase := InitEmulatorBase(ntscROM, RegionNTSC)
-	emuNTSC := &ntscBase
+	ntscInit := InitEmulatorBase(ntscROM, RegionNTSC)
+	baseNTSC := &ntscInit
 
 	// Save state
-	state, err := emuNTSC.Serialize()
+	state, err := baseNTSC.Serialize()
 	if err != nil {
 		t.Fatalf("Serialize failed: %v", err)
 	}
 
 	// Create new emulator with PAL using same ROM
-	palBase := InitEmulatorBase(ntscROM, RegionPAL)
-	emuPAL := &palBase
+	palInit := InitEmulatorBase(ntscROM, RegionPAL)
+	basePAL := &palInit
 
 	// Verify initial region is PAL
-	if emuPAL.GetRegion() != RegionPAL {
+	if basePAL.GetRegion() != RegionPAL {
 		t.Fatal("Initial region should be PAL")
 	}
 
 	// Load NTSC state into PAL emulator
-	err = emuPAL.Deserialize(state)
+	err = basePAL.Deserialize(state)
 	if err != nil {
 		t.Fatalf("Deserialize failed: %v", err)
 	}
 
 	// Region should still be PAL (not changed by state load)
-	if emuPAL.GetRegion() != RegionPAL {
-		t.Errorf("Region should be preserved as PAL, got %v", emuPAL.GetRegion())
+	if basePAL.GetRegion() != RegionPAL {
+		t.Errorf("Region should be preserved as PAL, got %v", basePAL.GetRegion())
 	}
 }
 
 // TestSerialize_StateIntegrity tests that serialized state has correct format
 func TestSerialize_StateIntegrity(t *testing.T) {
-	emu := createTestEmulatorBase()
+	base := createTestEmulatorBase()
 
-	state, err := emu.Serialize()
+	state, err := base.Serialize()
 	if err != nil {
 		t.Fatalf("Serialize failed: %v", err)
 	}
@@ -663,7 +661,7 @@ func TestSerialize_StateIntegrity(t *testing.T) {
 
 	// Verify ROM CRC32 matches
 	romCRC := binary.LittleEndian.Uint32(state[14:18])
-	expectedROMCRC := emu.mem.GetROMCRC32()
+	expectedROMCRC := base.mem.GetROMCRC32()
 	if romCRC != expectedROMCRC {
 		t.Errorf("ROM CRC32: expected 0x%08X, got 0x%08X", expectedROMCRC, romCRC)
 	}

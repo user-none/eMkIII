@@ -9,6 +9,7 @@ type Config struct {
 	Window            WindowConfig            `json:"window"`
 	Library           LibraryView             `json:"library"`
 	Shaders           ShaderConfig            `json:"shaders"`
+	Rewind            RewindConfig            `json:"rewind"`
 	RetroAchievements RetroAchievementsConfig `json:"retroAchievements"`
 }
 
@@ -34,6 +35,13 @@ type VideoConfig struct {
 type ShaderConfig struct {
 	UIShaders   []string `json:"uiShaders"`   // Ordered list of shader IDs for UI context
 	GameShaders []string `json:"gameShaders"` // Ordered list of shader IDs for Game context
+}
+
+// RewindConfig contains rewind feature settings
+type RewindConfig struct {
+	Enabled      bool `json:"enabled"`      // Default: false (off due to RAM usage)
+	BufferSizeMB int  `json:"bufferSizeMB"` // Default: 40
+	FrameStep    int  `json:"frameStep"`    // Default: 1 (capture every frame)
 }
 
 // AudioConfig contains audio-related settings
@@ -125,6 +133,11 @@ func DefaultConfig() *Config {
 		Shaders: ShaderConfig{
 			UIShaders:   []string{},
 			GameShaders: []string{},
+		},
+		Rewind: RewindConfig{
+			Enabled:      false,
+			BufferSizeMB: 40,
+			FrameStep:    1,
 		},
 		RetroAchievements: RetroAchievementsConfig{
 			Enabled:          false,

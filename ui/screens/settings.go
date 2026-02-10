@@ -23,6 +23,7 @@ type SettingsScreen struct {
 	library           *settings.LibrarySection
 	appearance        *settings.AppearanceSection
 	video             *settings.VideoSection
+	rewind            *settings.RewindSection
 	retroAchievements *settings.RetroAchievementsSection
 }
 
@@ -34,6 +35,7 @@ func NewSettingsScreen(callback ScreenCallback, library *storage.Library, config
 		library:           settings.NewLibrarySection(callback, library),
 		appearance:        settings.NewAppearanceSection(callback, config),
 		video:             settings.NewVideoSection(callback, config),
+		rewind:            settings.NewRewindSection(callback, config),
 		retroAchievements: settings.NewRetroAchievementsSection(callback, config, achievementMgr),
 	}
 	s.InitBase()
@@ -59,6 +61,7 @@ func (s *SettingsScreen) SetLibrary(library *storage.Library) {
 func (s *SettingsScreen) SetConfig(config *storage.Config) {
 	s.appearance.SetConfig(config)
 	s.video.SetConfig(config)
+	s.rewind.SetConfig(config)
 	s.retroAchievements.SetConfig(config)
 }
 
@@ -183,16 +186,36 @@ func (s *SettingsScreen) Build() *widget.Container {
 	s.RegisterFocusButton("section-video", videoBtn)
 	sidebar.AddChild(videoBtn)
 
-	// RetroAchievements section button
-	raBtn := widget.NewButton(
+	// Rewind section button
+	rewindBtn := widget.NewButton(
 		widget.ButtonOpts.Image(style.ActiveButtonImage(s.selectedSection == 3)),
-		widget.ButtonOpts.Text("Achievements", style.FontFace(), &widget.ButtonTextColor{
+		widget.ButtonOpts.Text("Rewind", style.FontFace(), &widget.ButtonTextColor{
 			Idle:     style.Text,
 			Disabled: style.TextSecondary,
 		}),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			s.selectedSection = 3
+			s.SetPendingFocus("section-rewind")
+			s.callback.RequestRebuild()
+		}),
+		widget.ButtonOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
+		),
+	)
+	s.RegisterFocusButton("section-rewind", rewindBtn)
+	sidebar.AddChild(rewindBtn)
+
+	// RetroAchievements section button
+	raBtn := widget.NewButton(
+		widget.ButtonOpts.Image(style.ActiveButtonImage(s.selectedSection == 4)),
+		widget.ButtonOpts.Text("Achievements", style.FontFace(), &widget.ButtonTextColor{
+			Idle:     style.Text,
+			Disabled: style.TextSecondary,
+		}),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			s.selectedSection = 4
 			s.SetPendingFocus("section-achievements")
 			s.callback.RequestRebuild()
 		}),
@@ -233,6 +256,8 @@ func (s *SettingsScreen) Build() *widget.Container {
 	case 2:
 		contentArea.AddChild(s.video.Build(s))
 	case 3:
+		contentArea.AddChild(s.rewind.Build(s))
+	case 4:
 		contentArea.AddChild(s.retroAchievements.Build(s))
 	}
 
@@ -248,7 +273,7 @@ func (s *SettingsScreen) Build() *widget.Container {
 // setupNavigation registers navigation zones for settings screen
 func (s *SettingsScreen) setupNavigation() {
 	// Sidebar zone (vertical)
-	sidebarKeys := []string{"section-library", "section-appearance", "section-video", "section-achievements"}
+	sidebarKeys := []string{"section-library", "section-appearance", "section-video", "section-rewind", "section-achievements"}
 	s.RegisterNavZone("sidebar", types.NavZoneVertical, sidebarKeys, 0)
 
 	// Set up transitions from sidebar to content
@@ -265,7 +290,10 @@ func (s *SettingsScreen) setupNavigation() {
 		s.SetNavTransition("sidebar", types.DirRight, "video-crop", types.NavIndexFirst)
 		s.SetNavTransition("video-crop", types.DirLeft, "sidebar", types.NavIndexFirst)
 		s.SetNavTransition("video-shaders", types.DirLeft, "sidebar", types.NavIndexFirst)
-	case 3: // RetroAchievements
+	case 3: // Rewind
+		s.SetNavTransition("sidebar", types.DirRight, "rewind-enable", types.NavIndexFirst)
+		s.SetNavTransition("rewind-enable", types.DirLeft, "sidebar", types.NavIndexFirst)
+	case 4: // RetroAchievements
 		s.SetNavTransition("sidebar", types.DirRight, "ra-settings", types.NavIndexFirst)
 		s.SetNavTransition("ra-settings", types.DirLeft, "sidebar", types.NavIndexFirst)
 	}
@@ -285,7 +313,7 @@ func (s *SettingsScreen) EnsureFocusedVisible(focused widget.Focuser) {
 // Update handles per-frame updates for settings sections
 func (s *SettingsScreen) Update() {
 	// Only call section-specific updates for sections that need them
-	if s.selectedSection == 3 {
+	if s.selectedSection == 4 {
 		s.retroAchievements.Update()
 	}
 }

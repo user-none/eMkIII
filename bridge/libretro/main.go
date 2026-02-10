@@ -295,7 +295,7 @@ func retro_serialize_size() C.size_t {
 	if emulator == nil {
 		return 0
 	}
-	return C.size_t(emulator.SerializeSize())
+	return C.size_t(emu.SerializeSize())
 }
 
 //export retro_serialize

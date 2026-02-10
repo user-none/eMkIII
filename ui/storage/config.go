@@ -99,5 +99,13 @@ func migrateConfig(config *Config) *Config {
 		config.Theme = "Default"
 	}
 
+	// Rewind defaults for existing configs
+	if config.Rewind.BufferSizeMB == 0 {
+		config.Rewind.BufferSizeMB = 40
+	}
+	if config.Rewind.FrameStep == 0 {
+		config.Rewind.FrameStep = 1
+	}
+
 	return config
 }

@@ -30,6 +30,9 @@ type GameplayManager struct {
 	currentGame *storage.GameEntry
 	cropBorder  bool
 
+	// Rewind
+	rewindBuffer *RewindBuffer
+
 	// Pause menu
 	pauseMenu *PauseMenu
 
@@ -195,6 +198,11 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 	game.LastPlayed = time.Now().Unix()
 	storage.SaveLibrary(gm.library)
 
+	// Create rewind buffer if enabled
+	if gm.config.Rewind.Enabled {
+		gm.rewindBuffer = NewRewindBuffer(gm.config.Rewind.BufferSizeMB, gm.config.Rewind.FrameStep, emu.SerializeSize())
+	}
+
 	// Set TPS for region
 	timing := emu.GetTimingForRegion(region)
 	ebiten.SetTPS(timing.FPS)
@@ -298,6 +306,29 @@ func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
 	// Poll and pass input to emulator
 	gm.pollInput()
 
+	// Check rewind input (R key)
+	if gm.rewindBuffer != nil {
+		holdDuration := inpututil.KeyPressDuration(ebiten.KeyR)
+		if holdDuration > 0 {
+			items := rewindItemsForHoldDuration(holdDuration)
+			if items > 0 {
+				if !gm.rewindBuffer.IsRewinding() {
+					gm.rewindBuffer.SetRewinding(true)
+					if gm.audioPlayer != nil {
+						gm.audioPlayer.ClearQueue()
+					}
+				}
+				gm.rewindBuffer.Rewind(gm.emulator, items)
+				return false, nil
+			}
+			// items == 0 means we're in a hold gap frame; skip normal execution
+			return false, nil
+		} else if gm.rewindBuffer.IsRewinding() {
+			// R released - resume normal play
+			gm.rewindBuffer.SetRewinding(false)
+		}
+	}
+
 	// Run one frame of emulation
 	gm.emulator.RunFrame()
 
@@ -309,6 +340,11 @@ func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
 	// Queue audio samples
 	if gm.audioPlayer != nil {
 		gm.audioPlayer.QueueSamples(gm.emulator.GetAudioSamples())
+	}
+
+	// Capture rewind state (after RunFrame, only when not rewinding)
+	if gm.rewindBuffer != nil {
+		gm.rewindBuffer.Capture(gm.emulator)
 	}
 
 	// Handle save state keys
@@ -411,6 +447,9 @@ func (gm *GameplayManager) Exit(saveResume bool) {
 			log.Printf("Resume save failed: %v", err)
 		}
 	}
+
+	// Free rewind buffer
+	gm.rewindBuffer = nil
 
 	// Close audio player
 	if gm.audioPlayer != nil {
@@ -520,6 +559,8 @@ func (gm *GameplayManager) handleSaveStateKeys() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyF3) {
 		if err := gm.saveStateManager.Load(gm.emulator); err != nil {
 			log.Printf("Load state failed: %v", err)
+		} else if gm.rewindBuffer != nil {
+			gm.rewindBuffer.Reset()
 		}
 	}
 }

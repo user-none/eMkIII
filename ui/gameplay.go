@@ -481,8 +481,8 @@ func (gm *GameplayManager) pollInput() {
 	down := ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown)
 	left := ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft)
 	right := ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight)
-	btn1 := ebiten.IsKeyPressed(ebiten.KeyJ) || ebiten.IsKeyPressed(ebiten.KeyZ)
-	btn2 := ebiten.IsKeyPressed(ebiten.KeyK) || ebiten.IsKeyPressed(ebiten.KeyX)
+	btn1 := ebiten.IsKeyPressed(ebiten.KeyJ)
+	btn2 := ebiten.IsKeyPressed(ebiten.KeyK)
 
 	// Gamepad support
 	gamepadIDs := ebiten.AppendGamepadIDs(nil)

@@ -77,13 +77,13 @@ func (r *Runner) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 // pollInput reads keyboard and gamepad input and passes it to the emulator.
 func (r *Runner) pollInput() {
-	// Keyboard (WASD + arrows for movement, J/Z and K/X for buttons)
+	// Keyboard (WASD + arrows for movement, JK for buttons)
 	up := ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp)
 	down := ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown)
 	left := ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft)
 	right := ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight)
-	btn1 := ebiten.IsKeyPressed(ebiten.KeyJ) || ebiten.IsKeyPressed(ebiten.KeyZ)
-	btn2 := ebiten.IsKeyPressed(ebiten.KeyK) || ebiten.IsKeyPressed(ebiten.KeyX)
+	btn1 := ebiten.IsKeyPressed(ebiten.KeyJ)
+	btn2 := ebiten.IsKeyPressed(ebiten.KeyK)
 
 	// Gamepad support (all connected gamepads)
 	for _, id := range ebiten.AppendGamepadIDs(nil) {

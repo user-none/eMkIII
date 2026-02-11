@@ -85,29 +85,36 @@ When launched without a `-rom` argument, the emulator opens a standalone UI:
 - **ROM Scanning:** Add ROM folders, scan for games with automatic metadata lookup from libretro database
 - **Game Details:** View box art, metadata (developer, publisher, genre, release date), Play/Resume options
 - **Save States:** 10 manual slots per game (F1/F2/F3), auto-save every 5 seconds, resume support
+- **Rewind:** Hold R to rewind gameplay with acceleration curve; configurable buffer size and frame step
 - **Screenshots:** F12 captures to screenshots directory
 - **Play Time Tracking:** Automatic per-game tracking
 - **Window Persistence:** Window size and position restored on launch
+- **Themes:** 8 color themes (Default, Dark, Light, Retro, Pink, Hot Pink, Green LCD, High Contrast)
+- **Font Scaling:** Adjustable font size (10-32pt) with automatic UI scaling
+- **Audio Mute:** Toggle game audio on/off in settings
 - **Shader Effects:** 20 visual effects including CRT simulation, scanlines, NTSC artifacts, and pixel smoothing
 
 #### Controls
 
-**Keyboard:**
-- **Movement:** W (up), A (left), S (down), D (right)
+**Keyboard (Gameplay):**
+- **Movement:** WASD or Arrow Keys
 - **Buttons:** J (Button 1), K (Button 2)
 - **SMS Pause:** Enter (hardware pause button, triggers NMI)
 
-**Gamepad** (PlayStation, Xbox, and standard controllers):
+**Gamepad (Gameplay):**
 - **Movement:** D-pad or left analog stick
 - **Buttons:** A/Cross (Button 1), B/Circle (Button 2)
+- **SMS Pause:** Start
 
 **Library Navigation:**
 - **Search/Filter:** `/` (type to filter games by title)
 - **Clear Filter:** ESC
-- **Navigate:** Arrow keys (deactivates filter input but keeps filter visible)
+- **Navigate:** Arrow keys or D-pad (deactivates filter input but keeps filter visible)
+- **Open Settings:** Start (gamepad)
 
 **System Controls:**
-- **Pause Menu:** ESC (during gameplay)
+- **Pause Menu:** ESC or Select (gamepad)
+- **Rewind:** R (hold to rewind, accelerates over time)
 - **Achievements:** Tab (toggle overlay during gameplay)
 - **Save State:** F1
 - **Load State:** F3
@@ -118,6 +125,7 @@ When launched without a `-rom` argument, the emulator opens a standalone UI:
 **Pause Menu Navigation:**
 - **Keyboard:** Arrow Up/Down, Enter to select, ESC to resume
 - **Gamepad:** D-pad, A/Cross to select, B/Circle or Start to resume
+- **Mouse:** Click or hover to select
 
 #### Shader Effects
 
@@ -167,8 +175,9 @@ When launched with the `-rom` flag, the emulator bypasses the UI and loads the R
 #### Controls
 
 **Keyboard:**
-- **Movement:** W (up), A (left), S (down), D (right)
+- **Movement:** WASD or Arrow Keys
 - **Buttons:** J (Button 1), K (Button 2)
+- **SMS Pause:** Enter
 
 **Gamepad** (PlayStation, Xbox, and standard controllers):
 - **Movement:** D-pad or left analog stick
@@ -252,12 +261,17 @@ The standalone UI follows a manager pattern with clear separation of concerns:
     - `base.go` - BaseScreen: common scroll/focus management for screens
   - `pausemenu.go` - In-game pause overlay with keyboard/gamepad navigation
   - `savestate.go` - Save state management (10 slots per game, auto-save)
+  - `rewind.go` - Rewind buffer: ring buffer of serialized states with acceleration curve
   - `screenshot.go` - Screenshot capture (F12)
-  - `notification.go` - On-screen notifications
+  - `notification.go` - On-screen notifications (default, short, achievement with badges)
+  - `audio.go` - SDL3 audio playback (48kHz stereo)
+  - `search.go` - Live game title search/filter overlay
+  - `achievementoverlay.go` - Achievement list overlay during gameplay (Tab)
   - `scanner.go` - ROM discovery and metadata lookup
   - `metadata.go` - RDB download and artwork fetching
+  - `achievements/` - RetroAchievements integration (login, unlock tracking, badges)
   - `storage/` - Config and library JSON persistence
-  - `style/` - Theme colors, widget builders, constants
+  - `style/` - Theme colors (8 themes), widget builders, constants
   - `shader/` - Shader system with weight-based ordering
   - `rdb/` - RDB parser for game metadata lookup
   - `assets/` - Embedded placeholder images
@@ -311,9 +325,11 @@ framebuffer to screen.
 - `github.com/sqweek/dialog` - Native OS file picker dialogs
 - `github.com/koron-go/z80` - Z80 CPU emulation
 - `github.com/Zyko0/go-sdl3` - Audio output (purego-based, no CGO)
+- `github.com/user-none/go-rcheevos` - RetroAchievements API client
 - `github.com/bodgit/sevenzip` - 7z archive support
 - `github.com/nwaples/rardecode/v2` - RAR archive support
 - `golang.org/x/image` - Font rendering
+- `golang.design/x/clipboard` - System clipboard access
 
 ## Implementation Status
 
@@ -325,10 +341,10 @@ framebuffer to screen.
 | PSG | Complete | Full SN76489 emulation (3 tone + 1 noise), 48kHz output |
 | I/O | Complete | Controller ports, VDP/PSG port decoding, V/H counter reads with accurate H-counter table |
 | ROM Loading | Complete | Supports .sms, .zip, .7z, .gz, .tar.gz, .rar with magic byte detection |
-| Input | Complete | Keyboard (WASD + JK) and gamepad (D-pad/stick + A/B) for P1 controller |
+| Input | Complete | Keyboard (WASD/Arrows + JK) and gamepad (D-pad/stick + A/B) for P1 controller |
 | Region | Complete | Auto-detection via CRC32 database (357 games), manual override with `-region` flag |
 | Libretro | Complete | Full core implementation with region/crop options, works with RetroArch |
-| Standalone UI | Complete | Library management, save states (10 slots + auto-save), screenshots, play time tracking |
+| Standalone UI | Complete | Library management, save states (10 slots + auto-save), rewind, screenshots, themes, achievements, play time tracking |
 | iOS App | Complete | Native Swift app with touch controls, Metal rendering, gamepad support, save states |
 | Tests | Complete | Unit tests for I/O, memory, VDP, PSG, region timing, ROM loading, and libretro |
 

@@ -174,12 +174,14 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 	gm.currentGame = game
 	gm.saveStateManager.SetGame(gameCRC)
 
-	// Create audio player for game audio
-	player, err := NewAudioPlayer()
-	if err != nil {
-		log.Printf("Failed to init audio: %v", err)
-	} else {
-		gm.audioPlayer = player
+	// Create audio player for game audio (skip if muted)
+	if !gm.config.Audio.Muted {
+		player, err := NewAudioPlayer()
+		if err != nil {
+			log.Printf("Failed to init audio: %v", err)
+		} else {
+			gm.audioPlayer = player
+		}
 	}
 
 	// Load SRAM if exists

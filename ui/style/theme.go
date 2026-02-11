@@ -217,6 +217,69 @@ func ApplyThemeByName(name string) {
 // currentFontSize is the current font size in points (default 14)
 var currentFontSize float64 = 14
 
+// dpiScale is the device pixel ratio (1.0 on non-retina, 2.0 on retina)
+var dpiScale float64 = 1.0
+
+// DPIScale returns the current device scale factor.
+func DPIScale() float64 {
+	return dpiScale
+}
+
+// Px converts a logical pixel value to physical pixels using the current DPI scale.
+func Px(logical int) int {
+	return int(float64(logical) * dpiScale)
+}
+
+// PxFont converts a logical pixel value to physical pixels scaled by both DPI and font size.
+func PxFont(logical int) int {
+	return int(float64(logical) * FontScale() * dpiScale)
+}
+
+// SetDPIScale sets the DPI scale factor and recalculates all spatial vars.
+func SetDPIScale(scale float64) {
+	if scale < 1.0 {
+		scale = 1.0
+	}
+	dpiScale = scale
+
+	// Recalculate all non-font-dependent spatial vars from base constants
+	DefaultPadding = Px(baseDefaultPadding)
+	DefaultSpacing = Px(baseDefaultSpacing)
+	SmallSpacing = Px(baseSmallSpacing)
+	TinySpacing = Px(baseTinySpacing)
+	LargeSpacing = Px(baseLargeSpacing)
+	ScrollbarWidth = Px(baseScrollbarWidth)
+	ButtonPaddingSmall = Px(baseButtonPaddingSmall)
+	ButtonPaddingMedium = Px(baseButtonPaddingMedium)
+	IconMinCardWidth = Px(baseIconMinCardWidth)
+	IconDefaultWindowWidth = Px(baseIconDefaultWinWidth)
+	DetailArtWidthSmall = Px(baseDetailArtSmall)
+	DetailArtWidthLarge = Px(baseDetailArtLarge)
+	SettingsSidebarMinWidth = Px(baseSidebarMinWidth)
+	SettingsFolderListMinHeight = Px(baseFolderListMinHeight)
+	ProgressBarWidth = Px(baseProgressBarWidth)
+	ProgressBarHeight = Px(baseProgressBarHeight)
+	AchievementRowSpacing = Px(baseAchievementRowSpac)
+	AchievementPanelMargin = Px(baseAchievementPanelMargin)
+	AchievementMinPanelHeight = Px(baseAchievementMinPanelH)
+	AchievementNotifyMargin = Px(baseAchNotifyMargin)
+	AchievementNotifyBadgeSize = Px(baseAchNotifyBadge)
+	AchievementNotifyPaddingH = Px(baseAchNotifyPaddingH)
+	AchievementNotifyPaddingV = Px(baseAchNotifyPaddingV)
+	AchievementNotifySpacing = Px(baseAchNotifySpacing)
+	AchievementNotifyBorder = Px(baseAchNotifyBorder)
+	OverlayPadding = Px(baseOverlayPadding)
+	OverlayMargin = Px(baseOverlayMargin)
+	PauseMenuMinWidth = Px(basePauseMinWidth)
+	PauseMenuMaxWidth = Px(basePauseMaxWidth)
+	PauseMenuMinBtnHeight = Px(basePauseMinBtnH)
+	PauseMenuMaxBtnHeight = Px(basePauseMaxBtnH)
+	ListMinTitleWidth = Px(baseListMinTitleWidth)
+
+	// Recalculate font-dependent vars (they also incorporate DPI scale)
+	ApplyFontSize(int(currentFontSize))
+}
+
 // sharedFontSource is the cached TrueType font source shared by all font faces
 var sharedFontSource *text.GoTextFaceSource
 
@@ -290,36 +353,38 @@ func ApplyFontSize(size int) {
 	if source != nil {
 		fontFace = &text.GoTextFace{
 			Source: source,
-			Size:   s,
+			Size:   s * dpiScale,
 		}
 		largeSize := s * 2
-		if largeSize > 48 {
-			largeSize = 48
+		if largeSize > baseMaxLargeFontSize {
+			largeSize = baseMaxLargeFontSize
 		}
 		largeFontFace = &text.GoTextFace{
 			Source: source,
-			Size:   largeSize,
+			Size:   largeSize * dpiScale,
 		}
 	}
 
-	// Scale font-dependent layout constants
+	// Scale font-dependent layout constants (font scale * DPI scale)
 	scale := s / 14.0
-	ListRowHeight = int(40 * scale)
-	ListHeaderHeight = int(38 * scale)
-	IconCardTextHeight = int(34 * scale)
-	// Badge and row use dampened scaling so they don't grow disproportionately
+	d := dpiScale
+	ListRowHeight = int(baseListRowHeight * scale * d)
+	ListHeaderHeight = int(baseListHeaderHeight * scale * d)
+	IconCardTextHeight = int(baseIconCardTextHeight * scale * d)
+	// Badge and row use dampened scaling so they don't grow disproportionately.
+	// (1 + fontScale) / 2 grows slower than text: at 2x font it's only 1.5x.
 	badgeScale := (1 + scale) / 2
-	AchievementRowHeight = int(92 * badgeScale)
-	AchievementBadgeSize = int(56 * badgeScale)
-	AchievementOverlayWidth = int(500 * scale)
-	AchievementOverlayPadding = int(16 * scale)
-	SettingsRowHeight = int(38 * scale)
-	EstimatedViewportHeight = int(400 * scale)
-	ListColGenre = int(100 * scale)
-	ListColRegion = int(50 * scale)
-	ListColPlayTime = int(80 * scale)
-	ListColLastPlayed = int(100 * scale)
-	ListColFavorite = int(24 * scale)
+	AchievementRowHeight = int(baseAchievementRowHeight * badgeScale * d)
+	AchievementBadgeSize = int(baseAchievementBadgeSize * badgeScale * d)
+	AchievementOverlayWidth = int(baseAchievementOverlayW * scale * d)
+	AchievementOverlayPadding = int(baseAchievementOverlayPad * scale * d)
+	SettingsRowHeight = int(baseSettingsRowHeight * scale * d)
+	EstimatedViewportHeight = int(baseEstimatedViewportHeight * scale * d)
+	ListColGenre = int(baseListColGenre * scale * d)
+	ListColRegion = int(baseListColRegion * scale * d)
+	ListColPlayTime = int(baseListColPlayTime * scale * d)
+	ListColLastPlayed = int(baseListColLastPlayed * scale * d)
+	ListColFavorite = int(baseListColFavorite * scale * d)
 }
 
 // ButtonImage creates a standard button image set

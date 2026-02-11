@@ -286,7 +286,7 @@ func (r *RetroAchievementsSection) buildToggleRow(focus types.FocusManager, key,
 			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
 				VerticalPosition: widget.GridLayoutPositionCenter,
 			}),
-			widget.WidgetOpts.MinSize(50, 0),
+			widget.WidgetOpts.MinSize(style.Px(50), 0),
 		),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			toggle()
@@ -415,12 +415,12 @@ func (r *RetroAchievementsSection) buildLoginSection(focus types.FocusManager) *
 			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
 				VerticalPosition: widget.GridLayoutPositionCenter,
 			}),
-			widget.WidgetOpts.MinSize(80, 0),
+			widget.WidgetOpts.MinSize(style.Px(80), 0),
 		),
 	)
 	usernameRow.AddChild(usernameLabel)
 
-	r.usernameInput = style.StyledTextInput("Enter username", false, 200)
+	r.usernameInput = style.StyledTextInput("Enter username", false, style.Px(200))
 	r.textInputs.Add(r.usernameInput)
 	if r.config.RetroAchievements.Username != "" {
 		r.usernameInput.SetText(r.config.RetroAchievements.Username)
@@ -446,12 +446,12 @@ func (r *RetroAchievementsSection) buildLoginSection(focus types.FocusManager) *
 			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
 				VerticalPosition: widget.GridLayoutPositionCenter,
 			}),
-			widget.WidgetOpts.MinSize(80, 0),
+			widget.WidgetOpts.MinSize(style.Px(80), 0),
 		),
 	)
 	passwordRow.AddChild(passwordLabel)
 
-	r.passwordInput = style.StyledTextInput("Enter password", true, 200)
+	r.passwordInput = style.StyledTextInput("Enter password", true, style.Px(200))
 	r.textInputs.Add(r.passwordInput)
 	passwordRow.AddChild(r.passwordInput)
 	section.AddChild(passwordRow)

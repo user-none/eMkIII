@@ -41,7 +41,7 @@ func (s *ErrorScreen) Build() *widget.Container {
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
 	)
 
-	centerContent := style.CenteredContainer(16)
+	centerContent := style.CenteredContainer(style.DefaultSpacing)
 
 	// Title
 	titleLabel := widget.NewText(

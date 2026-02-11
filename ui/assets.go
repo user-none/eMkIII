@@ -28,7 +28,7 @@ func GetPlaceholderImage() *ebiten.Image {
 	if err != nil {
 		log.Printf("Failed to decode placeholder image: %v", err)
 		// Return a solid color fallback
-		fallback := ebiten.NewImage(120, 90)
+		fallback := ebiten.NewImage(style.Px(120), style.Px(90))
 		fallback.Fill(style.Surface)
 		return fallback
 	}

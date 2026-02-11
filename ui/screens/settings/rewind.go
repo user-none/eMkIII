@@ -177,7 +177,7 @@ func (r *RewindSection) buildToggleRow(focus types.FocusManager, key, label stri
 			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
 				VerticalPosition: widget.GridLayoutPositionCenter,
 			}),
-			widget.WidgetOpts.MinSize(50, 0),
+			widget.WidgetOpts.MinSize(style.Px(50), 0),
 		),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			toggle()
@@ -234,7 +234,7 @@ func (r *RewindSection) buildValueRow(focus types.FocusManager, label, decKey, i
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
 				Position: widget.RowLayoutPositionCenter,
 			}),
-			widget.WidgetOpts.MinSize(40, 0),
+			widget.WidgetOpts.MinSize(style.Px(40), 0),
 		),
 	)
 	*valueRef = valueText

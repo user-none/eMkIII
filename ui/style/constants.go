@@ -4,68 +4,132 @@ package style
 
 import "time"
 
-// Layout constants used across screens
+// Base constants (unexported) — these are the logical-pixel reference values.
+// The corresponding exported vars are recalculated by SetDPIScale.
 const (
+	baseDefaultPadding      = 16
+	baseDefaultSpacing      = 16
+	baseSmallSpacing        = 8
+	baseTinySpacing         = 4
+	baseLargeSpacing        = 24
+	baseScrollbarWidth      = 20
+	baseButtonPaddingSmall  = 8
+	baseButtonPaddingMedium = 12
+	baseIconMinCardWidth    = 200
+	baseIconDefaultWinWidth = 800
+	baseDetailArtSmall      = 150
+	baseDetailArtLarge      = 400
+	baseSidebarMinWidth     = 180
+	baseFolderListMinHeight = 100
+	baseProgressBarWidth    = 300
+	baseProgressBarHeight   = 20
+	baseAchievementRowSpac  = 4
+
+	// Overlay (notification/search shared)
+	baseOverlayPadding = 12
+	baseOverlayMargin  = 8
+
+	// Pause menu
+	basePauseMinWidth = 150
+	basePauseMaxWidth = 350
+	basePauseMinBtnH  = 40
+	basePauseMaxBtnH  = 60
+
+	// Achievement overlay
+	baseAchievementPanelMargin = 40
+	baseAchievementMinPanelH   = 200
+
+	// Achievement notification
+	baseAchNotifyMargin   = 20
+	baseAchNotifyBadge    = 64
+	baseAchNotifyPaddingH = 20
+	baseAchNotifyPaddingV = 16
+	baseAchNotifySpacing  = 6
+	baseAchNotifyBorder   = 2
+
+	// Library list view
+	baseListMinTitleWidth = 150
+
+	// Font-dependent base values (at 14pt, scale = 1.0)
+	baseListRowHeight           = 40
+	baseListHeaderHeight        = 38
+	baseIconCardTextHeight      = 34
+	baseListColFavorite         = 24
+	baseListColGenre            = 100
+	baseListColRegion           = 50
+	baseListColPlayTime         = 80
+	baseListColLastPlayed       = 100
+	baseSettingsRowHeight       = 38
+	baseEstimatedViewportHeight = 400
+	baseAchievementRowHeight    = 92
+	baseAchievementBadgeSize    = 56
+	baseAchievementOverlayW     = 500
+	baseAchievementOverlayPad   = 16
+	baseMaxLargeFontSize        = 48
+)
+
+// Layout vars used across screens — DPI-scaled at runtime via SetDPIScale.
+var (
 	// Standard spacing and padding values
-	DefaultPadding = 16
-	DefaultSpacing = 16
-	SmallSpacing   = 8
-	TinySpacing    = 4
-	LargeSpacing   = 24
+	DefaultPadding = baseDefaultPadding
+	DefaultSpacing = baseDefaultSpacing
+	SmallSpacing   = baseSmallSpacing
+	TinySpacing    = baseTinySpacing
+	LargeSpacing   = baseLargeSpacing
 
 	// Scrollbar dimensions
-	ScrollbarWidth = 20
+	ScrollbarWidth = baseScrollbarWidth
 
 	// Button padding
-	ButtonPaddingSmall  = 8
-	ButtonPaddingMedium = 12
+	ButtonPaddingSmall  = baseButtonPaddingSmall
+	ButtonPaddingMedium = baseButtonPaddingMedium
 )
 
 // Font-dependent layout values (updated by ApplyFontSize)
 var (
-	ListRowHeight    = 40
-	ListHeaderHeight = 38
+	ListRowHeight    = baseListRowHeight
+	ListHeaderHeight = baseListHeaderHeight
 
 	// Column widths for library list view
-	ListColFavorite   = 24
-	ListColGenre      = 100
-	ListColRegion     = 50
-	ListColPlayTime   = 80
-	ListColLastPlayed = 100
+	ListColFavorite   = baseListColFavorite
+	ListColGenre      = baseListColGenre
+	ListColRegion     = baseListColRegion
+	ListColPlayTime   = baseListColPlayTime
+	ListColLastPlayed = baseListColLastPlayed
 
 	// Icon view
-	IconCardTextHeight = 34
+	IconCardTextHeight = baseIconCardTextHeight
 )
 
-// Icon view constants for grid layouts
-const (
-	IconMinCardWidth       = 200
-	IconDefaultWindowWidth = 800 // Fallback when window width unavailable
+// Icon view vars for grid layouts
+var (
+	IconMinCardWidth       = baseIconMinCardWidth
+	IconDefaultWindowWidth = baseIconDefaultWinWidth
 )
 
-// Detail screen constants
-const (
-	DetailArtWidthSmall = 150
-	DetailArtWidthLarge = 400
+// Detail screen vars
+var (
+	DetailArtWidthSmall = baseDetailArtSmall
+	DetailArtWidthLarge = baseDetailArtLarge
 )
 
-// Settings screen constants
-const (
-	SettingsSidebarMinWidth     = 180
-	SettingsFolderListMinHeight = 100
+// Settings screen vars
+var (
+	SettingsSidebarMinWidth     = baseSidebarMinWidth
+	SettingsFolderListMinHeight = baseFolderListMinHeight
 )
 
 // Font-dependent settings layout value (updated by ApplyFontSize)
-var SettingsRowHeight = 38
+var SettingsRowHeight = baseSettingsRowHeight
 
-// Progress bar constants
-const (
-	ProgressBarWidth  = 300
-	ProgressBarHeight = 20
+// Progress bar vars
+var (
+	ProgressBarWidth  = baseProgressBarWidth
+	ProgressBarHeight = baseProgressBarHeight
 )
 
 // Font-dependent scroll estimation (updated by ApplyFontSize)
-var EstimatedViewportHeight = 400
+var EstimatedViewportHeight = baseEstimatedViewportHeight
 
 // Gamepad navigation timing constants
 const (
@@ -86,15 +150,42 @@ const (
 	ScrollWheelSensitivity = 0.05
 )
 
-// Achievement UI constants
-const (
-	AchievementRowSpacing = 4
+// Overlay vars (shared by notification/search)
+var (
+	OverlayPadding = baseOverlayPadding
+	OverlayMargin  = baseOverlayMargin
+)
+
+// Pause menu vars
+var (
+	PauseMenuMinWidth     = basePauseMinWidth
+	PauseMenuMaxWidth     = basePauseMaxWidth
+	PauseMenuMinBtnHeight = basePauseMinBtnH
+	PauseMenuMaxBtnHeight = basePauseMaxBtnH
+)
+
+// Achievement UI vars
+var (
+	AchievementRowSpacing      = baseAchievementRowSpac
+	AchievementPanelMargin     = baseAchievementPanelMargin
+	AchievementMinPanelHeight  = baseAchievementMinPanelH
+	AchievementNotifyMargin    = baseAchNotifyMargin
+	AchievementNotifyBadgeSize = baseAchNotifyBadge
+	AchievementNotifyPaddingH  = baseAchNotifyPaddingH
+	AchievementNotifyPaddingV  = baseAchNotifyPaddingV
+	AchievementNotifySpacing   = baseAchNotifySpacing
+	AchievementNotifyBorder    = baseAchNotifyBorder
+)
+
+// Library list view vars
+var (
+	ListMinTitleWidth = baseListMinTitleWidth
 )
 
 // Font-dependent achievement values (updated by ApplyFontSize)
 var (
-	AchievementBadgeSize      = 56
-	AchievementRowHeight      = 92
-	AchievementOverlayWidth   = 500
-	AchievementOverlayPadding = 16
+	AchievementBadgeSize      = baseAchievementBadgeSize
+	AchievementRowHeight      = baseAchievementRowHeight
+	AchievementOverlayWidth   = baseAchievementOverlayW
+	AchievementOverlayPadding = baseAchievementOverlayPad
 )

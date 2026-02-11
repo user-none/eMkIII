@@ -28,7 +28,7 @@ func ScrollSlider(scrollContainer *widget.ScrollContainer, needsScroll func() bo
 			},
 			SliderButtonImage(),
 		),
-		widget.SliderOpts.FixedHandleSize(40),
+		widget.SliderOpts.FixedHandleSize(Px(40)),
 		widget.SliderOpts.PageSizeFunc(func() int {
 			if !needsScroll() {
 				return 1000 // Handle fills track - no scrolling needed
@@ -74,7 +74,7 @@ func DisabledSidebarItem(label string) *widget.Container {
 	item := widget.NewContainer(
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(Border)),
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout(
-			widget.AnchorLayoutOpts.Padding(widget.NewInsetsSimple(8)),
+			widget.AnchorLayoutOpts.Padding(widget.NewInsetsSimple(SmallSpacing)),
 		)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
@@ -131,7 +131,7 @@ func TooltipContent(text string) *widget.Container {
 	container := widget.NewContainer(
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(Border)),
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
-			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(8)),
+			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(SmallSpacing)),
 		)),
 	)
 	label := widget.NewText(
@@ -272,7 +272,7 @@ func EmptyState(title, subtitle string, button *widget.Button) *widget.Container
 		),
 	)
 
-	centerContent := CenteredContainer(16)
+	centerContent := CenteredContainer(DefaultSpacing)
 
 	titleLabel := widget.NewText(
 		widget.TextOpts.Text(title, FontFace(), Text),

@@ -142,21 +142,20 @@ func TestFormatLastPlayed(t *testing.T) {
 }
 
 func TestApplyFontSize(t *testing.T) {
+	// Ensure dpiScale is 1.0 for this test
+	origDPI := dpiScale
+	dpiScale = 1.0
+	defer func() {
+		dpiScale = origDPI
+		ApplyFontSize(14)
+	}()
+
 	// Save original values
 	origListRowHeight := ListRowHeight
 	origAchievementRowHeight := AchievementRowHeight
 	origAchievementBadgeSize := AchievementBadgeSize
 	origAchievementOverlayWidth := AchievementOverlayWidth
 	origAchievementOverlayPadding := AchievementOverlayPadding
-
-	// Restore after test
-	defer func() {
-		ApplyFontSize(14)
-		// Verify restore
-		if ListRowHeight != origListRowHeight {
-			t.Errorf("failed to restore ListRowHeight")
-		}
-	}()
 
 	// Apply at default 14pt - values should match defaults
 	ApplyFontSize(14)
@@ -293,4 +292,180 @@ func TestTruncateToWidth(t *testing.T) {
 			t.Errorf("expected %q for very narrow width, got %q", "...", got)
 		}
 	})
+}
+
+func TestPx(t *testing.T) {
+	origDPI := dpiScale
+	defer func() { dpiScale = origDPI }()
+
+	dpiScale = 1.0
+	if got := Px(10); got != 10 {
+		t.Errorf("Px(10) at scale 1.0 = %d, want 10", got)
+	}
+
+	dpiScale = 2.0
+	if got := Px(10); got != 20 {
+		t.Errorf("Px(10) at scale 2.0 = %d, want 20", got)
+	}
+
+	dpiScale = 1.5
+	if got := Px(10); got != 15 {
+		t.Errorf("Px(10) at scale 1.5 = %d, want 15", got)
+	}
+}
+
+func TestSetDPIScale(t *testing.T) {
+	origDPI := dpiScale
+	defer func() {
+		dpiScale = origDPI
+		ApplyFontSize(14)
+	}()
+
+	// Set to 2.0x and verify spatial vars double
+	SetDPIScale(2.0)
+
+	if DPIScale() != 2.0 {
+		t.Errorf("DPIScale() = %f, want 2.0", DPIScale())
+	}
+
+	// Non-font-dependent vars should be exactly 2x base
+	if DefaultPadding != 32 {
+		t.Errorf("DefaultPadding at 2x = %d, want 32", DefaultPadding)
+	}
+	if SmallSpacing != 16 {
+		t.Errorf("SmallSpacing at 2x = %d, want 16", SmallSpacing)
+	}
+	if ScrollbarWidth != 40 {
+		t.Errorf("ScrollbarWidth at 2x = %d, want 40", ScrollbarWidth)
+	}
+	if IconMinCardWidth != 400 {
+		t.Errorf("IconMinCardWidth at 2x = %d, want 400", IconMinCardWidth)
+	}
+	if AchievementRowSpacing != 8 {
+		t.Errorf("AchievementRowSpacing at 2x = %d, want 8", AchievementRowSpacing)
+	}
+
+	// Font-dependent vars at 14pt with 2x DPI should be 2x their 1x values
+	// ListRowHeight = int(40 * 1.0 * 2.0) = 80
+	if ListRowHeight != 80 {
+		t.Errorf("ListRowHeight at 14pt/2x = %d, want 80", ListRowHeight)
+	}
+
+	// Font face should incorporate DPI scale
+	face := FontFace()
+	if face != nil && *face != nil {
+		goFace, ok := (*face).(*text.GoTextFace)
+		if ok && goFace.Size != 28.0 {
+			t.Errorf("FontFace size at 14pt/2x = %f, want 28.0", goFace.Size)
+		}
+	}
+
+	// Restore to 1.0
+	SetDPIScale(1.0)
+	if DefaultPadding != 16 {
+		t.Errorf("DefaultPadding after restore = %d, want 16", DefaultPadding)
+	}
+	if ListRowHeight != 40 {
+		t.Errorf("ListRowHeight after restore = %d, want 40", ListRowHeight)
+	}
+}
+
+func TestPxFont(t *testing.T) {
+	origDPI := dpiScale
+	defer func() {
+		dpiScale = origDPI
+		ApplyFontSize(14)
+	}()
+
+	// At 14pt / 1x DPI: FontScale()=1.0, dpiScale=1.0 → PxFont(80)=80
+	dpiScale = 1.0
+	ApplyFontSize(14)
+	if got := PxFont(80); got != 80 {
+		t.Errorf("PxFont(80) at 14pt/1x = %d, want 80", got)
+	}
+
+	// At 28pt / 1x DPI: FontScale()=2.0, dpiScale=1.0 → PxFont(80)=160
+	ApplyFontSize(28)
+	if got := PxFont(80); got != 160 {
+		t.Errorf("PxFont(80) at 28pt/1x = %d, want 160", got)
+	}
+
+	// At 14pt / 2x DPI: FontScale()=1.0, dpiScale=2.0 → PxFont(80)=160
+	dpiScale = 2.0
+	ApplyFontSize(14)
+	if got := PxFont(80); got != 160 {
+		t.Errorf("PxFont(80) at 14pt/2x = %d, want 160", got)
+	}
+
+	// At 28pt / 2x DPI: FontScale()=2.0, dpiScale=2.0 → PxFont(80)=320
+	ApplyFontSize(28)
+	if got := PxFont(80); got != 320 {
+		t.Errorf("PxFont(80) at 28pt/2x = %d, want 320", got)
+	}
+}
+
+func TestSetDPIScaleNewVars(t *testing.T) {
+	origDPI := dpiScale
+	defer func() {
+		dpiScale = origDPI
+		ApplyFontSize(14)
+	}()
+
+	SetDPIScale(2.0)
+
+	if OverlayPadding != 24 {
+		t.Errorf("OverlayPadding at 2x = %d, want 24", OverlayPadding)
+	}
+	if OverlayMargin != 16 {
+		t.Errorf("OverlayMargin at 2x = %d, want 16", OverlayMargin)
+	}
+	if PauseMenuMinWidth != 300 {
+		t.Errorf("PauseMenuMinWidth at 2x = %d, want 300", PauseMenuMinWidth)
+	}
+	if PauseMenuMaxWidth != 700 {
+		t.Errorf("PauseMenuMaxWidth at 2x = %d, want 700", PauseMenuMaxWidth)
+	}
+	if PauseMenuMinBtnHeight != 80 {
+		t.Errorf("PauseMenuMinBtnHeight at 2x = %d, want 80", PauseMenuMinBtnHeight)
+	}
+	if PauseMenuMaxBtnHeight != 120 {
+		t.Errorf("PauseMenuMaxBtnHeight at 2x = %d, want 120", PauseMenuMaxBtnHeight)
+	}
+	if AchievementPanelMargin != 80 {
+		t.Errorf("AchievementPanelMargin at 2x = %d, want 80", AchievementPanelMargin)
+	}
+	if AchievementMinPanelHeight != 400 {
+		t.Errorf("AchievementMinPanelHeight at 2x = %d, want 400", AchievementMinPanelHeight)
+	}
+	if AchievementNotifyMargin != 40 {
+		t.Errorf("AchievementNotifyMargin at 2x = %d, want 40", AchievementNotifyMargin)
+	}
+	if AchievementNotifyBadgeSize != 128 {
+		t.Errorf("AchievementNotifyBadgeSize at 2x = %d, want 128", AchievementNotifyBadgeSize)
+	}
+	if ListMinTitleWidth != 300 {
+		t.Errorf("ListMinTitleWidth at 2x = %d, want 300", ListMinTitleWidth)
+	}
+
+	// Restore and verify
+	SetDPIScale(1.0)
+	if OverlayPadding != 12 {
+		t.Errorf("OverlayPadding after restore = %d, want 12", OverlayPadding)
+	}
+	if PauseMenuMinWidth != 150 {
+		t.Errorf("PauseMenuMinWidth after restore = %d, want 150", PauseMenuMinWidth)
+	}
+}
+
+func TestSetDPIScaleClampsBelowOne(t *testing.T) {
+	origDPI := dpiScale
+	defer func() {
+		dpiScale = origDPI
+		ApplyFontSize(14)
+	}()
+
+	SetDPIScale(0.5) // Should be clamped to 1.0
+	if DPIScale() != 1.0 {
+		t.Errorf("DPIScale() after setting 0.5 = %f, want 1.0", DPIScale())
+	}
 }

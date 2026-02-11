@@ -135,7 +135,7 @@ func (s *LibraryScreen) Build() *widget.Container {
 
 // buildEmptyState creates the empty library display
 func (s *LibraryScreen) buildEmptyState() *widget.Container {
-	button := style.TextButton("Open Settings", 12, func(args *widget.ButtonClickedEventArgs) {
+	button := style.TextButton("Open Settings", style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
 		s.callback.SwitchToSettings()
 	})
 	return style.EmptyState("No games in library", "Add a ROM folder in Settings", button)
@@ -216,23 +216,16 @@ func (s *LibraryScreen) buildToolbar() *widget.Container {
 		),
 	)
 
-	// Sort label with vertical centering
-	sortLabelContainer := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.MinSize(0, 32),
-		),
-	)
+	// Sort label (vertically centered via RowLayout position)
 	sortLabel := widget.NewText(
 		widget.TextOpts.Text("Sort:", style.FontFace(), style.Text),
 		widget.TextOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-				VerticalPosition: widget.AnchorLayoutPositionCenter,
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
+				Position: widget.RowLayoutPositionCenter,
 			}),
 		),
 	)
-	sortLabelContainer.AddChild(sortLabel)
-	centerContent.AddChild(sortLabelContainer)
+	centerContent.AddChild(sortLabel)
 
 	// Sort button
 	sortOptions := []string{"Title", "Last Played", "Play Time"}
@@ -330,7 +323,14 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 	totalFixed := prefFav + prefGenre + prefRegion + prefPlayTime + prefLastPlayed
 
 	// Minimum title width to keep usable
-	minTitleWidth := 150
+	minTitleWidth := style.ListMinTitleWidth
+
+	// Compute minimum widths from header text measurement + padding
+	minGenre := int(style.MeasureWidth("Genre")) + style.SmallSpacing
+	minRegion := int(style.MeasureWidth("Region")) + style.SmallSpacing
+	minPlayTime := int(style.MeasureWidth("Play Time")) + style.SmallSpacing
+	minLastPlayed := int(style.MeasureWidth("Last Played")) + style.SmallSpacing
+	minFav := prefFav // Favorite column has no text header, keep as-is
 
 	// Compute actual column widths, shrinking if needed
 	favW := prefFav
@@ -341,40 +341,33 @@ func (s *LibraryScreen) buildListView() widget.PreferredSizeLocateableWidget {
 
 	maxFixed := availableWidth - gridOverhead - minTitleWidth
 	if totalFixed > maxFixed && maxFixed > 0 {
-		// Compute minimum widths from header text measurement + padding
-		minGenre := int(style.MeasureWidth("Genre")) + style.SmallSpacing
-		minRegion := int(style.MeasureWidth("Region")) + style.SmallSpacing
-		minPlayTime := int(style.MeasureWidth("Play Time")) + style.SmallSpacing
-		minLastPlayed := int(style.MeasureWidth("Last Played")) + style.SmallSpacing
-		minFav := prefFav // Favorite column has no text header, keep as-is
-
-		// Proportionally shrink each column, floored at minimum
-		shrinkGenre := prefGenre * maxFixed / totalFixed
-		if shrinkGenre < minGenre {
-			shrinkGenre = minGenre
+		// First try: use text-measured minimums directly
+		totalMin := minFav + minGenre + minRegion + minPlayTime + minLastPlayed
+		if totalMin <= maxFixed {
+			// Distribute remaining space proportionally above minimums
+			extra := maxFixed - totalMin
+			prefExtra := totalFixed - totalMin
+			if prefExtra > 0 {
+				genreW = minGenre + (prefGenre-minGenre)*extra/prefExtra
+				regionW = minRegion + (prefRegion-minRegion)*extra/prefExtra
+				playTimeW = minPlayTime + (prefPlayTime-minPlayTime)*extra/prefExtra
+				lastPlayedW = minLastPlayed + (prefLastPlayed-minLastPlayed)*extra/prefExtra
+				favW = minFav
+			} else {
+				genreW = minGenre
+				regionW = minRegion
+				playTimeW = minPlayTime
+				lastPlayedW = minLastPlayed
+				favW = minFav
+			}
+		} else {
+			// Extremely tight: use minimums (title gets minTitleWidth)
+			favW = minFav
+			genreW = minGenre
+			regionW = minRegion
+			playTimeW = minPlayTime
+			lastPlayedW = minLastPlayed
 		}
-		shrinkRegion := prefRegion * maxFixed / totalFixed
-		if shrinkRegion < minRegion {
-			shrinkRegion = minRegion
-		}
-		shrinkPlayTime := prefPlayTime * maxFixed / totalFixed
-		if shrinkPlayTime < minPlayTime {
-			shrinkPlayTime = minPlayTime
-		}
-		shrinkLastPlayed := prefLastPlayed * maxFixed / totalFixed
-		if shrinkLastPlayed < minLastPlayed {
-			shrinkLastPlayed = minLastPlayed
-		}
-		shrinkFav := prefFav * maxFixed / totalFixed
-		if shrinkFav < minFav {
-			shrinkFav = minFav
-		}
-
-		favW = shrinkFav
-		genreW = shrinkGenre
-		regionW = shrinkRegion
-		playTimeW = shrinkPlayTime
-		lastPlayedW = shrinkLastPlayed
 	}
 
 	// Compute actual title width for truncation
@@ -668,7 +661,7 @@ func (s *LibraryScreen) buildGameCardSized(game *storage.GameEntry, cardWidth, c
 	cardContent := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Spacing(2),
+			widget.RowLayoutOpts.Spacing(style.Px(2)),
 		)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{

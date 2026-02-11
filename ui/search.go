@@ -3,6 +3,8 @@
 package ui
 
 import (
+	"image"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -14,6 +16,9 @@ type SearchOverlay struct {
 	text      string
 	active    bool              // Currently capturing keyboard input
 	onChanged func(text string) // Callback when text changes
+
+	// Pre-allocated background image (avoid per-frame allocations)
+	bg *ebiten.Image
 }
 
 // NewSearchOverlay creates a new search overlay with the given change callback
@@ -109,24 +114,27 @@ func (s *SearchOverlay) Draw(screen *ebiten.Image) {
 	textWidth, textHeight := text.Measure(displayText, *style.FontFace(), 0)
 
 	// Padding
-	padding := 12
+	padding := style.OverlayPadding
 	bgWidth := int(textWidth) + padding*2
 	bgHeight := int(textHeight) + padding*2
 
-	// Position: bottom-left, 8px margin (mirrors Notification at bottom-right)
-	margin := 8
+	// Position: bottom-left, margin (mirrors Notification at bottom-right)
+	margin := style.OverlayMargin
 	bgX := margin
 	bgY := screenHeight - bgHeight - margin
 
-	// Draw background (black at 60% opacity)
-	bg := ebiten.NewImage(bgWidth, bgHeight)
+	// Reuse or create background image
+	if s.bg == nil || s.bg.Bounds().Dx() < bgWidth || s.bg.Bounds().Dy() < bgHeight {
+		s.bg = ebiten.NewImage(bgWidth, bgHeight)
+	}
+	s.bg.Clear()
 	overlayBg := style.OverlayBackground
 	overlayBg.A = 153 // 60% opacity
-	bg.Fill(overlayBg)
+	s.bg.Fill(overlayBg)
 
 	opts := &ebiten.DrawImageOptions{}
 	opts.GeoM.Translate(float64(bgX), float64(bgY))
-	screen.DrawImage(bg, opts)
+	screen.DrawImage(s.bg.SubImage(image.Rect(0, 0, bgWidth, bgHeight)).(*ebiten.Image), opts)
 
 	// Draw text
 	textOpts := &text.DrawOptions{}

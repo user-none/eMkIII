@@ -75,7 +75,7 @@ func (s *ScanProgressScreen) Build() *widget.Container {
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
 	)
 
-	centerContent := style.CenteredContainer(16)
+	centerContent := style.CenteredContainer(style.DefaultSpacing)
 
 	// Status text
 	statusText := s.statusText

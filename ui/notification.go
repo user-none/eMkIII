@@ -173,12 +173,12 @@ func (n *Notification) drawDefaultWithData(screen *ebiten.Image, message string)
 	textWidth, textHeight := text.Measure(message, *style.FontFace(), 0)
 
 	// Padding
-	padding := 12
+	padding := style.OverlayPadding
 	bgWidth := int(textWidth) + padding*2
 	bgHeight := int(textHeight) + padding*2
 
-	// Position: bottom-right, 8px margin
-	margin := 8
+	// Position: bottom-right, margin
+	margin := style.OverlayMargin
 	bgX := screenWidth - bgWidth - margin
 	bgY := screenHeight - bgHeight - margin
 
@@ -215,9 +215,9 @@ func (n *Notification) drawAchievementWithData(screen *ebiten.Image, titleText, 
 		return
 	}
 
-	// Badge dimensions (RetroAchievements badges are 64x64)
-	badgeSize := 64
-	badgeSpacing := 12
+	// Badge dimensions
+	badgeSize := style.AchievementNotifyBadgeSize
+	badgeSpacing := style.OverlayPadding
 
 	// Header text
 	headerText := "Achievement Unlocked"
@@ -231,10 +231,10 @@ func (n *Notification) drawAchievementWithData(screen *ebiten.Image, titleText, 
 	}
 
 	// Calculate box size
-	paddingH := 20
-	paddingV := 16
-	spacing := 6
-	margin := 20
+	paddingH := style.AchievementNotifyPaddingH
+	paddingV := style.AchievementNotifyPaddingV
+	spacing := style.AchievementNotifySpacing
+	margin := style.AchievementNotifyMargin
 
 	// Maximum background width: screen width minus margin on each side
 	maxBgWidth := screenWidth - margin*2
@@ -284,9 +284,9 @@ func (n *Notification) drawAchievementWithData(screen *ebiten.Image, titleText, 
 		bgHeight = badgeSize + paddingV*2
 	}
 
-	// Position: top-center, 20px from top
+	// Position: top-center
 	bgX := (screenWidth - bgWidth) / 2
-	bgY := 20
+	bgY := style.AchievementNotifyMargin
 
 	// Reuse or create background image (only recreate if size changed)
 	if n.achievementBg == nil || n.lastBgWidth != bgWidth || n.lastBgHeight != bgHeight {
@@ -299,9 +299,9 @@ func (n *Notification) drawAchievementWithData(screen *ebiten.Image, titleText, 
 		achieveBg.A = 240 // 94% opacity
 		n.achievementBg.Fill(achieveBg)
 
-		// Draw gold border (2px)
+		// Draw gold border
 		gold := style.Accent
-		borderSize := 2
+		borderSize := style.AchievementNotifyBorder
 		for x := 0; x < bgWidth; x++ {
 			for y := 0; y < borderSize; y++ {
 				n.achievementBg.Set(x, y, gold)            // Top

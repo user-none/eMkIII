@@ -262,8 +262,8 @@ func (o *AchievementOverlay) rebuildCache(screenW, screenH, achCount int) {
 
 	// Calculate panel dimensions (centered, scaled width)
 	panelWidth := style.AchievementOverlayWidth
-	if panelWidth > screenW-40 {
-		panelWidth = screenW - 40
+	if panelWidth > screenW-style.AchievementPanelMargin {
+		panelWidth = screenW - style.AchievementPanelMargin
 	}
 
 	padding := style.AchievementOverlayPadding
@@ -289,8 +289,8 @@ func (o *AchievementOverlay) rebuildCache(screenW, screenH, achCount int) {
 	if panelHeight > maxHeight {
 		panelHeight = maxHeight
 	}
-	if panelHeight < 200 {
-		panelHeight = 200
+	if panelHeight < style.AchievementMinPanelHeight {
+		panelHeight = style.AchievementMinPanelHeight
 	}
 
 	o.cache.panelW = panelWidth

@@ -89,6 +89,9 @@ type App struct {
 	// clicks on the library screen. The guard suppresses UI input processing
 	// until all activation inputs are released.
 	gameplayTransitionGuard bool
+
+	// HiDPI: current device scale factor tracked across Layout calls
+	currentDPIScale float64
 }
 
 // NewApp creates and initializes the application
@@ -269,9 +272,10 @@ func (a *App) saveWindowState() {
 		return
 	}
 
-	// Use tracked values (ebiten functions don't work after game loop ends)
-	a.config.Window.Width = a.windowWidth
-	a.config.Window.Height = a.windowHeight
+	// Convert physical pixels back to logical for config persistence
+	s := style.DPIScale()
+	a.config.Window.Width = int(float64(a.windowWidth) / s)
+	a.config.Window.Height = int(float64(a.windowHeight) / s)
 	a.config.Window.X = &a.windowX
 	a.config.Window.Y = &a.windowY
 
@@ -656,10 +660,23 @@ func (a *App) Draw(screen *ebiten.Image) {
 
 // Layout implements ebiten.Game
 func (a *App) Layout(outsideWidth, outsideHeight int) (int, int) {
-	// Store dimensions for responsive layout calculations and persistence
-	a.windowWidth = outsideWidth
-	a.windowHeight = outsideHeight
-	return outsideWidth, outsideHeight
+	// Query the device scale factor for HiDPI/Retina rendering
+	s := 1.0
+	if m := ebiten.Monitor(); m != nil {
+		s = m.DeviceScaleFactor()
+	}
+	if s != a.currentDPIScale {
+		a.currentDPIScale = s
+		style.SetDPIScale(s)
+		a.rebuildPending = true
+	}
+
+	// Return physical pixel dimensions so the game renders at full resolution
+	w := int(float64(outsideWidth) * s)
+	h := int(float64(outsideHeight) * s)
+	a.windowWidth = w
+	a.windowHeight = h
+	return w, h
 }
 
 // ScreenCallback implementations

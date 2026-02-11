@@ -237,7 +237,7 @@ func (s *DetailScreen) Build() *widget.Container {
 	if s.game.Favorite {
 		favText = "Remove from Favorites"
 	}
-	favButton := style.TextButton(favText, 12, func(args *widget.ButtonClickedEventArgs) {
+	favButton := style.TextButton(favText, style.ButtonPaddingMedium, func(args *widget.ButtonClickedEventArgs) {
 		s.game.Favorite = !s.game.Favorite
 		storage.SaveLibrary(s.library)
 		s.callback.RequestRebuild()
@@ -325,13 +325,14 @@ func (s *DetailScreen) Build() *widget.Container {
 	// Calculate available width for metadata based on window size
 	// Use all available space: window - art - padding - spacing - scrollbar
 	metadataWidth := windowWidth - artWidth - style.DefaultPadding*2 - style.LargeSpacing - style.ScrollbarWidth - style.TinySpacing
-	if metadataWidth < 200 {
-		metadataWidth = 200
+	minMetadata := style.PxFont(200)
+	if metadataWidth < minMetadata {
+		metadataWidth = minMetadata
 	}
 
 	// Calculate pixel width for value text column
 	// Label width scales with font size; value column = metadataWidth - label - grid spacing - grid padding
-	labelWidth := int(80 * style.FontScale())
+	labelWidth := style.PxFont(80)
 	valueWidth := metadataWidth - labelWidth - style.DefaultSpacing - style.SmallSpacing*2
 
 	// Inner metadata container with fixed width
@@ -539,7 +540,7 @@ func (s *DetailScreen) buildMetadataRow(label, value string, valuePixelWidth int
 			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
 				VerticalPosition: widget.GridLayoutPositionCenter,
 			}),
-			widget.WidgetOpts.MinSize(int(80*style.FontScale()), 0),
+			widget.WidgetOpts.MinSize(style.PxFont(80), 0),
 		),
 	)
 	row.AddChild(labelText)

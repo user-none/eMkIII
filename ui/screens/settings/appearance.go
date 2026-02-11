@@ -163,7 +163,7 @@ func (a *AppearanceSection) buildFontSizeStepper(focus types.FocusManager) *widg
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
 				Position: widget.RowLayoutPositionCenter,
 			}),
-			widget.WidgetOpts.MinSize(60, 0),
+			widget.WidgetOpts.MinSize(style.Px(60), 0),
 		),
 		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
 	)
@@ -225,7 +225,7 @@ func (a *AppearanceSection) buildThemeCard(theme style.Theme, focus types.FocusM
 		widget.ButtonOpts.Text(themeName, style.FontFace(), style.ButtonTextColor()),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingMedium)),
 		widget.ButtonOpts.WidgetOpts(
-			widget.WidgetOpts.MinSize(120, 0),
+			widget.WidgetOpts.MinSize(style.Px(120), 0),
 			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
 				VerticalPosition: widget.GridLayoutPositionCenter,
 			}),
@@ -249,12 +249,10 @@ func (a *AppearanceSection) buildThemeCard(theme style.Theme, focus types.FocusM
 
 // buildThemePreview creates a mini UI mockup showing the theme applied
 func (a *AppearanceSection) buildThemePreview(theme style.Theme) *widget.Container {
-	const (
-		previewHeight = 100
-		sidebarWidth  = 70
-		btnPadding    = 4
-		itemHeight    = 22
-	)
+	previewHeight := style.Px(100)
+	sidebarWidth := style.Px(70)
+	btnPadding := style.Px(4)
+	itemHeight := style.Px(22)
 
 	// Outer container with theme's background color
 	preview := widget.NewContainer(
@@ -262,8 +260,8 @@ func (a *AppearanceSection) buildThemePreview(theme style.Theme) *widget.Contain
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
 			widget.GridLayoutOpts.Columns(2),
 			widget.GridLayoutOpts.Stretch([]bool{false, true}, []bool{true}),
-			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(6)),
-			widget.GridLayoutOpts.Spacing(6, 0),
+			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(style.Px(6))),
+			widget.GridLayoutOpts.Spacing(style.Px(6), 0),
 		)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.MinSize(0, previewHeight),
@@ -275,8 +273,8 @@ func (a *AppearanceSection) buildThemePreview(theme style.Theme) *widget.Contain
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(theme.Surface)),
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(4)),
-			widget.RowLayoutOpts.Spacing(2),
+			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(style.Px(4))),
+			widget.RowLayoutOpts.Spacing(style.Px(2)),
 		)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.MinSize(sidebarWidth, 0),
@@ -287,7 +285,7 @@ func (a *AppearanceSection) buildThemePreview(theme style.Theme) *widget.Contain
 	selectedItem := widget.NewContainer(
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(theme.Primary)),
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout(
-			widget.AnchorLayoutOpts.Padding(widget.NewInsetsSimple(2)),
+			widget.AnchorLayoutOpts.Padding(widget.NewInsetsSimple(style.Px(2))),
 		)),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.MinSize(0, itemHeight),
@@ -324,8 +322,8 @@ func (a *AppearanceSection) buildThemePreview(theme style.Theme) *widget.Contain
 		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(theme.Surface)),
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(6)),
-			widget.RowLayoutOpts.Spacing(6),
+			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(style.Px(6))),
+			widget.RowLayoutOpts.Spacing(style.Px(6)),
 		)),
 	)
 
@@ -345,7 +343,7 @@ func (a *AppearanceSection) buildThemePreview(theme style.Theme) *widget.Contain
 	buttonRow := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
-			widget.RowLayoutOpts.Spacing(6),
+			widget.RowLayoutOpts.Spacing(style.Px(6)),
 		)),
 	)
 

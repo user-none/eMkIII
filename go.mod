@@ -3,8 +3,8 @@ module github.com/user-none/emkiii
 go 1.25.7
 
 require (
-	github.com/Zyko0/go-sdl3 v0.0.0-20260125144524-02de3d449cb1
 	github.com/bodgit/sevenzip v1.6.1
+	github.com/ebitengine/oto/v3 v3.4.0
 	github.com/ebitenui/ebitenui v0.7.2
 	github.com/hajimehoshi/ebiten/v2 v2.9.8
 	github.com/koron-go/z80 v0.10.2
@@ -17,7 +17,6 @@ require (
 
 require (
 	github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf // indirect
-	github.com/Zyko0/purego-gen v0.0.0-20250727121216-3bcd331a1e0c // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/bodgit/plumbing v1.3.0 // indirect
 	github.com/bodgit/windows v1.0.1 // indirect

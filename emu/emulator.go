@@ -238,7 +238,7 @@ func (e *EmulatorBase) SetRegion(region Region) {
 // Shared Emulation Methods
 // =============================================================================
 
-// RunFrame executes one frame of emulation without Ebiten or SDL.
+// RunFrame executes one frame of emulation.
 // Audio samples are accumulated in the internal buffer.
 func (e *EmulatorBase) RunFrame() {
 	// Reset audio buffer for this frame

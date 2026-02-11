@@ -20,15 +20,36 @@ import (
 	"github.com/user-none/emkiii/ui/style"
 )
 
+// ADT (audio-driven timing) buffer thresholds in bytes.
+// At 48kHz stereo 16-bit: 3200 bytes/frame at 60fps.
+const (
+	adtMinBuffer = 9600  // ~3 frames — speed up below this
+	adtMaxBuffer = 19200 // ~6 frames — slow down above this
+)
+
 // GameplayManager handles all gameplay-related state and logic.
 // This includes emulator control, input handling, save states,
 // play time tracking, and the pause menu.
+//
+// The emulator runs on a dedicated goroutine with audio-driven timing (ADT).
+// The Ebiten thread handles UI, input polling, and reads the shared framebuffer.
 type GameplayManager struct {
 	// Emulation state
 	emulator    *emubridge.Emulator
 	audioPlayer *AudioPlayer
 	currentGame *storage.GameEntry
 	cropBorder  bool
+
+	// ADT goroutine control
+	emuControl        *EmuControl
+	sharedInput       *SharedInput
+	sharedFramebuffer *SharedFramebuffer
+	emuDone           chan struct{}
+
+	// Cached auto-save state (written by emu goroutine, read by Ebiten thread)
+	autoSaveState   []byte
+	autoSaveStateMu sync.Mutex
+	autoSaveReady   bool
 
 	// Rewind
 	rewindBuffer *RewindBuffer
@@ -43,7 +64,6 @@ type GameplayManager struct {
 	playTime PlayTimeTracker
 
 	// Auto-save state
-	autoSaveTimer    time.Time
 	autoSaveInterval time.Duration
 	autoSaving       bool
 	autoSaveWg       sync.WaitGroup
@@ -174,14 +194,24 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 	gm.currentGame = game
 	gm.saveStateManager.SetGame(gameCRC)
 
-	// Create audio player for game audio (skip if muted)
-	if !gm.config.Audio.Muted {
-		player, err := NewAudioPlayer()
-		if err != nil {
-			log.Printf("Failed to init audio: %v", err)
-		} else {
-			gm.audioPlayer = player
-		}
+	// Create shared structures for ADT
+	gm.sharedInput = &SharedInput{}
+	gm.sharedFramebuffer = NewSharedFramebuffer()
+	gm.emuControl = NewEmuControl()
+	gm.emuDone = make(chan struct{})
+
+	// Always create audio player for ADT timing.
+	// When muted, volume is set to 0 so the player still drains
+	// the buffer (driving timing) but produces no audible output.
+	volume := 1.0
+	if gm.config.Audio.Muted {
+		volume = 0
+	}
+	player, err := NewAudioPlayer(volume)
+	if err != nil {
+		log.Printf("Failed to init audio: %v", err)
+	} else {
+		gm.audioPlayer = player
 	}
 
 	// Load SRAM if exists
@@ -205,17 +235,13 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 		gm.rewindBuffer = NewRewindBuffer(gm.config.Rewind.BufferSizeMB, gm.config.Rewind.FrameStep, emu.SerializeSize())
 	}
 
-	// Set TPS for region
-	timing := emu.GetTimingForRegion(region)
-	ebiten.SetTPS(timing.FPS)
+	// Set TPS to 60 for all regions — emu goroutine handles its own timing via ADT
+	ebiten.SetTPS(60)
 
 	// Start play time tracking
 	gm.playTime.sessionSeconds = 0
 	gm.playTime.trackStart = time.Now().Unix()
 	gm.playTime.tracking = true
-
-	// Start auto-save timer (first save after 1 second)
-	gm.autoSaveTimer = time.Now().Add(time.Second)
 
 	// Initialize pause menu
 	gm.pauseMenu.Hide()
@@ -244,10 +270,99 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 		}
 	}
 
+	// Start the emulation goroutine
+	go gm.emulationLoop()
+
 	return true
 }
 
+// emulationLoop runs on a dedicated goroutine. It executes emulator frames,
+// queues audio, updates the shared framebuffer, and paces itself using
+// audio-driven timing (ADT).
+func (gm *GameplayManager) emulationLoop() {
+	defer close(gm.emuDone)
+
+	timing := gm.emulator.GetTiming()
+	frameTime := time.Duration(float64(time.Second) / float64(timing.FPS))
+	lastFrameTime := time.Now()
+	autoSaveTimer := time.Now().Add(time.Second) // First serialize after 1 second
+
+	for {
+		// Check pause/stop
+		if !gm.emuControl.CheckPause() {
+			return
+		}
+
+		// Read input from shared state
+		up, down, left, right, btn1, btn2, smsPause := gm.sharedInput.Read()
+		gm.emulator.SetInput(up, down, left, right, btn1, btn2)
+		if smsPause {
+			gm.emulator.SetPause()
+		}
+
+		// Run one frame of emulation
+		gm.emulator.RunFrame()
+
+		// Process RetroAchievements (reads emulator memory — must be same goroutine)
+		if gm.achievementManager != nil {
+			gm.achievementManager.DoFrame()
+		}
+
+		// Queue audio samples
+		if gm.audioPlayer != nil {
+			gm.audioPlayer.QueueSamples(gm.emulator.GetAudioSamples())
+		}
+
+		// Update shared framebuffer for Draw thread
+		gm.sharedFramebuffer.Update(
+			gm.emulator.GetFramebuffer(),
+			gm.emulator.GetFramebufferStride(),
+			gm.emulator.GetActiveHeight(),
+			gm.emulator.LeftColumnBlankEnabled(),
+		)
+
+		// Capture rewind state (only when not rewinding)
+		if gm.rewindBuffer != nil {
+			gm.rewindBuffer.Capture(gm.emulator)
+		}
+
+		// Periodic auto-save: serialize state and cache for Ebiten thread to write to disk
+		now := time.Now()
+		if now.After(autoSaveTimer) {
+			state, err := gm.emulator.Serialize()
+			if err == nil {
+				gm.autoSaveStateMu.Lock()
+				gm.autoSaveState = state
+				gm.autoSaveReady = true
+				gm.autoSaveStateMu.Unlock()
+			}
+			autoSaveTimer = now.Add(gm.autoSaveInterval)
+		}
+
+		// ADT sleep: wall-clock baseline ± adjustment from audio buffer level
+		elapsed := time.Since(lastFrameTime)
+		sleepTime := frameTime - elapsed
+
+		if gm.audioPlayer != nil {
+			bufferLevel := gm.audioPlayer.GetBufferLevel()
+			if bufferLevel < adtMinBuffer {
+				sleepTime = time.Duration(float64(sleepTime) * 0.9)
+			} else if bufferLevel > adtMaxBuffer {
+				sleepTime = time.Duration(float64(sleepTime) * 1.1)
+			}
+		}
+
+		if sleepTime > time.Millisecond {
+			time.Sleep(sleepTime)
+		}
+
+		lastFrameTime = time.Now()
+	}
+}
+
 // Update handles the gameplay update loop. Returns true if pause menu was opened.
+// This runs on the Ebiten thread — it polls input and manages UI state.
+// The emulator itself runs on a separate goroutine.
 func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
 	if gm.emulator == nil {
 		return false, nil
@@ -257,9 +372,11 @@ func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) && !gm.pauseMenu.IsVisible() {
 		if gm.achievementOverlay.IsVisible() {
 			gm.achievementOverlay.Hide()
+			gm.emuControl.RequestResume()
 			gm.playTime.trackStart = time.Now().Unix()
 			gm.playTime.tracking = true
 		} else if gm.achievementManager != nil && gm.achievementManager.IsGameLoaded() {
+			gm.emuControl.RequestPause()
 			gm.achievementOverlay.Show()
 			gm.pausePlayTimeTracking()
 		}
@@ -288,7 +405,8 @@ func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
 	}
 
 	if openPauseMenu && !gm.pauseMenu.IsVisible() {
-		// Open pause menu
+		// Pause emulation goroutine, then open pause menu
+		gm.emuControl.RequestPause()
 		gm.triggerAutoSave()
 		gm.pauseMenu.Show()
 		gm.pausePlayTimeTracking()
@@ -305,8 +423,8 @@ func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
 		return false, nil
 	}
 
-	// Poll and pass input to emulator
-	gm.pollInput()
+	// Poll input and write to shared state (emu goroutine reads it)
+	gm.pollInputToShared()
 
 	// Check rewind input (R key)
 	if gm.rewindBuffer != nil {
@@ -315,60 +433,60 @@ func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
 			items := rewindItemsForHoldDuration(holdDuration)
 			if items > 0 {
 				if !gm.rewindBuffer.IsRewinding() {
+					// Pause goroutine for rewind — we access emulator directly
+					gm.emuControl.RequestPause()
 					gm.rewindBuffer.SetRewinding(true)
 					if gm.audioPlayer != nil {
 						gm.audioPlayer.ClearQueue()
 					}
 				}
 				gm.rewindBuffer.Rewind(gm.emulator, items)
+				// Update shared framebuffer after rewind step
+				gm.sharedFramebuffer.Update(
+					gm.emulator.GetFramebuffer(),
+					gm.emulator.GetFramebufferStride(),
+					gm.emulator.GetActiveHeight(),
+					gm.emulator.LeftColumnBlankEnabled(),
+				)
 				return false, nil
 			}
 			// items == 0 means we're in a hold gap frame; skip normal execution
 			return false, nil
 		} else if gm.rewindBuffer.IsRewinding() {
-			// R released - resume normal play
+			// R released - resume emulation goroutine
 			gm.rewindBuffer.SetRewinding(false)
+			gm.emuControl.RequestResume()
 		}
 	}
 
-	// Run one frame of emulation
-	gm.emulator.RunFrame()
-
-	// Process RetroAchievements
-	if gm.achievementManager != nil {
-		gm.achievementManager.DoFrame()
-	}
-
-	// Queue audio samples
-	if gm.audioPlayer != nil {
-		gm.audioPlayer.QueueSamples(gm.emulator.GetAudioSamples())
-	}
-
-	// Capture rewind state (after RunFrame, only when not rewinding)
-	if gm.rewindBuffer != nil {
-		gm.rewindBuffer.Capture(gm.emulator)
-	}
-
-	// Handle save state keys
+	// Handle save state keys (pauses goroutine as needed)
 	gm.handleSaveStateKeys()
 
-	// Check auto-save timer
-	if time.Now().After(gm.autoSaveTimer) && !gm.autoSaving {
-		gm.triggerAutoSave()
-		gm.autoSaveTimer = time.Now().Add(gm.autoSaveInterval)
+	// Check for cached auto-save state from emu goroutine → write to disk
+	gm.autoSaveStateMu.Lock()
+	if gm.autoSaveReady && !gm.autoSaving {
+		state := gm.autoSaveState
+		gm.autoSaveReady = false
+		gm.autoSaveStateMu.Unlock()
+		gm.writeAutoSave(state)
+	} else {
+		gm.autoSaveStateMu.Unlock()
 	}
 
 	return false, nil
 }
 
-// Draw renders the gameplay screen (scaled to fit)
+// Draw renders the gameplay screen from the shared framebuffer.
 func (gm *GameplayManager) Draw(screen *ebiten.Image) {
-	if gm.emulator == nil {
+	if gm.emulator == nil || gm.sharedFramebuffer == nil {
 		return
 	}
 
-	// Use emulator's DrawToScreen for rendering
-	gm.emulator.DrawToScreen(screen, gm.cropBorder)
+	pixels, stride, height, leftColumnBlank := gm.sharedFramebuffer.Read()
+	if height == 0 {
+		return
+	}
+	gm.emulator.DrawCachedFramebuffer(screen, pixels, stride, height, leftColumnBlank, gm.cropBorder)
 
 	// Check for pending achievement screenshot
 	gm.achievementScreenshotMu.Lock()
@@ -384,12 +502,16 @@ func (gm *GameplayManager) Draw(screen *ebiten.Image) {
 }
 
 // DrawFramebuffer returns the native-resolution VDP framebuffer for xBR processing.
-// When xBR is enabled, this provides the native image which xBR will upscale.
+// Reads from the shared framebuffer rather than directly from the emulator.
 func (gm *GameplayManager) DrawFramebuffer() *ebiten.Image {
-	if gm.emulator == nil {
+	if gm.emulator == nil || gm.sharedFramebuffer == nil {
 		return nil
 	}
-	return gm.emulator.GetFramebufferImage(gm.cropBorder)
+	pixels, stride, height, leftColumnBlank := gm.sharedFramebuffer.Read()
+	if height == 0 {
+		return nil
+	}
+	return gm.emulator.GetCachedFramebufferImage(pixels, stride, height, leftColumnBlank, gm.cropBorder)
 }
 
 // DrawPauseMenu draws the pause menu overlay
@@ -410,9 +532,9 @@ func (gm *GameplayManager) IsPaused() bool {
 // Resume resumes gameplay after pause menu
 func (gm *GameplayManager) Resume() {
 	gm.pauseMenu.Hide()
+	gm.emuControl.RequestResume()
 	gm.playTime.trackStart = time.Now().Unix()
 	gm.playTime.tracking = true
-	gm.autoSaveTimer = time.Now().Add(gm.autoSaveInterval)
 }
 
 // Exit cleans up when exiting gameplay
@@ -421,7 +543,13 @@ func (gm *GameplayManager) Exit(saveResume bool) {
 		return
 	}
 
-	// Wait for any pending auto-save to complete (max 2 seconds)
+	// Stop emulation goroutine and wait for it to exit
+	if gm.emuControl != nil {
+		gm.emuControl.Stop()
+		<-gm.emuDone
+	}
+
+	// Wait for any pending auto-save disk write to complete (max 2 seconds)
 	done := make(chan struct{})
 	go func() {
 		gm.autoSaveWg.Wait()
@@ -438,7 +566,7 @@ func (gm *GameplayManager) Exit(saveResume bool) {
 	gm.pausePlayTimeTracking()
 	gm.updatePlayTime()
 
-	// Save SRAM
+	// Save SRAM (goroutine is stopped, safe to access emulator directly)
 	if err := gm.saveStateManager.SaveSRAM(gm.emulator); err != nil {
 		log.Printf("SRAM save failed: %v", err)
 	}
@@ -450,8 +578,13 @@ func (gm *GameplayManager) Exit(saveResume bool) {
 		}
 	}
 
-	// Free rewind buffer
+	// Free shared state
 	gm.rewindBuffer = nil
+	gm.sharedInput = nil
+	gm.sharedFramebuffer = nil
+	gm.emuControl = nil
+	gm.autoSaveState = nil
+	gm.autoSaveReady = false
 
 	// Close audio player
 	if gm.audioPlayer != nil {
@@ -474,8 +607,9 @@ func (gm *GameplayManager) Exit(saveResume bool) {
 	ebiten.SetTPS(60)
 }
 
-// pollInput reads input and passes it to the emulator
-func (gm *GameplayManager) pollInput() {
+// pollInputToShared reads input and writes it to the shared input state
+// for the emulation goroutine to consume.
+func (gm *GameplayManager) pollInputToShared() {
 	// Keyboard (WASD + JK)
 	up := ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp)
 	down := ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown)
@@ -524,7 +658,7 @@ func (gm *GameplayManager) pollInput() {
 		}
 	}
 
-	gm.emulator.SetInput(up, down, left, right, btn1, btn2)
+	gm.sharedInput.Set(up, down, left, right, btn1, btn2)
 
 	// SMS Pause button (Enter key or Start button triggers NMI)
 	smsPause := inpututil.IsKeyJustPressed(ebiten.KeyEnter)
@@ -535,20 +669,23 @@ func (gm *GameplayManager) pollInput() {
 		}
 	}
 	if smsPause {
-		gm.emulator.SetPause()
+		gm.sharedInput.SetPause()
 	}
 }
 
-// handleSaveStateKeys handles F1/F2/F3 for save states
+// handleSaveStateKeys handles F1/F2/F3 for save states.
+// Pauses the emulation goroutine for Save/Load operations.
 func (gm *GameplayManager) handleSaveStateKeys() {
 	// F1 - Save to current slot
 	if inpututil.IsKeyJustPressed(ebiten.KeyF1) {
+		gm.emuControl.RequestPause()
 		if err := gm.saveStateManager.Save(gm.emulator); err != nil {
 			log.Printf("Save state failed: %v", err)
 		}
+		gm.emuControl.RequestResume()
 	}
 
-	// F2 - Next slot (Shift+F2 - Previous slot)
+	// F2 - Next slot (Shift+F2 - Previous slot) — no pause needed
 	if inpututil.IsKeyJustPressed(ebiten.KeyF2) {
 		if ebiten.IsKeyPressed(ebiten.KeyShift) {
 			gm.saveStateManager.PreviousSlot()
@@ -559,37 +696,74 @@ func (gm *GameplayManager) handleSaveStateKeys() {
 
 	// F3 - Load from current slot
 	if inpututil.IsKeyJustPressed(ebiten.KeyF3) {
+		gm.emuControl.RequestPause()
 		if err := gm.saveStateManager.Load(gm.emulator); err != nil {
 			log.Printf("Load state failed: %v", err)
-		} else if gm.rewindBuffer != nil {
-			gm.rewindBuffer.Reset()
+		} else {
+			if gm.rewindBuffer != nil {
+				gm.rewindBuffer.Reset()
+			}
+			// Update shared framebuffer after load
+			gm.sharedFramebuffer.Update(
+				gm.emulator.GetFramebuffer(),
+				gm.emulator.GetFramebufferStride(),
+				gm.emulator.GetActiveHeight(),
+				gm.emulator.LeftColumnBlankEnabled(),
+			)
+			if gm.audioPlayer != nil {
+				gm.audioPlayer.ClearQueue()
+			}
 		}
+		gm.emuControl.RequestResume()
 	}
 }
 
-// triggerAutoSave performs an auto-save
+// triggerAutoSave saves the emulator state to disk.
+// When the goroutine is paused, serializes fresh. Otherwise uses cached state.
 func (gm *GameplayManager) triggerAutoSave() {
 	if gm.emulator == nil || gm.currentGame == nil || gm.autoSaving {
 		return
 	}
 
+	var state []byte
+	if gm.emuControl != nil && gm.emuControl.IsPaused() {
+		// Goroutine is paused — safe to serialize fresh and save SRAM
+		var err error
+		state, err = gm.emulator.Serialize()
+		if err != nil {
+			log.Printf("Auto-save serialize failed: %v", err)
+			return
+		}
+		// Also save SRAM since goroutine is paused
+		if err := gm.saveStateManager.SaveSRAM(gm.emulator); err != nil {
+			log.Printf("SRAM save failed: %v", err)
+		}
+	} else {
+		// Use cached state from emu goroutine (no SRAM save — goroutine running)
+		gm.autoSaveStateMu.Lock()
+		state = gm.autoSaveState
+		gm.autoSaveStateMu.Unlock()
+	}
+
+	if state == nil {
+		return
+	}
+
+	gm.writeAutoSave(state)
+}
+
+// writeAutoSave writes pre-serialized state data to disk asynchronously.
+func (gm *GameplayManager) writeAutoSave(state []byte) {
 	gm.autoSaving = true
 	gm.autoSaveWg.Add(1)
 	go func() {
 		defer gm.autoSaveWg.Done()
 		defer func() { gm.autoSaving = false }()
 
-		// Save resume state
-		if err := gm.saveStateManager.SaveResume(gm.emulator); err != nil {
+		if err := gm.saveStateManager.SaveResumeData(state); err != nil {
 			log.Printf("Auto-save failed: %v", err)
 		}
 
-		// Save SRAM
-		if err := gm.saveStateManager.SaveSRAM(gm.emulator); err != nil {
-			log.Printf("SRAM save failed: %v", err)
-		}
-
-		// Update play time
 		gm.updatePlayTime()
 	}()
 }

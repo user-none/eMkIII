@@ -33,34 +33,38 @@ func (e *Emulator) Close() {
 	// Emulator no longer manages audio - AudioPlayer handles it
 }
 
-// DrawToScreen renders the emulator framebuffer to the given screen.
-// Handles scaling, centering, and optional border cropping.
-// This method encapsulates rendering logic for use by both the runner and UI.
-func (e *Emulator) DrawToScreen(screen *ebiten.Image, cropBorder bool) {
-	activeHeight := e.GetActiveHeight()
+func (e *Emulator) Layout(outsideWidth, outsideHeight int) (int, int) {
+	// Return window size so we control scaling in Draw()
+	return outsideWidth, outsideHeight
+}
+
+// DrawCachedFramebuffer renders pre-cached pixel data to the screen.
+// Used by the ADT architecture where the emulation goroutine writes pixels
+// to a shared framebuffer, and the Ebiten Draw() thread renders them.
+func (e *Emulator) DrawCachedFramebuffer(screen *ebiten.Image, pixels []byte, stride, activeHeight int, leftColumnBlank, cropBorder bool) {
+	if activeHeight == 0 || stride == 0 {
+		return
+	}
+
+	requiredLen := stride * activeHeight
+	if len(pixels) < requiredLen {
+		return
+	}
 
 	// Create or resize offscreen buffer if needed
 	if e.offscreen == nil || e.offscreen.Bounds().Dy() != activeHeight {
 		e.offscreen = ebiten.NewImage(emu.ScreenWidth, activeHeight)
 	}
 
-	// Copy VDP framebuffer to offscreen buffer
-	fb := e.GetFramebuffer()
-	stride := e.GetFramebufferStride()
-	requiredLen := stride * activeHeight
-	if len(fb) < requiredLen {
-		return // Buffer too small, skip frame
-	}
-	e.offscreen.WritePixels(fb[:requiredLen])
+	e.offscreen.WritePixels(pixels[:requiredLen])
 
 	// Determine source image and native width
 	var srcImage *ebiten.Image
 	nativeW := float64(emu.ScreenWidth)
 
-	// Crop left border if enabled and VDP has left column blank active
-	if cropBorder && e.LeftColumnBlankEnabled() {
+	if cropBorder && leftColumnBlank {
 		srcImage = e.offscreen.SubImage(image.Rect(8, 0, emu.ScreenWidth, activeHeight)).(*ebiten.Image)
-		nativeW = float64(emu.ScreenWidth - 8) // 248 pixels
+		nativeW = float64(emu.ScreenWidth - 8)
 	} else {
 		srcImage = e.offscreen
 	}
@@ -76,13 +80,11 @@ func (e *Emulator) DrawToScreen(screen *ebiten.Image, cropBorder bool) {
 		scale = scaleY
 	}
 
-	// Calculate offset to center the image
 	scaledW := nativeW * scale
 	scaledH := nativeH * scale
 	offsetX := (float64(screenW) - scaledW) / 2
 	offsetY := (float64(screenH) - scaledH) / 2
 
-	// Draw scaled image centered in window using pre-allocated options
 	e.drawOpts = ebiten.DrawImageOptions{}
 	e.drawOpts.GeoM.Scale(scale, scale)
 	e.drawOpts.GeoM.Translate(offsetX, offsetY)
@@ -90,33 +92,26 @@ func (e *Emulator) DrawToScreen(screen *ebiten.Image, cropBorder bool) {
 	screen.DrawImage(srcImage, &e.drawOpts)
 }
 
-func (e *Emulator) Layout(outsideWidth, outsideHeight int) (int, int) {
-	// Return window size so we control scaling in Draw()
-	return outsideWidth, outsideHeight
-}
+// GetCachedFramebufferImage returns pre-cached pixel data as an ebiten.Image
+// at native resolution. Used for xBR shader processing with ADT.
+func (e *Emulator) GetCachedFramebufferImage(pixels []byte, stride, activeHeight int, leftColumnBlank, cropBorder bool) *ebiten.Image {
+	if activeHeight == 0 || stride == 0 {
+		return nil
+	}
 
-// GetFramebufferImage returns the VDP framebuffer as an ebiten.Image at native resolution.
-// If cropBorder is true and the VDP has left column blank enabled, the 8-pixel
-// left border is cropped from the returned image.
-func (e *Emulator) GetFramebufferImage(cropBorder bool) *ebiten.Image {
-	activeHeight := e.GetActiveHeight()
+	requiredLen := stride * activeHeight
+	if len(pixels) < requiredLen {
+		return nil
+	}
 
 	// Create or resize offscreen buffer if needed
 	if e.offscreen == nil || e.offscreen.Bounds().Dy() != activeHeight {
 		e.offscreen = ebiten.NewImage(emu.ScreenWidth, activeHeight)
 	}
 
-	// Copy VDP framebuffer to offscreen buffer
-	fb := e.GetFramebuffer()
-	stride := e.GetFramebufferStride()
-	requiredLen := stride * activeHeight
-	if len(fb) < requiredLen {
-		return nil // Buffer too small
-	}
-	e.offscreen.WritePixels(fb[:requiredLen])
+	e.offscreen.WritePixels(pixels[:requiredLen])
 
-	// Crop left border if enabled and VDP has left column blank active
-	if cropBorder && e.LeftColumnBlankEnabled() {
+	if cropBorder && leftColumnBlank {
 		return e.offscreen.SubImage(image.Rect(8, 0, emu.ScreenWidth, activeHeight)).(*ebiten.Image)
 	}
 	return e.offscreen

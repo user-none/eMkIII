@@ -6,6 +6,7 @@ package cli
 
 import (
 	"log"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -13,35 +14,119 @@ import (
 	"github.com/user-none/emkiii/ui"
 )
 
+// ADT buffer thresholds in bytes (same as ui package).
+const (
+	adtMinBuffer = 9600
+	adtMaxBuffer = 19200
+)
+
 // Runner wraps an emulator for command-line mode.
-// It handles input polling (emulator doesn't poll input itself).
-// This follows the libretro pattern where the frontend is responsible
-// for polling input and passing it to the emulator via SetInput().
+// The emulator runs on a dedicated goroutine with audio-driven timing.
+// The Ebiten thread handles input polling and rendering from the shared framebuffer.
 type Runner struct {
 	emulator    *emubridge.Emulator
 	audioPlayer *ui.AudioPlayer
 	cropBorder  bool
+
+	// ADT goroutine control
+	emuControl        *ui.EmuControl
+	sharedInput       *ui.SharedInput
+	sharedFramebuffer *ui.SharedFramebuffer
+	emuDone           chan struct{}
 }
 
 // NewRunner creates a new Runner wrapping the given emulator.
 // Audio initialization failure is non-fatal; the runner will work without sound.
 func NewRunner(e *emubridge.Emulator, cropBorder bool) *Runner {
-	player, err := ui.NewAudioPlayer()
+	player, err := ui.NewAudioPlayer(1.0)
 	if err != nil {
 		log.Printf("Warning: audio initialization failed: %v", err)
 	}
-	return &Runner{
-		emulator:    e,
-		audioPlayer: player,
-		cropBorder:  cropBorder,
+
+	r := &Runner{
+		emulator:          e,
+		audioPlayer:       player,
+		cropBorder:        cropBorder,
+		emuControl:        ui.NewEmuControl(),
+		sharedInput:       &ui.SharedInput{},
+		sharedFramebuffer: ui.NewSharedFramebuffer(),
+		emuDone:           make(chan struct{}),
 	}
+
+	// Start emulation goroutine
+	go r.emulationLoop()
+
+	return r
 }
 
 // Close cleans up the runner's resources.
 func (r *Runner) Close() {
+	// Stop emulation goroutine
+	if r.emuControl != nil {
+		r.emuControl.Stop()
+		<-r.emuDone
+	}
+
 	if r.audioPlayer != nil {
 		r.audioPlayer.Close()
 		r.audioPlayer = nil
+	}
+}
+
+// emulationLoop runs on a dedicated goroutine with ADT.
+func (r *Runner) emulationLoop() {
+	defer close(r.emuDone)
+
+	timing := r.emulator.GetTiming()
+	frameTime := time.Duration(float64(time.Second) / float64(timing.FPS))
+	lastFrameTime := time.Now()
+
+	for {
+		if !r.emuControl.CheckPause() {
+			return
+		}
+
+		// Read input from shared state
+		up, down, left, right, btn1, btn2, smsPause := r.sharedInput.Read()
+		r.emulator.SetInput(up, down, left, right, btn1, btn2)
+		if smsPause {
+			r.emulator.SetPause()
+		}
+
+		// Run one frame
+		r.emulator.RunFrame()
+
+		// Queue audio
+		if r.audioPlayer != nil {
+			r.audioPlayer.QueueSamples(r.emulator.GetAudioSamples())
+		}
+
+		// Update shared framebuffer
+		r.sharedFramebuffer.Update(
+			r.emulator.GetFramebuffer(),
+			r.emulator.GetFramebufferStride(),
+			r.emulator.GetActiveHeight(),
+			r.emulator.LeftColumnBlankEnabled(),
+		)
+
+		// ADT sleep
+		elapsed := time.Since(lastFrameTime)
+		sleepTime := frameTime - elapsed
+
+		if r.audioPlayer != nil {
+			bufferLevel := r.audioPlayer.GetBufferLevel()
+			if bufferLevel < adtMinBuffer {
+				sleepTime = time.Duration(float64(sleepTime) * 0.9)
+			} else if bufferLevel > adtMaxBuffer {
+				sleepTime = time.Duration(float64(sleepTime) * 1.1)
+			}
+		}
+
+		if sleepTime > time.Millisecond {
+			time.Sleep(sleepTime)
+		}
+
+		lastFrameTime = time.Now()
 	}
 }
 
@@ -51,23 +136,17 @@ func (r *Runner) Update() error {
 		return nil
 	}
 
-	// Poll input (runner responsibility, not emulator)
-	r.pollInput()
-
-	// Run one frame of emulation
-	r.emulator.RunFrame()
-
-	// Queue audio samples to SDL
-	if r.audioPlayer != nil {
-		r.audioPlayer.QueueSamples(r.emulator.GetAudioSamples())
-	}
-
+	r.pollInputToShared()
 	return nil
 }
 
 // Draw implements ebiten.Game.
 func (r *Runner) Draw(screen *ebiten.Image) {
-	r.emulator.DrawToScreen(screen, r.cropBorder)
+	pixels, stride, height, leftColumnBlank := r.sharedFramebuffer.Read()
+	if height == 0 {
+		return
+	}
+	r.emulator.DrawCachedFramebuffer(screen, pixels, stride, height, leftColumnBlank, r.cropBorder)
 }
 
 // Layout implements ebiten.Game.
@@ -75,8 +154,8 @@ func (r *Runner) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return r.emulator.Layout(outsideWidth, outsideHeight)
 }
 
-// pollInput reads keyboard and gamepad input and passes it to the emulator.
-func (r *Runner) pollInput() {
+// pollInputToShared reads keyboard and gamepad input and writes to shared state.
+func (r *Runner) pollInputToShared() {
 	// Keyboard (WASD + arrows for movement, JK for buttons)
 	up := ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp)
 	down := ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown)
@@ -131,10 +210,10 @@ func (r *Runner) pollInput() {
 		}
 	}
 
-	r.emulator.SetInput(up, down, left, right, btn1, btn2)
+	r.sharedInput.Set(up, down, left, right, btn1, btn2)
 
 	// SMS Pause button (Enter key triggers NMI)
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-		r.emulator.SetPause()
+		r.sharedInput.SetPause()
 	}
 }

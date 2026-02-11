@@ -6,13 +6,7 @@ import (
 	"testing"
 )
 
-// Note: The Emulator struct requires SDL initialization for audio,
-// which makes it difficult to test in a pure unit test environment.
-// These tests focus on testing the individual components and their
-// integration without requiring actual SDL/audio initialization.
-
-// TestEmulator_ComponentIntegration tests that components work together correctly
-// without requiring SDL initialization.
+// TestEmulator_ComponentIntegration tests that components work together correctly.
 func TestEmulator_ComponentIntegration(t *testing.T) {
 	// Create components manually (mimicking what NewEmulator does)
 	rom := createTestROM(4)
@@ -228,7 +222,7 @@ func TestEmulator_PSGIntegration(t *testing.T) {
 	}
 }
 
-// TestEmulator_FrameLoop_Logic tests the frame loop logic without SDL
+// TestEmulator_FrameLoop_Logic tests the frame loop logic
 func TestEmulator_FrameLoop_Logic(t *testing.T) {
 	rom := createTestROM(4)
 	mem := NewMemory(rom)

@@ -3,12 +3,13 @@
 package ui
 
 import (
+	"bytes"
 	"image"
 	"log"
 	"sync"
 	"time"
 
-	"github.com/Zyko0/go-sdl3/sdl"
+	"github.com/ebitengine/oto/v3"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/user-none/emkiii/ui/style"
@@ -40,8 +41,8 @@ type Notification struct {
 	lastBgWidth   int
 	lastBgHeight  int
 
-	// Audio stream for notification sounds (separate from game audio)
-	audioStream *sdl.AudioStream
+	// Audio player for notification sounds (separate from game audio)
+	notifPlayer *oto.Player
 }
 
 // NewNotification creates a new notification system
@@ -49,60 +50,36 @@ func NewNotification() *Notification {
 	return &Notification{}
 }
 
-// ensureAudioStream lazily initializes the audio stream when first needed
-func (n *Notification) ensureAudioStream() bool {
-	if n.audioStream != nil {
-		return true
-	}
-
-	// Initialize SDL audio (lazy, safe to call multiple times)
-	if !ensureSDLAudio() {
-		return false
-	}
-
-	spec := sdl.AudioSpec{
-		Freq:     48000,
-		Format:   sdl.AUDIO_S16LE,
-		Channels: 2,
-	}
-
-	stream := sdl.AUDIO_DEVICE_DEFAULT_PLAYBACK.OpenAudioDeviceStream(&spec, 0)
-	if stream == nil {
-		return false
-	}
-
-	if err := stream.ResumeDevice(); err != nil {
-		stream.Destroy()
-		log.Printf("Warning: Failed to resume notification audio: %v", err)
-		return false
-	}
-
-	n.audioStream = stream
-	return true
-}
-
-// PlaySound plays sound data through the notification audio stream
-// Sound data should be 48kHz stereo S16LE format
+// PlaySound plays sound data through a one-shot oto player.
+// Sound data should be 48kHz stereo S16LE format.
 func (n *Notification) PlaySound(soundData []byte) {
 	if len(soundData) == 0 {
 		return
 	}
-	// Lazily init audio stream (SDL must be initialized first by game audio)
-	if !n.ensureAudioStream() {
+
+	ctx, err := ensureOtoContext()
+	if err != nil {
+		log.Printf("Warning: notification audio not available: %v", err)
 		return
 	}
-	if err := n.audioStream.PutData(soundData); err != nil {
-		log.Printf("Failed to play notification sound: %v", err)
+
+	n.mu.Lock()
+	// Close previous player if still active
+	if n.notifPlayer != nil {
+		n.notifPlayer.Close()
 	}
+	n.notifPlayer = ctx.NewPlayer(bytes.NewReader(soundData))
+	n.notifPlayer.Play()
+	n.mu.Unlock()
 }
 
 // Close cleans up audio resources
 func (n *Notification) Close() {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	if n.audioStream != nil {
-		n.audioStream.Destroy()
-		n.audioStream = nil
+	if n.notifPlayer != nil {
+		n.notifPlayer.Close()
+		n.notifPlayer = nil
 	}
 }
 

@@ -35,23 +35,7 @@ go test ./...
 
 ## Prerequisites
 
-The standalone UI requires **SDL3** for audio output.
-
-**macOS (Homebrew):**
-```bash
-brew install sdl3
-```
-
-**Linux:**
-```bash
-# Build from source or use your distribution's package manager
-# SDL3 is still new; check https://github.com/libsdl-org/SDL for instructions
-```
-
-**Windows:**
-Download SDL3.dll from the [SDL releases](https://github.com/libsdl-org/SDL/releases) and place it in the same directory as the executable.
-
-The `make macos` target bundles SDL3 into the .app, so end users don't need it installed separately.
+No external native libraries are required. Audio is handled by [oto](https://github.com/ebitengine/oto) (pure Go).
 
 ## Makefile
 
@@ -65,7 +49,7 @@ The top-level Makefile provides targets for building distributable applications.
 | `make icons` | Generate icons for macOS and iOS from `assets/icon.png` |
 | `make clean` | Remove build directory |
 
-The macOS app bundle includes SDL3 and is code-signed for distribution.
+The macOS app bundle is code-signed for distribution.
 
 ```bash
 # Build macOS app
@@ -241,7 +225,7 @@ The iOS app is a native Swift application that embeds the emulator via gomobile.
 
 ## Architecture
 
-The emulator uses Ebiten for windowing/rendering, koron-go/z80 for CPU emulation, SDL3 for audio output, and ebitenui for the standalone UI.
+The emulator uses Ebiten for windowing/rendering, koron-go/z80 for CPU emulation, oto for audio output, and ebitenui for the standalone UI. The emulator runs on a dedicated goroutine with audio-driven timing (ADT) — frame pacing is controlled by audio buffer feedback rather than Ebiten's fixed TPS, eliminating clock drift between display and audio.
 
 The standalone UI follows a manager pattern with clear separation of concerns:
 - `App` - Main application, implements `ebiten.Game`, owns screens and managers
@@ -264,7 +248,9 @@ The standalone UI follows a manager pattern with clear separation of concerns:
   - `rewind.go` - Rewind buffer: ring buffer of serialized states with acceleration curve
   - `screenshot.go` - Screenshot capture (F12)
   - `notification.go` - On-screen notifications (default, short, achievement with badges)
-  - `audio.go` - SDL3 audio playback (48kHz stereo)
+  - `audio.go` - Audio playback via oto (48kHz stereo)
+  - `audiobuffer.go` - Thread-safe ring buffer (io.Reader for oto's pull model)
+  - `emuthread.go` - SharedInput, SharedFramebuffer, EmuControl for goroutine communication
   - `search.go` - Live game title search/filter overlay
   - `achievementoverlay.go` - Achievement list overlay during gameplay (Tab)
   - `scanner.go` - ROM discovery and metadata lookup
@@ -287,7 +273,7 @@ The standalone UI follows a manager pattern with clear separation of concerns:
   - `region.go` - NTSC/PAL timing constants (CPU clock, scanlines, FPS), region auto-detection via CRC32 lookup
   - `romdb.go` - Embedded ROM database (357 games) mapping CRC32 to mapper type and region
 - `bridge/` - Platform-specific wrappers:
-  - `ebiten/emulator.go` - Ebiten wrapper: rendering, SDL3 audio, keyboard/gamepad input, resizable window
+  - `ebiten/emulator.go` - Ebiten wrapper: rendering, keyboard/gamepad input, resizable window, cached framebuffer support
   - `ios/ios.go` - gomobile bridge for iOS: exposes emulator API to Swift
   - `libretro/main.go` - Libretro core: API exports, core options (region, crop border), XRGB8888 video output
   - `libretro/libretro.h`, `cfuncs.h` - C headers for libretro API
@@ -299,11 +285,14 @@ The standalone UI follows a manager pattern with clear separation of concerns:
   - `eMkIII.xcodeproj/` - Xcode project
   - `Makefile` - gomobile framework build script
 
-**Execution flow:** `Update()` runs one frame by stepping the CPU through
-scanlines (262 NTSC / 313 PAL, ~228 cycles each), updating V/H counters,
-checking interrupts, rendering via VDP, and generating PSG samples. Audio
-samples are batched per-frame and queued to SDL3. `Draw()` blits the VDP
-framebuffer to screen.
+**Execution flow:** The emulator runs on a dedicated goroutine that steps the
+CPU through scanlines (262 NTSC / 313 PAL, ~228 cycles each), updating V/H
+counters, checking interrupts, rendering via VDP, and generating PSG samples.
+Audio samples are batched per-frame and queued to oto via a ring buffer.
+Frame pacing uses audio-driven timing (ADT): sleep duration is adjusted based
+on audio buffer level (±10% when below/above thresholds). The Ebiten `Update()`
+thread polls input into shared state, and `Draw()` renders from a shared
+framebuffer snapshot.
 
 **Display modes:**
 - 256×192 (standard Mode 4) - default
@@ -324,7 +313,7 @@ framebuffer to screen.
 - `github.com/ebitenui/ebitenui` - Retained-mode UI widgets
 - `github.com/sqweek/dialog` - Native OS file picker dialogs
 - `github.com/koron-go/z80` - Z80 CPU emulation
-- `github.com/Zyko0/go-sdl3` - Audio output (purego-based, no CGO)
+- `github.com/ebitengine/oto/v3` - Audio output (pure Go, cross-platform)
 - `github.com/user-none/go-rcheevos` - RetroAchievements API client
 - `github.com/bodgit/sevenzip` - 7z archive support
 - `github.com/nwaples/rardecode/v2` - RAR archive support

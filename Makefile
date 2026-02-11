@@ -11,14 +11,6 @@ ICON_MASTER := assets/icon.png
 ICON_ICNS := $(BUILD_DIR)/icon.icns
 IOS_ICON := ios/eMkIII/Resources/Assets.xcassets/AppIcon.appiconset/icon.png
 
-# SDL3 library location (Homebrew)
-UNAME_M := $(shell uname -m)
-ifeq ($(UNAME_M),arm64)
-    SDL3_LIB := /opt/homebrew/lib/libSDL3.dylib
-else
-    SDL3_LIB := /usr/local/lib/libSDL3.dylib
-endif
-
 # Build all targets
 all: emkiii
 
@@ -31,19 +23,10 @@ macos: emkiii icons
 	@echo "Creating $(APP_NAME).app bundle..."
 	@mkdir -p "$(APP_BUNDLE)/Contents/MacOS"
 	@mkdir -p "$(APP_BUNDLE)/Contents/Resources"
-	@mkdir -p "$(APP_BUNDLE)/Contents/Frameworks"
 	@cp $(BUILD_DIR)/emkiii "$(APP_BUNDLE)/Contents/MacOS/"
 	@cp $(ICON_ICNS) "$(APP_BUNDLE)/Contents/Resources/icon.icns"
 	@cp assets/macos_info.plist "$(APP_BUNDLE)/Contents/Info.plist"
 	@echo "APPL????" > "$(APP_BUNDLE)/Contents/PkgInfo"
-	@if [ -f "$(SDL3_LIB)" ]; then \
-		cp "$(SDL3_LIB)" "$(APP_BUNDLE)/Contents/Frameworks/"; \
-		install_name_tool -id "@executable_path/../Frameworks/libSDL3.dylib" \
-			"$(APP_BUNDLE)/Contents/Frameworks/libSDL3.dylib"; \
-		echo "Bundled SDL3 library"; \
-	else \
-		echo "Warning: SDL3 not found at $(SDL3_LIB), app may not be portable"; \
-	fi
 	@echo "Signing app bundle..."
 	@codesign --force --sign - --deep "$(APP_BUNDLE)"
 	@echo "Created $(APP_BUNDLE)"

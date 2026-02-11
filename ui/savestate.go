@@ -182,6 +182,26 @@ func (m *SaveStateManager) SaveResume(emulator *emubridge.Emulator) error {
 	return os.WriteFile(statePath, state, 0644)
 }
 
+// SaveResumeData saves pre-serialized state data as the resume state.
+// Used by the auto-save system where the emu goroutine caches serialized state.
+func (m *SaveStateManager) SaveResumeData(state []byte) error {
+	if m.gameCRC == "" {
+		return fmt.Errorf("no game set")
+	}
+
+	saveDir, err := storage.GetGameSaveDir(m.gameCRC)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(saveDir, 0755); err != nil {
+		return fmt.Errorf("failed to create save directory: %w", err)
+	}
+
+	statePath := filepath.Join(saveDir, "resume.state")
+	return os.WriteFile(statePath, state, 0644)
+}
+
 // LoadResume loads the resume state
 func (m *SaveStateManager) LoadResume(emulator *emubridge.Emulator) error {
 	if m.gameCRC == "" {

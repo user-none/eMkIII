@@ -48,14 +48,13 @@ func main() {
 		log.Fatalf("Invalid region: %s (use auto, ntsc, or pal)", *regionFlag)
 	}
 
-	timing := emu.GetTimingForRegion(region)
 	e := emubridge.NewEmulator(romData, region)
 
 	ebiten.SetWindowSize(emu.ScreenWidth*2, 192*2) // Default size for 192-line mode
 	ebiten.SetWindowTitle("eMKIII")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowSizeLimits(348, 348, -1, -1) // Min 348x348, no max
-	ebiten.SetTPS(timing.FPS)
+	ebiten.SetTPS(60)                            // Emu goroutine handles its own timing via ADT
 
 	runner := cli.NewRunner(e, *cropBorder)
 	defer runner.Close()

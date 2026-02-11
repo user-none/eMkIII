@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/ebitenui/ebitenui"
+	ebitenuiInput "github.com/ebitenui/ebitenui/input"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -80,6 +81,14 @@ type App struct {
 
 	// Rebuild pending flag (set from goroutines, processed on main thread)
 	rebuildPending bool
+
+	// Guard to prevent input leaking from gameplay to UI screens.
+	// When the pause menu triggers a screen transition, the activation input
+	// (Enter/Space/mouse click) may still be held. ebitenui's fresh widget
+	// state would interpret the held input as a new press, causing phantom
+	// clicks on the library screen. The guard suppresses UI input processing
+	// until all activation inputs are released.
+	gameplayTransitionGuard bool
 }
 
 // NewApp creates and initializes the application
@@ -352,6 +361,12 @@ func (a *App) Update() error {
 
 	switch a.state {
 	case StatePlaying:
+		// Keep ebitenui's global input handler in sync during gameplay.
+		// Without this, the handler's LastLeftMouseButtonPressed goes stale
+		// (never updated while UI.Update is not called), causing phantom
+		// "just pressed" events on the first UI frame after exiting gameplay.
+		ebitenuiInput.Update()
+		ebitenuiInput.AfterUpdate()
 		_, err := a.gameplay.Update()
 		return err
 	case StateScanProgress:
@@ -379,6 +394,21 @@ func (a *App) Update() error {
 			a.SwitchToScanProgress(false)
 		}
 	case StateLibrary:
+		// Guard: suppress UI processing until activation inputs from the
+		// gameplay transition are released. This prevents ebitenui's
+		// handleSubmit (Enter/Space) and mouse click detection from
+		// triggering phantom activations on library buttons.
+		if a.gameplayTransitionGuard {
+			ebitenuiInput.Update()
+			ebitenuiInput.AfterUpdate()
+			if !ebiten.IsKeyPressed(ebiten.KeyEnter) &&
+				!ebiten.IsKeyPressed(ebiten.KeySpace) &&
+				!ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+				a.gameplayTransitionGuard = false
+			}
+			return nil
+		}
+
 		// Handle search overlay input first
 		if a.searchOverlay.IsActive() {
 			a.searchOverlay.HandleInput()
@@ -637,6 +667,13 @@ func (a *App) Layout(outsideWidth, outsideHeight int) (int, int) {
 // SwitchToLibrary transitions to the library screen
 func (a *App) SwitchToLibrary() {
 	a.notification.Clear()
+	// When exiting gameplay, the pause menu processes activation input on
+	// press (not release), so Enter/Space/mouse may still be held when the
+	// library screen first runs. Set a guard to suppress UI input processing
+	// until all activation inputs are released.
+	if a.state == StatePlaying {
+		a.gameplayTransitionGuard = true
+	}
 	a.previousState = a.state
 	a.state = StateLibrary
 	a.libraryScreen.OnEnter()

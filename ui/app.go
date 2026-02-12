@@ -19,6 +19,7 @@ import (
 	"github.com/user-none/emkiii/ui/storage"
 	"github.com/user-none/emkiii/ui/style"
 	"github.com/user-none/emkiii/ui/types"
+	rcheevos "github.com/user-none/go-rcheevos"
 )
 
 // App is the main application struct that implements ebiten.Game
@@ -212,12 +213,16 @@ func NewApp() (*App, error) {
 			app.achievementManager.LoginWithToken(
 				app.config.RetroAchievements.Username,
 				app.config.RetroAchievements.Token,
-				func(success bool, err error) {
+				func(success bool, result int, err error) {
 					if !success {
 						log.Printf("RetroAchievements auto-login failed: %v", err)
-						// Clear invalid token
-						app.config.RetroAchievements.Token = ""
-						storage.SaveConfig(app.config)
+						// Only clear token for credential errors, not transient failures
+						if result == rcheevos.InvalidCredentials ||
+							result == rcheevos.ExpiredToken ||
+							result == rcheevos.AccessDenied {
+							app.config.RetroAchievements.Token = ""
+							storage.SaveConfig(app.config)
+						}
 					}
 				},
 			)
@@ -388,7 +393,9 @@ func (a *App) Update() error {
 		if a.state != StateSettings {
 			return nil
 		}
-		a.restorePendingFocus(a.settingsScreen)
+		if !a.rebuildPending {
+			a.restorePendingFocus(a.settingsScreen)
+		}
 		if nav.FocusChanged {
 			a.ensureFocusedVisible()
 		}
@@ -439,7 +446,9 @@ func (a *App) Update() error {
 		if a.state != StateLibrary {
 			return nil
 		}
-		a.restorePendingFocus(a.libraryScreen)
+		if !a.rebuildPending {
+			a.restorePendingFocus(a.libraryScreen)
+		}
 		if nav.FocusChanged {
 			a.ensureFocusedVisible()
 		}
@@ -449,7 +458,9 @@ func (a *App) Update() error {
 		if a.state != StateDetail {
 			return nil
 		}
-		a.restorePendingFocus(a.detailScreen)
+		if !a.rebuildPending {
+			a.restorePendingFocus(a.detailScreen)
+		}
 		if nav.FocusChanged {
 			a.ensureFocusedVisible()
 		}
@@ -551,6 +562,9 @@ func (a *App) applySpatialNavigation(direction int) {
 // handleGamepadBack handles B button press for back navigation
 func (a *App) handleGamepadBack() {
 	switch a.state {
+	case StateLibrary:
+		// Focus the first toolbar button for quick navigation to top
+		a.libraryScreen.SetPendingFocus("toolbar-icon")
 	case StateDetail:
 		a.SwitchToLibrary()
 	case StateSettings:
@@ -558,7 +572,7 @@ func (a *App) handleGamepadBack() {
 	case StateScanProgress:
 		// Cancel scan and return to settings
 		a.scanManager.Cancel()
-		// StateLibrary and StateError have no back action
+		// StateError has no back action
 	}
 }
 

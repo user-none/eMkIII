@@ -173,17 +173,19 @@ func (m *Manager) Login(username, password string, callback func(success bool, t
 	})
 }
 
-// LoginWithToken authenticates with RetroAchievements using a stored token
-func (m *Manager) LoginWithToken(username, token string, callback func(success bool, err error)) {
+// LoginWithToken authenticates with RetroAchievements using a stored token.
+// The result code is passed through so callers can distinguish credential
+// errors (e.g. ExpiredToken) from network errors (e.g. NoResponse).
+func (m *Manager) LoginWithToken(username, token string, callback func(success bool, result int, err error)) {
 	m.client.LoginWithToken(username, token, func(result int, errorMessage string) {
 		if result != rcheevos.OK {
-			callback(false, fmt.Errorf("token login failed: %s", errorMessage))
+			callback(false, result, fmt.Errorf("token login failed: %s", errorMessage))
 			return
 		}
 
 		user := m.client.GetUser()
 		if user == nil {
-			callback(false, fmt.Errorf("login succeeded but user info unavailable"))
+			callback(false, rcheevos.OK, fmt.Errorf("login succeeded but user info unavailable"))
 			return
 		}
 
@@ -193,7 +195,7 @@ func (m *Manager) LoginWithToken(username, token string, callback func(success b
 		m.token = user.Token
 		m.mu.Unlock()
 
-		callback(true, nil)
+		callback(true, rcheevos.OK, nil)
 	})
 }
 

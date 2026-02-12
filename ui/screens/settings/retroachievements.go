@@ -9,6 +9,7 @@ import (
 	"github.com/user-none/emkiii/ui/storage"
 	"github.com/user-none/emkiii/ui/style"
 	"github.com/user-none/emkiii/ui/types"
+	rcheevos "github.com/user-none/go-rcheevos"
 )
 
 // Max width for the settings content to keep toggles closer to labels
@@ -105,11 +106,15 @@ func (r *RetroAchievementsSection) Build(focus types.FocusManager) *widget.Conta
 				if r.achievements != nil && !r.achievements.IsLoggedIn() && r.hasStoredCredentials() {
 					username := r.config.RetroAchievements.Username
 					token := r.config.RetroAchievements.Token
-					r.achievements.LoginWithToken(username, token, func(success bool, err error) {
+					r.achievements.LoginWithToken(username, token, func(success bool, result int, err error) {
 						if !success {
-							// Token expired or invalid - clear it
-							r.config.RetroAchievements.Token = ""
-							storage.SaveConfig(r.config)
+							// Only clear token for credential errors, not transient failures
+							if result == rcheevos.InvalidCredentials ||
+								result == rcheevos.ExpiredToken ||
+								result == rcheevos.AccessDenied {
+								r.config.RetroAchievements.Token = ""
+								storage.SaveConfig(r.config)
+							}
 						}
 					})
 				}

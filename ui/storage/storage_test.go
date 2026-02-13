@@ -368,8 +368,8 @@ func TestLibraryExcludedPaths(t *testing.T) {
 	}
 }
 
-func TestConfigMigration(t *testing.T) {
-	// Test migration from version 0
+func TestApplyMissingDefaultsMigration(t *testing.T) {
+	// Test migration from version 0 when keys are absent
 	config := &Config{
 		Version: 0,
 		Audio:   AudioConfig{Volume: 0}, // Volume=0 is valid (0% volume)
@@ -377,23 +377,29 @@ func TestConfigMigration(t *testing.T) {
 		Library: LibraryView{},
 	}
 
-	migrated := migrateConfig(config)
+	// Simulate: only audio.volume was present in JSON (as 0)
+	presentKeys := map[string]bool{
+		"version":      true,
+		"audio.volume": true,
+	}
+	ApplyMissingDefaults(config, presentKeys)
 
-	if migrated.Version != 1 {
-		t.Errorf("expected version 1 after migration, got %d", migrated.Version)
+	// version was present as 0 — not overwritten by ApplyMissingDefaults
+	if config.Version != 0 {
+		t.Errorf("expected version 0 (present in JSON), got %d", config.Version)
 	}
-	if migrated.Audio.Volume != 0 {
-		t.Errorf("expected volume 0 after migration (0%% is valid), got %f", migrated.Audio.Volume)
+	if config.Audio.Volume != 0 {
+		t.Errorf("expected volume 0 (present in JSON, 0%% is valid), got %f", config.Audio.Volume)
 	}
-	if migrated.Window.Width != 900 {
-		t.Errorf("expected width 900 after migration, got %d", migrated.Window.Width)
+	if config.Window.Width != 900 {
+		t.Errorf("expected width 900 after defaulting, got %d", config.Window.Width)
 	}
-	if migrated.Library.ViewMode != "icon" {
-		t.Errorf("expected view mode 'icon' after migration, got '%s'", migrated.Library.ViewMode)
+	if config.Library.ViewMode != "icon" {
+		t.Errorf("expected view mode 'icon' after defaulting, got '%s'", config.Library.ViewMode)
 	}
 }
 
-func TestConfigMigrationPreservesZeroVolume(t *testing.T) {
+func TestApplyMissingDefaultsPreservesZeroVolume(t *testing.T) {
 	// Volume=0 is a valid user setting (0% volume), must not be overwritten
 	config := &Config{
 		Version: 1,
@@ -403,10 +409,17 @@ func TestConfigMigrationPreservesZeroVolume(t *testing.T) {
 		Theme:   "Default",
 	}
 
-	migrated := migrateConfig(config)
+	// All keys present in JSON
+	presentKeys := map[string]bool{
+		"version": true, "theme": true, "fontSize": true,
+		"audio.volume": true, "window.width": true, "window.height": true,
+		"library.viewMode": true, "library.sortBy": true,
+		"rewind.bufferSizeMB": true, "rewind.frameStep": true,
+	}
+	ApplyMissingDefaults(config, presentKeys)
 
-	if migrated.Audio.Volume != 0.0 {
-		t.Errorf("expected volume 0.0 to be preserved, got %f", migrated.Audio.Volume)
+	if config.Audio.Volume != 0.0 {
+		t.Errorf("expected volume 0.0 to be preserved, got %f", config.Audio.Volume)
 	}
 }
 
@@ -505,7 +518,7 @@ func TestGetGamesSortedFiltered(t *testing.T) {
 	}
 }
 
-func TestConfigMigrationAlreadyCurrent(t *testing.T) {
+func TestApplyMissingDefaultsAlreadyCurrent(t *testing.T) {
 	config := &Config{
 		Version: 1,
 		Theme:   "Dark",
@@ -514,60 +527,76 @@ func TestConfigMigrationAlreadyCurrent(t *testing.T) {
 		Library: LibraryView{ViewMode: "list", SortBy: "lastPlayed"},
 	}
 
-	migrated := migrateConfig(config)
+	// All keys present
+	presentKeys := map[string]bool{
+		"version": true, "theme": true, "fontSize": true,
+		"audio.volume": true, "window.width": true, "window.height": true,
+		"library.viewMode": true, "library.sortBy": true,
+		"rewind.bufferSizeMB": true, "rewind.frameStep": true,
+	}
+	ApplyMissingDefaults(config, presentKeys)
 
 	// Should preserve existing values, not overwrite with defaults
-	if migrated.Audio.Volume != 0.5 {
-		t.Errorf("volume should remain 0.5, got %f", migrated.Audio.Volume)
+	if config.Audio.Volume != 0.5 {
+		t.Errorf("volume should remain 0.5, got %f", config.Audio.Volume)
 	}
-	if migrated.Window.Width != 1024 {
-		t.Errorf("width should remain 1024, got %d", migrated.Window.Width)
+	if config.Window.Width != 1024 {
+		t.Errorf("width should remain 1024, got %d", config.Window.Width)
 	}
-	if migrated.Window.Height != 768 {
-		t.Errorf("height should remain 768, got %d", migrated.Window.Height)
+	if config.Window.Height != 768 {
+		t.Errorf("height should remain 768, got %d", config.Window.Height)
 	}
-	if migrated.Library.ViewMode != "list" {
-		t.Errorf("view mode should remain 'list', got '%s'", migrated.Library.ViewMode)
+	if config.Library.ViewMode != "list" {
+		t.Errorf("view mode should remain 'list', got '%s'", config.Library.ViewMode)
 	}
-	if migrated.Library.SortBy != "lastPlayed" {
-		t.Errorf("sort by should remain 'lastPlayed', got '%s'", migrated.Library.SortBy)
+	if config.Library.SortBy != "lastPlayed" {
+		t.Errorf("sort by should remain 'lastPlayed', got '%s'", config.Library.SortBy)
 	}
-	if migrated.Theme != "Dark" {
-		t.Errorf("theme should remain 'Dark', got '%s'", migrated.Theme)
+	if config.Theme != "Dark" {
+		t.Errorf("theme should remain 'Dark', got '%s'", config.Theme)
 	}
 }
 
-func TestConfigMigrationPartialFields(t *testing.T) {
-	// Some fields set, others zero-valued
+func TestApplyMissingDefaultsPartialFields(t *testing.T) {
+	// Some fields present, others absent
 	config := &Config{
 		Version: 0,
 		Audio:   AudioConfig{Volume: 0.8},
-		Window:  WindowConfig{Width: 0, Height: 0}, // Zero = need defaults
-		Library: LibraryView{ViewMode: "list"},     // SortBy empty = need default
+		Window:  WindowConfig{},
+		Library: LibraryView{ViewMode: "list"},
 	}
 
-	migrated := migrateConfig(config)
+	// Only some keys present in the JSON file
+	presentKeys := map[string]bool{
+		"version":          true,
+		"audio.volume":     true,
+		"library.viewMode": true,
+	}
+	ApplyMissingDefaults(config, presentKeys)
 
-	if migrated.Version != 1 {
-		t.Errorf("version should be 1, got %d", migrated.Version)
+	// Present keys preserved (even version=0)
+	if config.Version != 0 {
+		t.Errorf("version should remain 0 (present), got %d", config.Version)
 	}
-	if migrated.Audio.Volume != 0.8 {
-		t.Errorf("volume should remain 0.8, got %f", migrated.Audio.Volume)
+	if config.Audio.Volume != 0.8 {
+		t.Errorf("volume should remain 0.8, got %f", config.Audio.Volume)
 	}
-	if migrated.Window.Width != 900 {
-		t.Errorf("width should default to 900, got %d", migrated.Window.Width)
+	if config.Library.ViewMode != "list" {
+		t.Errorf("view mode should remain 'list', got '%s'", config.Library.ViewMode)
 	}
-	if migrated.Window.Height != 650 {
-		t.Errorf("height should default to 650, got %d", migrated.Window.Height)
+
+	// Absent keys defaulted
+	if config.Window.Width != 900 {
+		t.Errorf("width should default to 900, got %d", config.Window.Width)
 	}
-	if migrated.Library.ViewMode != "list" {
-		t.Errorf("view mode should remain 'list', got '%s'", migrated.Library.ViewMode)
+	if config.Window.Height != 650 {
+		t.Errorf("height should default to 650, got %d", config.Window.Height)
 	}
-	if migrated.Library.SortBy != "title" {
-		t.Errorf("sort by should default to 'title', got '%s'", migrated.Library.SortBy)
+	if config.Library.SortBy != "title" {
+		t.Errorf("sort by should default to 'title', got '%s'", config.Library.SortBy)
 	}
-	if migrated.Theme != "Default" {
-		t.Errorf("theme should default to 'Default', got '%s'", migrated.Theme)
+	if config.Theme != "Default" {
+		t.Errorf("theme should default to 'Default', got '%s'", config.Theme)
 	}
 }
 

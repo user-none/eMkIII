@@ -166,16 +166,30 @@ func NewApp() (*App, error) {
 	}
 	app.config = config
 
+	// Validate config values against allowed ranges
+	themeNames := style.ThemeNames()
+	validationErrors := storage.ValidateConfig(app.config, themeNames)
+	if len(validationErrors) > 0 {
+		configPath, _ := storage.GetConfigPath()
+		app.state = StateError
+		app.errorFile = "config.json"
+		app.errorPath = configPath
+		app.configLoadFailed = true
+		// Use default theme/font for the error screen display
+		app.achievementManager = achievements.NewManager(app.notification, app.config, Name, Version)
+		app.library = storage.DefaultLibrary()
+		app.preloadConfiguredShaders()
+		app.initScreens()
+		app.errorScreen.SetValidationError("config.json", configPath, validationErrors, app.handleResetAndContinue)
+		app.rebuildCurrentScreen()
+		return app, nil
+	}
+
 	// Create achievement manager with config
 	app.achievementManager = achievements.NewManager(app.notification, app.config, Name, Version)
 
-	// Validate and apply theme
-	if !style.IsValidThemeName(app.config.Theme) {
-		app.config.Theme = "Default"
-	}
+	// Apply theme and font size
 	style.ApplyThemeByName(app.config.Theme)
-
-	// Apply font size
 	style.ApplyFontSize(storage.ValidFontSize(app.config.FontSize))
 
 	// Load library
@@ -876,6 +890,85 @@ func (a *App) handleDeleteAndContinue() {
 	a.initScreens()
 
 	// Initialize or update scan manager (needs scanScreen reference)
+	if a.scanManager == nil {
+		a.scanManager = NewScanManager(
+			a.library,
+			a.scanScreen,
+			func() { a.rebuildCurrentScreen() },
+			func(msg string) {
+				a.state = StateSettings
+				a.rebuildCurrentScreen()
+				if msg != "" {
+					a.notification.ShowDefault(msg)
+				}
+			},
+		)
+	} else {
+		a.scanManager.SetLibrary(a.library)
+		a.scanManager.SetScanScreen(a.scanScreen)
+	}
+
+	// Proceed to library screen
+	a.state = StateLibrary
+	a.rebuildCurrentScreen()
+}
+
+// handleResetAndContinue handles the reset and continue button for validation errors.
+// It corrects invalid config fields to defaults, saves, and proceeds to the library.
+func (a *App) handleResetAndContinue() {
+	// Correct invalid fields
+	themeNames := style.ThemeNames()
+	storage.CorrectConfig(a.config, themeNames)
+
+	// Save corrected config
+	if err := storage.SaveConfig(a.config); err != nil {
+		log.Printf("Failed to save corrected config: %v", err)
+	}
+
+	// Apply corrected theme and font
+	style.ApplyThemeByName(a.config.Theme)
+	style.ApplyFontSize(storage.ValidFontSize(a.config.FontSize))
+
+	a.configLoadFailed = false
+
+	// Load library
+	library, err := storage.LoadLibrary()
+	if err != nil {
+		// Library is also corrupt
+		libraryPath, _ := storage.GetLibraryPath()
+		a.errorFile = "library.json"
+		a.errorPath = libraryPath
+		a.errorScreen.SetError("library.json", libraryPath)
+		a.rebuildCurrentScreen()
+		return
+	}
+	a.library = library
+
+	// Update save state manager with library
+	a.saveStateManager.SetLibrary(a.library)
+
+	// Initialize or update gameplay manager
+	if a.gameplay == nil {
+		a.gameplay = NewGameplayManager(
+			a.saveStateManager,
+			a.screenshotManager,
+			a.notification,
+			a.library,
+			a.config,
+			a.achievementManager,
+			a.metadata.GetRDB(),
+			func() { a.SwitchToLibrary() },
+			func() { a.Exit() },
+		)
+	} else {
+		a.gameplay.SetLibrary(a.library)
+		a.gameplay.SetConfig(a.config)
+	}
+
+	// Reinitialize screens with corrected config
+	a.initScreens()
+
+	// Initialize or update scan manager
 	if a.scanManager == nil {
 		a.scanManager = NewScanManager(
 			a.library,

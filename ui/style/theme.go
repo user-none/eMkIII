@@ -173,6 +173,15 @@ var (
 	CurrentThemeName = "Default"
 )
 
+// ThemeNames returns the list of valid theme name strings.
+func ThemeNames() []string {
+	names := make([]string, len(AvailableThemes))
+	for i, t := range AvailableThemes {
+		names[i] = t.Name
+	}
+	return names
+}
+
 // GetThemeByName returns theme by name, or ThemeDefault if not found
 func GetThemeByName(name string) Theme {
 	for _, t := range AvailableThemes {

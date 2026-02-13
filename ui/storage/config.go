@@ -1,13 +1,16 @@
 package storage
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 )
 
 // LoadConfig loads the configuration from config.json.
 // If the file doesn't exist, it returns default configuration.
 // If the file is corrupted, it returns an error.
+// Missing fields (absent from JSON) are silently defaulted.
 func LoadConfig() (*Config, error) {
 	path, err := GetConfigPath()
 	if err != nil {
@@ -20,14 +23,23 @@ func LoadConfig() (*Config, error) {
 		return DefaultConfig(), nil
 	}
 
-	// Load and parse the file
-	config := &Config{}
-	if err := ReadJSON(path, config); err != nil {
-		return nil, err
+	// Read raw bytes for both parsing and key detection
+	jsonBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
 
-	// Apply any migration for older config versions
-	config = migrateConfig(config)
+	// Parse into Config struct
+	config := &Config{}
+	if err := json.Unmarshal(jsonBytes, config); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	// Detect which keys are actually present in the JSON
+	presentKeys := detectPresentKeys(jsonBytes)
+
+	// Apply defaults only for fields that are absent from the file
+	ApplyMissingDefaults(config, presentKeys)
 
 	return config, nil
 }
@@ -70,46 +82,4 @@ func DeleteConfig() error {
 	}
 
 	return nil
-}
-
-// migrateConfig handles any necessary migrations from older config versions
-func migrateConfig(config *Config) *Config {
-	// Currently at version 1, no migrations needed
-	if config.Version == 0 {
-		config.Version = 1
-	}
-
-	// Ensure defaults for any missing fields
-	// Note: Audio.Volume == 0 is a valid user setting (0% volume).
-	// DefaultConfig() sets 1.0 for new installs.
-	if config.Window.Width == 0 {
-		config.Window.Width = 900
-	}
-	if config.Window.Height == 0 {
-		config.Window.Height = 650
-	}
-	if config.Library.ViewMode == "" {
-		config.Library.ViewMode = "icon"
-	}
-	if config.Library.SortBy == "" {
-		config.Library.SortBy = "title"
-	}
-	if config.Theme == "" {
-		config.Theme = "Default"
-	}
-
-	// Font size default for existing configs
-	if config.FontSize == 0 {
-		config.FontSize = 14
-	}
-
-	// Rewind defaults for existing configs
-	if config.Rewind.BufferSizeMB == 0 {
-		config.Rewind.BufferSizeMB = 40
-	}
-	if config.Rewind.FrameStep == 0 {
-		config.Rewind.FrameStep = 1
-	}
-
-	return config
 }

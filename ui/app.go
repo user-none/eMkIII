@@ -207,6 +207,21 @@ func NewApp() (*App, error) {
 		app.rebuildCurrentScreen()
 		return app, nil
 	}
+
+	// Validate library-level fields
+	libraryErrors := storage.ValidateLibrary(library)
+	if len(libraryErrors) > 0 {
+		libraryPath, _ := storage.GetLibraryPath()
+		app.state = StateError
+		app.errorFile = "library.json"
+		app.errorPath = libraryPath
+		app.library = library
+		app.preloadConfiguredShaders()
+		app.initScreens()
+		app.errorScreen.SetValidationError("library.json", libraryPath, libraryErrors, app.handleLibraryResetAndContinue)
+		app.rebuildCurrentScreen()
+		return app, nil
+	}
 	app.library = library
 
 	// Set library on save state manager for slot persistence
@@ -865,6 +880,17 @@ func (a *App) handleDeleteAndContinue() {
 			a.rebuildCurrentScreen()
 			return
 		}
+		// Validate library-level fields
+		libraryErrors := storage.ValidateLibrary(library)
+		if len(libraryErrors) > 0 {
+			libraryPath, _ := storage.GetLibraryPath()
+			a.errorFile = "library.json"
+			a.errorPath = libraryPath
+			a.library = library
+			a.errorScreen.SetValidationError("library.json", libraryPath, libraryErrors, a.handleLibraryResetAndContinue)
+			a.rebuildCurrentScreen()
+			return
+		}
 		a.library = library
 	} else if a.errorFile == "library.json" {
 		if err = storage.DeleteLibrary(); err != nil {
@@ -953,6 +979,17 @@ func (a *App) handleResetAndContinue() {
 		a.rebuildCurrentScreen()
 		return
 	}
+	// Validate library-level fields
+	libraryErrors := storage.ValidateLibrary(library)
+	if len(libraryErrors) > 0 {
+		libraryPath, _ := storage.GetLibraryPath()
+		a.errorFile = "library.json"
+		a.errorPath = libraryPath
+		a.library = library
+		a.errorScreen.SetValidationError("library.json", libraryPath, libraryErrors, a.handleLibraryResetAndContinue)
+		a.rebuildCurrentScreen()
+		return
+	}
 	a.library = library
 
 	// Update save state manager with library
@@ -977,6 +1014,65 @@ func (a *App) handleResetAndContinue() {
 	}
 
 	// Reinitialize screens with corrected config
+	a.initScreens()
+
+	// Initialize or update scan manager
+	if a.scanManager == nil {
+		a.scanManager = NewScanManager(
+			a.library,
+			a.scanScreen,
+			func() { a.rebuildCurrentScreen() },
+			func(msg string) {
+				a.state = StateSettings
+				a.rebuildCurrentScreen()
+				if msg != "" {
+					a.notification.ShowDefault(msg)
+				}
+			},
+		)
+	} else {
+		a.scanManager.SetLibrary(a.library)
+		a.scanManager.SetScanScreen(a.scanScreen)
+	}
+
+	// Proceed to library screen
+	a.state = StateLibrary
+	a.rebuildCurrentScreen()
+}
+
+// handleLibraryResetAndContinue handles the reset and continue button for
+// library validation errors. It corrects invalid library-level fields, saves,
+// and proceeds to the library screen.
+func (a *App) handleLibraryResetAndContinue() {
+	storage.CorrectLibrary(a.library)
+
+	if err := storage.SaveLibrary(a.library); err != nil {
+		log.Printf("Failed to save corrected library: %v", err)
+	}
+
+	a.configLoadFailed = false
+
+	// Update save state manager with library
+	a.saveStateManager.SetLibrary(a.library)
+
+	// Initialize or update gameplay manager
+	if a.gameplay == nil {
+		a.gameplay = NewGameplayManager(
+			a.saveStateManager,
+			a.screenshotManager,
+			a.notification,
+			a.library,
+			a.config,
+			a.achievementManager,
+			a.metadata.GetRDB(),
+			func() { a.SwitchToLibrary() },
+			func() { a.Exit() },
+		)
+	} else {
+		a.gameplay.SetLibrary(a.library)
+	}
+
+	// Reinitialize screens
 	a.initScreens()
 
 	// Initialize or update scan manager

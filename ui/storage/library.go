@@ -37,6 +37,9 @@ func LoadLibrary() (*Library, error) {
 	// Apply any migration for older library versions
 	library = migrateLibrary(library)
 
+	// Silently fix invalid game entry fields
+	SanitizeLibraryEntries(library)
+
 	return library, nil
 }
 

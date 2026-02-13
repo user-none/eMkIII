@@ -37,24 +37,18 @@ func (a *AppearanceSection) Build(focus types.FocusManager) *widget.Container {
 	section := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
 			widget.GridLayoutOpts.Columns(1),
-			// Row stretch: font label=no, font control=no, theme label=no, theme list=YES
-			widget.GridLayoutOpts.Stretch([]bool{true}, []bool{false, false, false, true}),
+			// Row stretch: font row=no, theme label=no, theme list=YES
+			widget.GridLayoutOpts.Stretch([]bool{true}, []bool{false, false, true}),
 			widget.GridLayoutOpts.Spacing(0, style.DefaultSpacing),
 		)),
 	)
 
-	// Font Size label
-	fontLabel := widget.NewText(
-		widget.TextOpts.Text("Font Size", style.FontFace(), style.Text),
-	)
-	section.AddChild(fontLabel)
-
-	// Font size stepper: [ - ] [ 14pt ] [ + ]
-	section.AddChild(a.buildFontSizeStepper(focus))
+	// Font size row: label left, stepper right
+	section.AddChild(a.buildFontSizeRow(focus))
 
 	// Theme label
 	themeLabel := widget.NewText(
-		widget.TextOpts.Text("Theme", style.FontFace(), style.Text),
+		widget.TextOpts.Text("Theme", style.FontFace(), style.Accent),
 	)
 	section.AddChild(themeLabel)
 
@@ -106,8 +100,8 @@ func (a *AppearanceSection) setupNavigation(focus types.FocusManager) {
 	focus.SetNavTransition("theme-list", types.DirUp, "font-size", 0)
 }
 
-// buildFontSizeStepper creates a +/- stepper for font size selection
-func (a *AppearanceSection) buildFontSizeStepper(focus types.FocusManager) *widget.Container {
+// buildFontSizeRow creates the font size row with label left and +/- stepper right
+func (a *AppearanceSection) buildFontSizeRow(focus types.FocusManager) *widget.Container {
 	presets := storage.FontSizePresets
 	currentSize := storage.ValidFontSize(a.config.FontSize)
 
@@ -120,7 +114,33 @@ func (a *AppearanceSection) buildFontSizeStepper(focus types.FocusManager) *widg
 		}
 	}
 
+	// Outer container with background color
 	row := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Surface)),
+		widget.ContainerOpts.Layout(widget.NewGridLayout(
+			widget.GridLayoutOpts.Columns(2),
+			widget.GridLayoutOpts.Stretch([]bool{true, false}, []bool{true}),
+			widget.GridLayoutOpts.Spacing(style.DefaultSpacing, 0),
+			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(style.SmallSpacing)),
+		)),
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
+		),
+	)
+
+	// Label on left
+	labelText := widget.NewText(
+		widget.TextOpts.Text("Font Size", style.FontFace(), style.Text),
+		widget.TextOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
+				VerticalPosition: widget.GridLayoutPositionCenter,
+			}),
+		),
+	)
+	row.AddChild(labelText)
+
+	// Controls group: [-] value [+]
+	controls := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
 			widget.RowLayoutOpts.Spacing(style.SmallSpacing),
@@ -135,7 +155,12 @@ func (a *AppearanceSection) buildFontSizeStepper(focus types.FocusManager) *widg
 	decBtn := widget.NewButton(
 		widget.ButtonOpts.Image(decImage),
 		widget.ButtonOpts.Text("-", style.FontFace(), style.ButtonTextColor()),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingMedium)),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
+		widget.ButtonOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
+				Position: widget.RowLayoutPositionCenter,
+			}),
+		),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			idx := 0
 			for i, p := range presets {
@@ -154,20 +179,20 @@ func (a *AppearanceSection) buildFontSizeStepper(focus types.FocusManager) *widg
 		}),
 	)
 	focus.RegisterFocusButton("font-decrease", decBtn)
-	row.AddChild(decBtn)
+	controls.AddChild(decBtn)
 
-	// Size label
+	// Size value display
 	sizeLabel := widget.NewText(
 		widget.TextOpts.Text(fmt.Sprintf("%dpt", currentSize), style.FontFace(), style.Text),
 		widget.TextOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
 				Position: widget.RowLayoutPositionCenter,
 			}),
-			widget.WidgetOpts.MinSize(style.Px(60), 0),
+			widget.WidgetOpts.MinSize(style.Px(50), 0),
 		),
 		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
 	)
-	row.AddChild(sizeLabel)
+	controls.AddChild(sizeLabel)
 
 	// Increase button
 	incImage := style.ButtonImage()
@@ -177,7 +202,12 @@ func (a *AppearanceSection) buildFontSizeStepper(focus types.FocusManager) *widg
 	incBtn := widget.NewButton(
 		widget.ButtonOpts.Image(incImage),
 		widget.ButtonOpts.Text("+", style.FontFace(), style.ButtonTextColor()),
-		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingMedium)),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
+		widget.ButtonOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
+				Position: widget.RowLayoutPositionCenter,
+			}),
+		),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			idx := 0
 			for i, p := range presets {
@@ -196,7 +226,9 @@ func (a *AppearanceSection) buildFontSizeStepper(focus types.FocusManager) *widg
 		}),
 	)
 	focus.RegisterFocusButton("font-increase", incBtn)
-	row.AddChild(incBtn)
+	controls.AddChild(incBtn)
+
+	row.AddChild(controls)
 
 	return row
 }

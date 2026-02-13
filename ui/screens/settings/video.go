@@ -3,6 +3,7 @@
 package settings
 
 import (
+	"github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/user-none/emkiii/ui/shader"
 	"github.com/user-none/emkiii/ui/storage"
@@ -46,7 +47,7 @@ func (v *VideoSection) Build(focus types.FocusManager) *widget.Container {
 
 	// Shaders label
 	shadersLabel := widget.NewText(
-		widget.TextOpts.Text("Shader Effects", style.FontFace(), style.Text),
+		widget.TextOpts.Text("Shader Effects", style.FontFace(), style.Accent),
 	)
 	section.AddChild(shadersLabel)
 
@@ -80,17 +81,23 @@ func (v *VideoSection) setupNavigation(focus types.FocusManager) {
 // buildCropBorderRow creates the crop border toggle row
 func (v *VideoSection) buildCropBorderRow(focus types.FocusManager) *widget.Container {
 	row := widget.NewContainer(
-		widget.ContainerOpts.Layout(widget.NewRowLayout(
-			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
-			widget.RowLayoutOpts.Spacing(style.DefaultSpacing),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Surface)),
+		widget.ContainerOpts.Layout(widget.NewGridLayout(
+			widget.GridLayoutOpts.Columns(2),
+			widget.GridLayoutOpts.Stretch([]bool{true, false}, []bool{true}),
+			widget.GridLayoutOpts.Spacing(style.DefaultSpacing, 0),
+			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(style.SmallSpacing)),
 		)),
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
+		),
 	)
 
 	label := widget.NewText(
 		widget.TextOpts.Text("Crop Border", style.FontFace(), style.Text),
 		widget.TextOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
-				Position: widget.RowLayoutPositionCenter,
+			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
+				VerticalPosition: widget.GridLayoutPositionCenter,
 			}),
 		),
 	)
@@ -100,6 +107,12 @@ func (v *VideoSection) buildCropBorderRow(focus types.FocusManager) *widget.Cont
 		widget.ButtonOpts.Image(style.ActiveButtonImage(v.config.Video.CropBorder)),
 		widget.ButtonOpts.Text(boolToOnOff(v.config.Video.CropBorder), style.FontFace(), style.ButtonTextColor()),
 		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
+		widget.ButtonOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
+				VerticalPosition: widget.GridLayoutPositionCenter,
+			}),
+			widget.WidgetOpts.MinSize(style.Px(50), 0),
+		),
 		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
 			v.config.Video.CropBorder = !v.config.Video.CropBorder
 			storage.SaveConfig(v.config)

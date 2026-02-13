@@ -62,10 +62,12 @@ type App struct {
 	configLoadFailed bool // True if config.json failed to load (don't overwrite on exit)
 
 	// Window tracking for persistence and responsive layouts
-	windowX, windowY int
-	windowWidth      int
-	windowHeight     int
-	lastBuildWidth   int // Track width used for last UI build
+	windowX, windowY   int
+	windowWidth        int
+	windowHeight       int
+	lastWindowedWidth  int // Last non-fullscreen width (physical pixels)
+	lastWindowedHeight int // Last non-fullscreen height (physical pixels)
+	lastBuildWidth     int // Track width used for last UI build
 
 	// Screenshot pending flag (set in Update, processed in Draw)
 	screenshotPending bool
@@ -289,19 +291,22 @@ func (a *App) saveWindowState() {
 		return
 	}
 
-	// Don't save if we never got valid window dimensions
-	// (window size is tracked in Layout(), position in Update())
-	if a.windowWidth == 0 || a.windowHeight == 0 {
+	// Don't save if we never got valid windowed dimensions.
+	// lastWindowedWidth/Height are only set when not in fullscreen, so if the
+	// app was fullscreen for its entire lifetime they remain 0.
+	if a.lastWindowedWidth == 0 || a.lastWindowedHeight == 0 {
 		return
 	}
 
 	// Use lastFullscreenState instead of IsFullscreen() because macOS exits
 	// native fullscreen before this handler runs on Cmd+Q.
-	// WindowSize() and WindowPosition() return the windowed values even
-	// during fullscreen, so they're always safe to save.
-	w, h := ebiten.WindowSize()
-	a.config.Window.Width = w
-	a.config.Window.Height = h
+	// Use lastWindowedWidth/Height (not windowWidth/Height) so that quitting
+	// in fullscreen saves the windowed size, not the fullscreen resolution.
+	// ebiten.WindowSize() cannot be used here because it returns 0,0 during
+	// window close on some platforms.
+	s := style.DPIScale()
+	a.config.Window.Width = int(float64(a.lastWindowedWidth) / s)
+	a.config.Window.Height = int(float64(a.lastWindowedHeight) / s)
 	a.config.Window.X = &a.windowX
 	a.config.Window.Y = &a.windowY
 	a.config.Window.Fullscreen = a.lastFullscreenState
@@ -727,6 +732,12 @@ func (a *App) Layout(outsideWidth, outsideHeight int) (int, int) {
 	h := int(float64(outsideHeight) * s)
 	a.windowWidth = w
 	a.windowHeight = h
+	// Track windowed dimensions separately so fullscreen doesn't overwrite them.
+	// These are used by saveWindowState to persist the pre-fullscreen size.
+	if !ebiten.IsFullscreen() {
+		a.lastWindowedWidth = w
+		a.lastWindowedHeight = h
+	}
 	return w, h
 }
 

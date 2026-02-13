@@ -145,8 +145,17 @@ func (s *ErrorScreen) buildInvalidMode(container *widget.Container) {
 	)
 	container.AddChild(msgLabel)
 
-	// List each validation error
-	for _, detail := range s.details {
+	// List validation errors (cap at 5 to avoid pushing buttons off screen)
+	maxDisplay := 5
+	for i, detail := range s.details {
+		if i >= maxDisplay {
+			moreLabel := widget.NewText(
+				widget.TextOpts.Text(fmt.Sprintf("+%d more", len(s.details)-maxDisplay), style.FontFace(), style.TextSecondary),
+				widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),
+			)
+			container.AddChild(moreLabel)
+			break
+		}
 		detailLabel := widget.NewText(
 			widget.TextOpts.Text(detail, style.FontFace(), style.TextSecondary),
 			widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionCenter),

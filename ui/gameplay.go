@@ -203,7 +203,7 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 	// Always create audio player for ADT timing.
 	// When muted, volume is set to 0 so the player still drains
 	// the buffer (driving timing) but produces no audible output.
-	volume := 1.0
+	volume := gm.config.Audio.Volume
 	if gm.config.Audio.Muted {
 		volume = 0
 	}

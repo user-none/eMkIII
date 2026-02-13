@@ -108,8 +108,14 @@ func (a *AudioPlayer) ClearQueue() {
 	a.ringBuffer.Clear()
 }
 
-// SetVolume sets the playback volume (0.0 = silent, 1.0 = full).
+// SetVolume sets the playback volume (0.0 = silent, 1.0 = normal, 2.0 = max).
+// Values are clamped to [0.0, 2.0].
 func (a *AudioPlayer) SetVolume(vol float64) {
+	if vol < 0 {
+		vol = 0
+	} else if vol > 2.0 {
+		vol = 2.0
+	}
 	a.player.SetVolume(vol)
 }
 

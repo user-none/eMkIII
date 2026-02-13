@@ -372,7 +372,7 @@ func TestConfigMigration(t *testing.T) {
 	// Test migration from version 0
 	config := &Config{
 		Version: 0,
-		Audio:   AudioConfig{Volume: 0}, // Will be set to 1.0
+		Audio:   AudioConfig{Volume: 0}, // Volume=0 is valid (0% volume)
 		Window:  WindowConfig{},
 		Library: LibraryView{},
 	}
@@ -382,14 +382,31 @@ func TestConfigMigration(t *testing.T) {
 	if migrated.Version != 1 {
 		t.Errorf("expected version 1 after migration, got %d", migrated.Version)
 	}
-	if migrated.Audio.Volume != 1.0 {
-		t.Errorf("expected volume 1.0 after migration, got %f", migrated.Audio.Volume)
+	if migrated.Audio.Volume != 0 {
+		t.Errorf("expected volume 0 after migration (0%% is valid), got %f", migrated.Audio.Volume)
 	}
 	if migrated.Window.Width != 900 {
 		t.Errorf("expected width 900 after migration, got %d", migrated.Window.Width)
 	}
 	if migrated.Library.ViewMode != "icon" {
 		t.Errorf("expected view mode 'icon' after migration, got '%s'", migrated.Library.ViewMode)
+	}
+}
+
+func TestConfigMigrationPreservesZeroVolume(t *testing.T) {
+	// Volume=0 is a valid user setting (0% volume), must not be overwritten
+	config := &Config{
+		Version: 1,
+		Audio:   AudioConfig{Volume: 0.0},
+		Window:  WindowConfig{Width: 900, Height: 650},
+		Library: LibraryView{ViewMode: "icon", SortBy: "title"},
+		Theme:   "Default",
+	}
+
+	migrated := migrateConfig(config)
+
+	if migrated.Audio.Volume != 0.0 {
+		t.Errorf("expected volume 0.0 to be preserved, got %f", migrated.Audio.Volume)
 	}
 }
 

@@ -80,9 +80,8 @@ func migrateConfig(config *Config) *Config {
 	}
 
 	// Ensure defaults for any missing fields
-	if config.Audio.Volume == 0 {
-		config.Audio.Volume = 1.0
-	}
+	// Note: Audio.Volume == 0 is a valid user setting (0% volume).
+	// DefaultConfig() sets 1.0 for new installs.
 	if config.Window.Width == 0 {
 		config.Window.Width = 900
 	}

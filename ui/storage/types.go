@@ -53,10 +53,11 @@ type AudioConfig struct {
 
 // WindowConfig contains window position and size
 type WindowConfig struct {
-	Width  int  `json:"width"`
-	Height int  `json:"height"`
-	X      *int `json:"x,omitempty"` // nil = OS decides position
-	Y      *int `json:"y,omitempty"`
+	Width      int  `json:"width"`
+	Height     int  `json:"height"`
+	X          *int `json:"x,omitempty"` // nil = OS decides position
+	Y          *int `json:"y,omitempty"`
+	Fullscreen bool `json:"fullscreen"`
 }
 
 // LibraryView contains library display preferences

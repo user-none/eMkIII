@@ -93,6 +93,10 @@ type App struct {
 
 	// HiDPI: current device scale factor tracked across Layout calls
 	currentDPIScale float64
+
+	// Fullscreen: track state so it can be saved on exit even if macOS
+	// has already left native fullscreen by the time saveWindowState runs.
+	lastFullscreenState bool
 }
 
 // NewApp creates and initializes the application
@@ -258,10 +262,10 @@ func NewApp() (*App, error) {
 	return app, nil
 }
 
-// GetWindowConfig returns the saved window dimensions and position from config.
+// GetWindowConfig returns the saved window dimensions, position, and fullscreen state from config.
 // This should be called before RunGame to set the initial window size.
-func (a *App) GetWindowConfig() (width, height int, x, y *int) {
-	return a.config.Window.Width, a.config.Window.Height, a.config.Window.X, a.config.Window.Y
+func (a *App) GetWindowConfig() (width, height int, x, y *int, fullscreen bool) {
+	return a.config.Window.Width, a.config.Window.Height, a.config.Window.X, a.config.Window.Y, a.config.Window.Fullscreen
 }
 
 // saveWindowState saves current window position and size to config
@@ -277,14 +281,26 @@ func (a *App) saveWindowState() {
 		return
 	}
 
-	// Convert physical pixels back to logical for config persistence
-	s := style.DPIScale()
-	a.config.Window.Width = int(float64(a.windowWidth) / s)
-	a.config.Window.Height = int(float64(a.windowHeight) / s)
+	// Use lastFullscreenState instead of IsFullscreen() because macOS exits
+	// native fullscreen before this handler runs on Cmd+Q.
+	// WindowSize() and WindowPosition() return the windowed values even
+	// during fullscreen, so they're always safe to save.
+	w, h := ebiten.WindowSize()
+	a.config.Window.Width = w
+	a.config.Window.Height = h
 	a.config.Window.X = &a.windowX
 	a.config.Window.Y = &a.windowY
+	a.config.Window.Fullscreen = a.lastFullscreenState
 
 	// Save to disk
+	storage.SaveConfig(a.config)
+}
+
+// toggleFullscreen toggles between fullscreen and windowed mode
+func (a *App) toggleFullscreen() {
+	ebiten.SetFullscreen(!ebiten.IsFullscreen())
+	a.lastFullscreenState = ebiten.IsFullscreen()
+	a.config.Window.Fullscreen = a.lastFullscreenState
 	storage.SaveConfig(a.config)
 }
 
@@ -337,9 +353,12 @@ func (a *App) rebuildCurrentScreen() {
 
 // Update implements ebiten.Game
 func (a *App) Update() error {
-	// Track window position while game is running (for save on exit)
-	// Layout() handles width/height, but position must be queried here
+	// Track window position and fullscreen state for save on exit.
+	// Layout() handles width/height, but position must be queried here.
+	// Fullscreen is tracked because macOS exits native fullscreen before
+	// the save handler runs on Cmd+Q, so we can't rely on IsFullscreen() at exit.
 	a.windowX, a.windowY = ebiten.WindowPosition()
+	a.lastFullscreenState = ebiten.IsFullscreen()
 
 	// Process any pending rebuild request (set from goroutines)
 	if a.rebuildPending {
@@ -347,9 +366,13 @@ func (a *App) Update() error {
 		a.rebuildCurrentScreen()
 	}
 
-	// Poll input manager for global keys (F12 screenshot)
-	if a.inputManager.Update() {
+	// Poll input manager for global keys (F12 screenshot, F11 fullscreen)
+	screenshotRequested, fullscreenToggle := a.inputManager.Update()
+	if screenshotRequested {
 		a.screenshotPending = true
+	}
+	if fullscreenToggle {
+		a.toggleFullscreen()
 	}
 
 	// Check for window resize that needs UI rebuild (for responsive layouts)

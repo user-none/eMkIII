@@ -79,7 +79,7 @@ func launchUI() {
 
 	// Set window size from saved config (before RunGame to avoid resize flash)
 	// Fall back to minimum size if config doesn't have valid dimensions
-	width, height, x, y := app.GetWindowConfig()
+	width, height, x, y, fullscreen := app.GetWindowConfig()
 	if width < 900 {
 		width = 900
 	}
@@ -91,6 +91,11 @@ func launchUI() {
 	// Restore window position if previously saved
 	if x != nil && y != nil {
 		ebiten.SetWindowPosition(*x, *y)
+	}
+
+	// Restore fullscreen state
+	if fullscreen {
+		ebiten.SetFullscreen(true)
 	}
 
 	if err := ebiten.RunGame(app); err != nil {

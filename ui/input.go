@@ -40,11 +40,13 @@ func NewInputManager() *InputManager {
 }
 
 // Update polls input state. Should be called once per frame.
-// Returns true if F12 (screenshot) was just pressed.
-func (im *InputManager) Update() (screenshotRequested bool) {
+// Returns global key states: F12 screenshot and F11 fullscreen toggle.
+func (im *InputManager) Update() (screenshotRequested, fullscreenToggle bool) {
 	// Check for F12 screenshot (global, works everywhere)
 	screenshotRequested = inpututil.IsKeyJustPressed(ebiten.KeyF12)
-	return screenshotRequested
+	// Check for F11 fullscreen toggle (global, works everywhere)
+	fullscreenToggle = inpututil.IsKeyJustPressed(ebiten.KeyF11)
+	return screenshotRequested, fullscreenToggle
 }
 
 // GetUINavigation returns the current UI navigation state.

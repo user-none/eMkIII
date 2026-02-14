@@ -6,7 +6,7 @@ import (
 	"hash/crc32"
 	"math"
 
-	"github.com/koron-go/z80"
+	"github.com/user-none/go-chip-z80"
 )
 
 const (
@@ -24,13 +24,11 @@ const (
 
 // EmulatorBase contains fields shared by all platform implementations
 type EmulatorBase struct {
-	cpu                 *CycleZ80
+	cpu                 *z80.CPU
 	mem                 *Memory
 	vdp                 *VDP
 	psg                 *PSG
 	io                  *SMSIO
-	cyclesPerFrame      int
-	cyclesPerScanline   int
 	cyclesPerScanlineFP int // Fixed-point (16 fractional bits) for accurate timing
 
 	// Region timing
@@ -56,10 +54,9 @@ func InitEmulatorBase(rom []byte, region Region) EmulatorBase {
 	psg := NewPSG(timing.CPUClockHz, sampleRate, samplesPerFrame*2)
 
 	io := NewSMSIO(vdp, psg)
-	cpu := NewCycleZ80(mem, io)
+	bus := NewSMSBus(mem, io)
+	cpu := z80.New(bus)
 
-	cyclesPerFrame := timing.CPUClockHz / timing.FPS
-	cyclesPerScanline := cyclesPerFrame / timing.Scanlines
 	cyclesPerScanlineFP := (timing.CPUClockHz * 65536) / timing.FPS / timing.Scanlines
 
 	return EmulatorBase{
@@ -68,8 +65,6 @@ func InitEmulatorBase(rom []byte, region Region) EmulatorBase {
 		vdp:                 vdp,
 		psg:                 psg,
 		io:                  io,
-		cyclesPerFrame:      cyclesPerFrame,
-		cyclesPerScanline:   cyclesPerScanline,
 		cyclesPerScanlineFP: cyclesPerScanlineFP,
 		region:              region,
 		timing:              timing,
@@ -82,11 +77,7 @@ func InitEmulatorBase(rom []byte, region Region) EmulatorBase {
 
 // checkAndSetInterrupt updates CPU interrupt state based on VDP pending interrupts
 func (e *EmulatorBase) checkAndSetInterrupt() {
-	if e.vdp.InterruptPending() {
-		e.cpu.SetIM1Interrupt() // Use cached interrupt to avoid allocation
-	} else {
-		e.cpu.ClearInterrupt()
-	}
+	e.cpu.INT(e.vdp.InterruptPending(), 0xFF)
 }
 
 // runScanlines executes one frame of CPU/VDP/PSG emulation.
@@ -95,15 +86,16 @@ func (e *EmulatorBase) runScanlines() {
 	activeHeight := e.vdp.ActiveHeight()
 
 	var targetCyclesFP int = 0
-	var executedCycles int = 0
-	var prevTargetCycles int = 0
+	var prevTarget int = 0
 
 	// Reset pre-allocated buffer for this frame
 	e.frameSamples = e.frameSamples[:0]
 
 	for i := 0; i < e.scanlines; i++ {
 		targetCyclesFP += e.cyclesPerScanlineFP
-		targetCycles := targetCyclesFP >> 16
+		target := targetCyclesFP >> 16
+		scanlineBudget := target - prevTarget
+		prevTarget = target
 
 		e.vdp.SetVCounter(uint16(i))
 
@@ -117,12 +109,10 @@ func (e *EmulatorBase) runScanlines() {
 		cramLatched := false
 		isVBlankLine := (i == activeHeight)
 
-		scanlineCycles := 0
-		for executedCycles < targetCycles {
-			scanlineProgress := executedCycles - prevTargetCycles
-
+		consumed := 0
+		for consumed < scanlineBudget {
 			// Check VBlank at cycle VBlankInterruptCycle (only on vblank line)
-			if !vblankChecked && isVBlankLine && scanlineProgress >= VBlankInterruptCycle {
+			if !vblankChecked && isVBlankLine && consumed >= VBlankInterruptCycle {
 				e.vdp.SetVBlank()
 				vblankChecked = true
 				// Check interrupt state after VBlank trigger
@@ -131,23 +121,21 @@ func (e *EmulatorBase) runScanlines() {
 
 			// Line counter decrements at LineInterruptCycle (~cycle 8)
 			// This is when line interrupts fire on real hardware
-			if !lineInterruptChecked && scanlineProgress >= LineInterruptCycle {
+			if !lineInterruptChecked && consumed >= LineInterruptCycle {
 				e.vdp.UpdateLineCounter()
 				lineInterruptChecked = true
 				e.checkAndSetInterrupt()
 			}
 
 			// Latch CRAM and per-line registers at cycle 14 (after line interrupt handler can modify them)
-			if !cramLatched && scanlineProgress >= CRAMLatchCycle {
+			if !cramLatched && consumed >= CRAMLatchCycle {
 				e.vdp.LatchCRAM()
 				e.vdp.LatchPerLineRegisters()
 				cramLatched = true
 			}
 
-			e.vdp.SetHCounter(GetHCounterForCycle(scanlineProgress))
-			cycles := e.cpu.Step()
-			executedCycles += cycles
-			scanlineCycles += cycles
+			e.vdp.SetHCounter(GetHCounterForCycle(consumed))
+			consumed += e.cpu.StepCycles(scanlineBudget - consumed)
 
 			// Check if VDP register write requires interrupt state update.
 			// SMS interrupt line is level-triggered, so enabling interrupts via
@@ -178,9 +166,7 @@ func (e *EmulatorBase) runScanlines() {
 			e.vdp.RenderScanline()
 		}
 
-		prevTargetCycles = targetCycles
-
-		e.psg.GenerateSamples(scanlineCycles)
+		e.psg.GenerateSamples(scanlineBudget)
 		buffer, count := e.psg.GetBuffer()
 		if count > 0 {
 			e.frameSamples = append(e.frameSamples, buffer[:count]...)
@@ -229,8 +215,6 @@ func (e *EmulatorBase) SetRegion(region Region) {
 	e.timing = GetTimingForRegion(region)
 	e.scanlines = e.timing.Scanlines
 	e.vdp.SetTotalScanlines(e.timing.Scanlines)
-	e.cyclesPerFrame = e.timing.CPUClockHz / e.timing.FPS
-	e.cyclesPerScanline = e.cyclesPerFrame / e.timing.Scanlines
 	e.cyclesPerScanlineFP = (e.timing.CPUClockHz * 65536) / e.timing.FPS / e.timing.Scanlines
 }
 
@@ -281,7 +265,7 @@ func (e *EmulatorBase) GetCartRAM() *[0x8000]uint8 {
 // SetPause triggers the SMS pause button (NMI) for one frame.
 // The NMI is triggered on the next frame start.
 func (e *EmulatorBase) SetPause() {
-	e.cpu.TriggerNMI()
+	e.cpu.NMI()
 }
 
 // =============================================================================
@@ -419,54 +403,54 @@ func (e *EmulatorBase) VerifyState(data []byte) error {
 
 // serializeCPU writes CPU state to the data buffer
 func (e *EmulatorBase) serializeCPU(data []byte, offset int) int {
-	cpu := e.cpu.cpu
+	regs := e.cpu.Registers()
 
 	// PC, SP (4 bytes)
-	binary.LittleEndian.PutUint16(data[offset:], cpu.PC)
+	binary.LittleEndian.PutUint16(data[offset:], regs.PC)
 	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], cpu.SP)
+	binary.LittleEndian.PutUint16(data[offset:], regs.SP)
 	offset += 2
 
 	// Main registers AF, BC, DE, HL (8 bytes)
-	binary.LittleEndian.PutUint16(data[offset:], cpu.AF.U16())
+	binary.LittleEndian.PutUint16(data[offset:], regs.AF)
 	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], cpu.BC.U16())
+	binary.LittleEndian.PutUint16(data[offset:], regs.BC)
 	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], cpu.DE.U16())
+	binary.LittleEndian.PutUint16(data[offset:], regs.DE)
 	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], cpu.HL.U16())
+	binary.LittleEndian.PutUint16(data[offset:], regs.HL)
 	offset += 2
 
-	// IX, IY (4 bytes) - these are uint16 directly
-	binary.LittleEndian.PutUint16(data[offset:], cpu.IX)
+	// IX, IY (4 bytes)
+	binary.LittleEndian.PutUint16(data[offset:], regs.IX)
 	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], cpu.IY)
+	binary.LittleEndian.PutUint16(data[offset:], regs.IY)
 	offset += 2
 
 	// Alternate registers AF', BC', DE', HL' (8 bytes)
-	binary.LittleEndian.PutUint16(data[offset:], cpu.Alternate.AF.U16())
+	binary.LittleEndian.PutUint16(data[offset:], regs.AF_)
 	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], cpu.Alternate.BC.U16())
+	binary.LittleEndian.PutUint16(data[offset:], regs.BC_)
 	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], cpu.Alternate.DE.U16())
+	binary.LittleEndian.PutUint16(data[offset:], regs.DE_)
 	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], cpu.Alternate.HL.U16())
+	binary.LittleEndian.PutUint16(data[offset:], regs.HL_)
 	offset += 2
 
 	// I, R (2 bytes)
-	data[offset] = cpu.IR.Hi
+	data[offset] = regs.I
 	offset++
-	data[offset] = cpu.IR.Lo
+	data[offset] = regs.R
 	offset++
 
 	// IFF1, IFF2 (2 bytes)
-	if cpu.IFF1 {
+	if regs.IFF1 {
 		data[offset] = 1
 	} else {
 		data[offset] = 0
 	}
 	offset++
-	if cpu.IFF2 {
+	if regs.IFF2 {
 		data[offset] = 1
 	} else {
 		data[offset] = 0
@@ -474,19 +458,19 @@ func (e *EmulatorBase) serializeCPU(data []byte, offset int) int {
 	offset++
 
 	// IM (1 byte)
-	data[offset] = byte(cpu.IM)
+	data[offset] = regs.IM
 	offset++
 
 	// HALT (1 byte)
-	if cpu.HALT {
+	if regs.Halted {
 		data[offset] = 1
 	} else {
 		data[offset] = 0
 	}
 	offset++
 
-	// Interrupt pending (1 byte)
-	if cpu.Interrupt != nil {
+	// Interrupt pending (1 byte) - use VDP as source of truth
+	if e.vdp.InterruptPending() {
 		data[offset] = 1
 	} else {
 		data[offset] = 0
@@ -498,67 +482,68 @@ func (e *EmulatorBase) serializeCPU(data []byte, offset int) int {
 
 // deserializeCPU reads CPU state from the data buffer
 func (e *EmulatorBase) deserializeCPU(data []byte, offset int) int {
-	cpu := e.cpu.cpu
+	var regs z80.Registers
 
 	// PC, SP
-	cpu.PC = binary.LittleEndian.Uint16(data[offset:])
+	regs.PC = binary.LittleEndian.Uint16(data[offset:])
 	offset += 2
-	cpu.SP = binary.LittleEndian.Uint16(data[offset:])
+	regs.SP = binary.LittleEndian.Uint16(data[offset:])
 	offset += 2
 
 	// Main registers AF, BC, DE, HL
-	cpu.AF.SetU16(binary.LittleEndian.Uint16(data[offset:]))
+	regs.AF = binary.LittleEndian.Uint16(data[offset:])
 	offset += 2
-	cpu.BC.SetU16(binary.LittleEndian.Uint16(data[offset:]))
+	regs.BC = binary.LittleEndian.Uint16(data[offset:])
 	offset += 2
-	cpu.DE.SetU16(binary.LittleEndian.Uint16(data[offset:]))
+	regs.DE = binary.LittleEndian.Uint16(data[offset:])
 	offset += 2
-	cpu.HL.SetU16(binary.LittleEndian.Uint16(data[offset:]))
+	regs.HL = binary.LittleEndian.Uint16(data[offset:])
 	offset += 2
 
-	// IX, IY - these are uint16 directly
-	cpu.IX = binary.LittleEndian.Uint16(data[offset:])
+	// IX, IY
+	regs.IX = binary.LittleEndian.Uint16(data[offset:])
 	offset += 2
-	cpu.IY = binary.LittleEndian.Uint16(data[offset:])
+	regs.IY = binary.LittleEndian.Uint16(data[offset:])
 	offset += 2
 
 	// Alternate registers
-	cpu.Alternate.AF.SetU16(binary.LittleEndian.Uint16(data[offset:]))
+	regs.AF_ = binary.LittleEndian.Uint16(data[offset:])
 	offset += 2
-	cpu.Alternate.BC.SetU16(binary.LittleEndian.Uint16(data[offset:]))
+	regs.BC_ = binary.LittleEndian.Uint16(data[offset:])
 	offset += 2
-	cpu.Alternate.DE.SetU16(binary.LittleEndian.Uint16(data[offset:]))
+	regs.DE_ = binary.LittleEndian.Uint16(data[offset:])
 	offset += 2
-	cpu.Alternate.HL.SetU16(binary.LittleEndian.Uint16(data[offset:]))
+	regs.HL_ = binary.LittleEndian.Uint16(data[offset:])
 	offset += 2
 
 	// I, R
-	cpu.IR.Hi = data[offset]
+	regs.I = data[offset]
 	offset++
-	cpu.IR.Lo = data[offset]
+	regs.R = data[offset]
 	offset++
 
 	// IFF1, IFF2
-	cpu.IFF1 = data[offset] != 0
+	regs.IFF1 = data[offset] != 0
 	offset++
-	cpu.IFF2 = data[offset] != 0
+	regs.IFF2 = data[offset] != 0
 	offset++
 
 	// IM
-	cpu.IM = int(data[offset])
+	regs.IM = data[offset]
 	offset++
 
 	// HALT
-	cpu.HALT = data[offset] != 0
+	regs.Halted = data[offset] != 0
 	offset++
 
 	// Interrupt pending
-	if data[offset] != 0 {
-		cpu.Interrupt = z80.IM1Interrupt()
-	} else {
-		cpu.Interrupt = nil
-	}
+	intPending := data[offset] != 0
 	offset++
+
+	e.cpu.SetState(regs)
+
+	// Restore interrupt line state
+	e.cpu.INT(intPending, 0xFF)
 
 	return offset
 }

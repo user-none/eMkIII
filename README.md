@@ -225,7 +225,7 @@ The iOS app is a native Swift application that embeds the emulator via gomobile.
 
 ## Architecture
 
-The emulator uses Ebiten for windowing/rendering, koron-go/z80 for CPU emulation, oto for audio output, and ebitenui for the standalone UI. The emulator runs on a dedicated goroutine with audio-driven timing (ADT) — frame pacing is controlled by audio buffer feedback rather than Ebiten's fixed TPS, eliminating clock drift between display and audio.
+The emulator uses Ebiten for windowing/rendering, go-chip-z80 for CPU emulation, oto for audio output, and ebitenui for the standalone UI. The emulator runs on a dedicated goroutine with audio-driven timing (ADT) — frame pacing is controlled by audio buffer feedback rather than Ebiten's fixed TPS, eliminating clock drift between display and audio.
 
 The standalone UI follows a manager pattern with clear separation of concerns:
 - `App` - Main application, implements `ebiten.Game`, owns screens and managers
@@ -265,10 +265,10 @@ The standalone UI follows a manager pattern with clear separation of concerns:
   - `runner.go` - Ebiten game wrapper for direct emulation (bypasses UI)
 - `emu/` - Core emulation components (framework-agnostic):
   - `emulator.go` - Core `EmulatorBase` struct orchestrating CPU/VDP/PSG/Memory, frame timing, scanline execution
-  - `z80.go` - Cycle-accurate Z80 wrapper with full opcode timing tables (base, CB, DD, ED, FD prefixes) and conditional instruction handling
+  - `bus.go` - SMSBus adapter bridging Memory and SMSIO into the go-chip-z80 Bus interface
   - `vdp.go` - Video Display Processor with VRAM (16KB), CRAM (32 bytes), 16 registers; implements background/sprite rendering, scrolling, interrupts, collision detection, per-scanline scroll latching, 192/224-line display modes
   - `mem.go` - 64KB memory space with Sega mapper ($FFFC-$FFFF) and Codemasters mapper ($0000/$4000/$8000) support, 32KB cartridge RAM
-  - `io.go` - I/O port handler implementing z80.IO interface; maps VDP, PSG, and controller ports with SMS partial address decoding
+  - `io.go` - I/O port handler; maps VDP, PSG, and controller ports with SMS partial address decoding
   - `psg.go` - SN76489 sound chip with 3 tone channels, 1 noise channel, 4-bit volume, 15-bit LFSR; 48kHz stereo output
   - `region.go` - NTSC/PAL timing constants (CPU clock, scanlines, FPS), region auto-detection via CRC32 lookup
   - `romdb.go` - Embedded ROM database (357 games) mapping CRC32 to mapper type and region
@@ -312,7 +312,7 @@ framebuffer snapshot.
 - `github.com/hajimehoshi/ebiten/v2` - Windowing, rendering, input
 - `github.com/ebitenui/ebitenui` - Retained-mode UI widgets
 - `github.com/sqweek/dialog` - Native OS file picker dialogs
-- `github.com/koron-go/z80` - Z80 CPU emulation
+- `github.com/user-none/go-chip-z80` - Z80 CPU emulation
 - `github.com/ebitengine/oto/v3` - Audio output (pure Go, cross-platform)
 - `github.com/user-none/go-rcheevos` - RetroAchievements API client
 - `github.com/bodgit/sevenzip` - 7z archive support
@@ -324,7 +324,7 @@ framebuffer snapshot.
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| CPU | Complete | Z80 via koron-go/z80 with accurate per-instruction cycle timing via lookup tables |
+| CPU | Complete | Z80 via go-chip-z80 with built-in cycle-accurate timing, EI delay, and interrupt handling |
 | Memory | Complete | 64KB with Sega mapper (3 slots + cart RAM) and Codemasters mapper (CRC32 detection) |
 | VDP | Complete | Tiles, sprites (8×8/8×16, zoom), scrolling, priority, interrupts, per-scanline latching, 192/224-line modes |
 | PSG | Complete | Full SN76489 emulation (3 tone + 1 noise), 48kHz output |

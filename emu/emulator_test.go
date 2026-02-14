@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"hash/crc32"
 	"testing"
+
+	"github.com/user-none/go-chip-z80"
 )
 
 // TestEmulator_ComponentIntegration tests that components work together correctly.
@@ -20,7 +22,8 @@ func TestEmulator_ComponentIntegration(t *testing.T) {
 	psg := NewPSG(timing.CPUClockHz, 48000, samplesPerFrame*2)
 
 	io := NewSMSIO(vdp, psg)
-	cpu := NewCycleZ80(mem, io)
+	bus := NewSMSBus(mem, io)
+	cpu := z80.New(bus)
 
 	// Verify all components are properly initialized
 	if mem == nil || vdp == nil || psg == nil || io == nil || cpu == nil {
@@ -143,7 +146,8 @@ func TestEmulator_ScanlineExecution(t *testing.T) {
 
 	psg := NewPSG(timing.CPUClockHz, 48000, 2000)
 	io := NewSMSIO(vdp, psg)
-	cpu := NewCycleZ80(mem, io)
+	bus := NewSMSBus(mem, io)
+	cpu := z80.New(bus)
 
 	// Calculate cycles per scanline
 	cyclesPerFrame := timing.CPUClockHz / timing.FPS
@@ -233,7 +237,8 @@ func TestEmulator_FrameLoop_Logic(t *testing.T) {
 
 	psg := NewPSG(timing.CPUClockHz, 48000, 2000)
 	io := NewSMSIO(vdp, psg)
-	cpu := NewCycleZ80(mem, io)
+	bus := NewSMSBus(mem, io)
+	cpu := z80.New(bus)
 
 	// Enable display
 	vdp.WriteControl(0x40)

@@ -3,11 +3,13 @@ package emu
 import (
 	"math"
 	"testing"
+
+	"github.com/user-none/go-chip-sn76489"
 )
 
 // TestPSG_SilentOnInit verifies all volumes start at 0x0F (silent)
 func TestPSG_SilentOnInit(t *testing.T) {
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 
 	for ch := 0; ch < 4; ch++ {
 		if vol := psg.GetVolume(ch); vol != 0x0F {
@@ -18,7 +20,7 @@ func TestPSG_SilentOnInit(t *testing.T) {
 
 // TestPSG_VolumeRegisterWrite tests 4-bit volume writes for all channels
 func TestPSG_VolumeRegisterWrite(t *testing.T) {
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 
 	testCases := []struct {
 		channel uint8
@@ -43,7 +45,7 @@ func TestPSG_VolumeRegisterWrite(t *testing.T) {
 
 // TestPSG_ToneRegisterWrite tests 10-bit tone register via latch+data bytes
 func TestPSG_ToneRegisterWrite(t *testing.T) {
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 
 	// Write a 10-bit tone value (0x1AB = 427) to channel 0
 	// First byte: 1 CC 0 DDDD (low 4 bits) = 0x80 | 0x0B = 0x8B
@@ -68,7 +70,7 @@ func TestPSG_ToneRegisterWrite(t *testing.T) {
 
 // TestPSG_NoiseRegisterWrite tests noise control register writes
 func TestPSG_NoiseRegisterWrite(t *testing.T) {
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 
 	// Noise write: 1 11 0 0NNN (channel 3, type=0, NNN=noise control)
 	// Test different noise modes
@@ -98,7 +100,7 @@ func TestPSG_NoiseRegisterWrite(t *testing.T) {
 
 // TestPSG_VolumeTable tests volume lookup table values
 func TestPSG_VolumeTable(t *testing.T) {
-	table := GetVolumeTable()
+	table := sn76489.GetVolumeTable()
 
 	// Volume 0 should be maximum (1.0)
 	if table[0] != 1.0 {
@@ -131,7 +133,7 @@ func TestPSG_VolumeTable(t *testing.T) {
 
 // TestPSG_ClockDivider tests that input clock is divided by 16
 func TestPSG_ClockDivider(t *testing.T) {
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 
 	// Set up tone channel 0 with frequency divider of 1 (highest frequency)
 	// and max volume
@@ -156,7 +158,7 @@ func TestPSG_ClockDivider(t *testing.T) {
 
 // TestPSG_SampleGeneration tests that samples are generated correctly
 func TestPSG_SampleGeneration(t *testing.T) {
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 
 	// All channels silent - should generate ~0 output
 	sample := psg.Sample()
@@ -169,7 +171,7 @@ func TestPSG_SampleGeneration(t *testing.T) {
 
 // TestPSG_SampleMixing tests 4 channels mixed and normalized
 func TestPSG_SampleMixing(t *testing.T) {
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 
 	// Set all channels to max volume
 	psg.Write(0x90) // Channel 0 volume = 0 (max)
@@ -188,7 +190,7 @@ func TestPSG_SampleMixing(t *testing.T) {
 
 // TestPSG_NoiseRateFromTone2 tests noise rate 3 uses tone channel 2
 func TestPSG_NoiseRateFromTone2(t *testing.T) {
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 
 	// Set tone channel 2 to a specific frequency
 	psg.Write(0xC5) // Channel 2 tone, low nibble = 5
@@ -210,7 +212,7 @@ func TestPSG_NoiseRateFromTone2(t *testing.T) {
 
 // TestPSG_GenerateSamples tests buffer-based sample generation
 func TestPSG_GenerateSamples(t *testing.T) {
-	psg := NewPSG(3579545, 48000, 100)
+	psg := sn76489.New(3579545, 48000, 100, sn76489.Sega)
 
 	// Generate samples for a certain number of clocks
 	clocks := 10000 // Enough clocks to generate some samples
@@ -230,7 +232,7 @@ func TestPSG_GenerateSamples(t *testing.T) {
 
 // TestPSG_ToneLatchPersistence tests that the latched channel persists
 func TestPSG_ToneLatchPersistence(t *testing.T) {
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 
 	// Latch channel 2
 	psg.Write(0xC0) // Channel 2 tone, low nibble = 0

@@ -1,5 +1,7 @@
 package emu
 
+import "github.com/user-none/go-chip-sn76489"
+
 // Input holds controller state (directly usable as port values)
 type Input struct {
 	Port1 uint8 // Port $DC - Controller 1 + partial Controller 2
@@ -8,11 +10,11 @@ type Input struct {
 
 type SMSIO struct {
 	vdp   *VDP
-	psg   *PSG
+	psg   *sn76489.SN76489
 	Input *Input
 }
 
-func NewSMSIO(vdp *VDP, psg *PSG) *SMSIO {
+func NewSMSIO(vdp *VDP, psg *sn76489.SN76489) *SMSIO {
 	return &SMSIO{
 		vdp: vdp,
 		psg: psg,

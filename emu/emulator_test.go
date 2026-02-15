@@ -5,6 +5,7 @@ import (
 	"hash/crc32"
 	"testing"
 
+	"github.com/user-none/go-chip-sn76489"
 	"github.com/user-none/go-chip-z80"
 )
 
@@ -19,7 +20,7 @@ func TestEmulator_ComponentIntegration(t *testing.T) {
 	vdp.SetTotalScanlines(timing.Scanlines)
 
 	samplesPerFrame := 48000 / timing.FPS
-	psg := NewPSG(timing.CPUClockHz, 48000, samplesPerFrame*2)
+	psg := sn76489.New(timing.CPUClockHz, 48000, samplesPerFrame*2, sn76489.Sega)
 
 	io := NewSMSIO(vdp, psg)
 	bus := NewSMSBus(mem, io)
@@ -144,7 +145,7 @@ func TestEmulator_ScanlineExecution(t *testing.T) {
 
 	vdp.SetTotalScanlines(timing.Scanlines)
 
-	psg := NewPSG(timing.CPUClockHz, 48000, 2000)
+	psg := sn76489.New(timing.CPUClockHz, 48000, 2000, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 	bus := NewSMSBus(mem, io)
 	cpu := z80.New(bus)
@@ -197,7 +198,7 @@ func TestEmulator_VDPInterruptIntegration(t *testing.T) {
 // TestEmulator_PSGIntegration tests PSG audio generation
 func TestEmulator_PSGIntegration(t *testing.T) {
 	timing := GetTimingForRegion(RegionNTSC)
-	psg := NewPSG(timing.CPUClockHz, 48000, 2000)
+	psg := sn76489.New(timing.CPUClockHz, 48000, 2000, sn76489.Sega)
 
 	// Write a tone to channel 0
 	psg.Write(0x80 | 0x0F) // Channel 0 tone, low nibble
@@ -235,7 +236,7 @@ func TestEmulator_FrameLoop_Logic(t *testing.T) {
 
 	vdp.SetTotalScanlines(timing.Scanlines)
 
-	psg := NewPSG(timing.CPUClockHz, 48000, 2000)
+	psg := sn76489.New(timing.CPUClockHz, 48000, 2000, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 	bus := NewSMSBus(mem, io)
 	cpu := z80.New(bus)
@@ -301,7 +302,7 @@ func TestEmulator_FrameLoop_Logic(t *testing.T) {
 // TestEmulator_InputHandling tests controller input via SMSIO
 func TestEmulator_InputHandling(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 2000)
+	psg := sn76489.New(3579545, 48000, 2000, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	// Initially all buttons released (0xFF)
@@ -401,7 +402,7 @@ func TestEmulator_AudioSampleCount(t *testing.T) {
 	// At 48kHz and 60 FPS, we expect ~800 samples per frame
 	expectedSamples := 48000 / timing.FPS
 
-	psg := NewPSG(timing.CPUClockHz, 48000, expectedSamples*2)
+	psg := sn76489.New(timing.CPUClockHz, 48000, expectedSamples*2, sn76489.Sega)
 
 	// Generate samples for one frame worth of cycles
 	cyclesPerFrame := timing.CPUClockHz / timing.FPS

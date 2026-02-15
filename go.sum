@@ -129,6 +129,10 @@ github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOf
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/ulikunitz/xz v0.5.12 h1:37Nm15o69RwBkXM0J6A5OlE67RZTfzUxTj8fB3dfcsc=
 github.com/ulikunitz/xz v0.5.12/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
+github.com/user-none/go-chip-sn76489 v0.0.0-20260215152051-ca442b686b72 h1:gaL2sxLSS2uGSlxyDzGb6fdbvHSbUSZswWOU5jjQJt4=
+github.com/user-none/go-chip-sn76489 v0.0.0-20260215152051-ca442b686b72/go.mod h1:WJdKIGKYMXS8F4eDTaHoG44+l5b1Bm5JDksdAPhDGf0=
+github.com/user-none/go-chip-sn76489 v0.0.0-20260215161003-b694df9feb68 h1:p1TrpRqEx9cX3j6MkGhDd4qixWxfujwDDS+lmQ2P3CI=
+github.com/user-none/go-chip-sn76489 v0.0.0-20260215161003-b694df9feb68/go.mod h1:WJdKIGKYMXS8F4eDTaHoG44+l5b1Bm5JDksdAPhDGf0=
 github.com/user-none/go-chip-z80 v0.0.0-20260214182008-08702559ea24 h1:4guJkJrmHvN1LfQYxnfxhQea8hzYECAfHhOa+1xJ9ao=
 github.com/user-none/go-chip-z80 v0.0.0-20260214182008-08702559ea24/go.mod h1:DEa23nvjxHzpDH3aAMDKa41UK860YiLUhLtscPc6Trs=
 github.com/user-none/go-rcheevos v0.0.0-20260210020636-5a0e90917989 h1:a+yuvPEr5pAjosLV9D9ygO+EwtPfSoVDPrvyNgc6Zb8=

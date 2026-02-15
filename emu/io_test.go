@@ -1,11 +1,15 @@
 package emu
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/user-none/go-chip-sn76489"
+)
 
 // TestIO_ControllerDefaultState tests that all buttons released = $FF
 func TestIO_ControllerDefaultState(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	if io.Input.Port1 != 0xFF {
@@ -19,7 +23,7 @@ func TestIO_ControllerDefaultState(t *testing.T) {
 // TestIO_ControllerInput tests active-low button encoding
 func TestIO_ControllerInput(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	// Test individual buttons (active low - 0 = pressed)
@@ -48,7 +52,7 @@ func TestIO_ControllerInput(t *testing.T) {
 // TestIO_PortDecoding tests correct routing for port ranges
 func TestIO_PortDecoding(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	// Set up known state
@@ -76,7 +80,7 @@ func TestIO_PortDecoding(t *testing.T) {
 // TestIO_VCounterRead tests that port $7E returns V counter
 func TestIO_VCounterRead(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	// Set VDP V counter via SetVCounter
@@ -96,7 +100,7 @@ func TestIO_VCounterRead(t *testing.T) {
 // TestIO_HCounterRead tests that port $7F returns H counter
 func TestIO_HCounterRead(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	// Set VDP H counter
@@ -116,7 +120,7 @@ func TestIO_HCounterRead(t *testing.T) {
 // TestIO_VDPDataRouting tests that port $BE routes to VDP data
 func TestIO_VDPDataRouting(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	// Set up VDP for VRAM write (code = 1)
@@ -136,7 +140,7 @@ func TestIO_VDPDataRouting(t *testing.T) {
 // TestIO_VDPControlRouting tests that port $BF routes to VDP control
 func TestIO_VDPControlRouting(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	// Write to control port via I/O
@@ -154,7 +158,7 @@ func TestIO_VDPControlRouting(t *testing.T) {
 // TestIO_PSGWrite tests that port $7F writes route to PSG
 func TestIO_PSGWrite(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	// Write volume to channel 0 via PSG port
@@ -173,7 +177,7 @@ func TestIO_PSGWrite(t *testing.T) {
 // TestIO_VDPDataRead tests VDP data read routing
 func TestIO_VDPDataRead(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	// Write some data to VRAM first
@@ -199,7 +203,7 @@ func TestIO_VDPDataRead(t *testing.T) {
 // TestIO_VDPStatusRead tests VDP status read routing
 func TestIO_VDPStatusRead(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	// Set VBlank flag
@@ -221,7 +225,7 @@ func TestIO_VDPStatusRead(t *testing.T) {
 // TestIO_ControllerP2Input tests Player 2 active-low button encoding
 func TestIO_ControllerP2Input(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	// Test individual P2 buttons (active low - 0 = pressed)
@@ -263,7 +267,7 @@ func TestIO_ControllerP2Input(t *testing.T) {
 // TestIO_ControllerP1P2Combined tests P1 and P2 inputs don't interfere
 func TestIO_ControllerP1P2Combined(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	// Set P1: Up + Button 1 (Port1 bits 0 and 4 clear = 0xEE)
@@ -303,7 +307,7 @@ func TestIO_ControllerP1P2Combined(t *testing.T) {
 // TestIO_PartialAddressDecoding tests that port decoding uses partial address
 func TestIO_PartialAddressDecoding(t *testing.T) {
 	vdp := NewVDP()
-	psg := NewPSG(3579545, 48000, 800)
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
 	io := NewSMSIO(vdp, psg)
 
 	io.Input.Port1 = 0x12

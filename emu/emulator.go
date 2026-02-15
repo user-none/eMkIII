@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"hash/crc32"
-	"math"
 
+	"github.com/user-none/go-chip-sn76489"
 	"github.com/user-none/go-chip-z80"
 )
 
@@ -27,7 +27,7 @@ type EmulatorBase struct {
 	cpu                 *z80.CPU
 	mem                 *Memory
 	vdp                 *VDP
-	psg                 *PSG
+	psg                 *sn76489.SN76489
 	io                  *SMSIO
 	cyclesPerScanlineFP int // Fixed-point (16 fractional bits) for accurate timing
 
@@ -51,7 +51,7 @@ func InitEmulatorBase(rom []byte, region Region) EmulatorBase {
 	vdp.SetTotalScanlines(timing.Scanlines)
 
 	samplesPerFrame := sampleRate / timing.FPS
-	psg := NewPSG(timing.CPUClockHz, sampleRate, samplesPerFrame*2)
+	psg := sn76489.New(timing.CPUClockHz, sampleRate, samplesPerFrame*2, sn76489.Sega)
 
 	io := NewSMSIO(vdp, psg)
 	bus := NewSMSBus(mem, io)
@@ -278,7 +278,7 @@ func SerializeSize() int {
 	// CPU: ~32 bytes
 	// Memory: 8KB RAM + 32KB cartRAM + 3 bankSlot + 1 ramControl = 40964 bytes
 	// VDP: 16KB VRAM + 32 CRAM + 16 regs + misc = ~16571 bytes
-	// PSG: ~45 bytes
+	// PSG: 40 bytes (library SerializeSize)
 	// Input: 2 bytes
 
 	return stateHeaderSize + // 22
@@ -300,7 +300,7 @@ func SerializeSize() int {
 		1 + // lineIntPending
 		4 + // hScrollLatch, reg2Latch, reg7Latch, vScrollLatch
 		1 + // interruptCheckRequired
-		45 + // PSG state
+		sn76489.SerializeSize + // PSG state
 		2 // Input ports
 }
 
@@ -742,124 +742,14 @@ func (e *EmulatorBase) deserializeVDP(data []byte, offset int) int {
 
 // serializePSG writes PSG state to the data buffer
 func (e *EmulatorBase) serializePSG(data []byte, offset int) int {
-	// Tone registers (3 x 2 bytes = 6 bytes)
-	for i := 0; i < 3; i++ {
-		binary.LittleEndian.PutUint16(data[offset:], e.psg.toneReg[i])
-		offset += 2
-	}
-
-	// Tone counters (3 x 2 bytes = 6 bytes)
-	for i := 0; i < 3; i++ {
-		binary.LittleEndian.PutUint16(data[offset:], e.psg.toneCounter[i])
-		offset += 2
-	}
-
-	// Tone outputs (3 bytes)
-	for i := 0; i < 3; i++ {
-		if e.psg.toneOutput[i] {
-			data[offset] = 1
-		} else {
-			data[offset] = 0
-		}
-		offset++
-	}
-
-	// Noise register (1 byte)
-	data[offset] = e.psg.noiseReg
-	offset++
-
-	// Noise counter (2 bytes)
-	binary.LittleEndian.PutUint16(data[offset:], e.psg.noiseCounter)
-	offset += 2
-
-	// Noise shift register (2 bytes)
-	binary.LittleEndian.PutUint16(data[offset:], e.psg.noiseShift)
-	offset += 2
-
-	// Noise output (1 byte)
-	if e.psg.noiseOutput {
-		data[offset] = 1
-	} else {
-		data[offset] = 0
-	}
-	offset++
-
-	// Volume (4 bytes)
-	copy(data[offset:], e.psg.volume[:])
-	offset += len(e.psg.volume)
-
-	// Latch state (2 bytes)
-	data[offset] = e.psg.latchedChannel
-	offset++
-	data[offset] = e.psg.latchedType
-	offset++
-
-	// Clock counter (8 bytes, float64)
-	binary.LittleEndian.PutUint64(data[offset:], math.Float64bits(e.psg.clockCounter))
-	offset += 8
-
-	// Clock divider (4 bytes, int)
-	binary.LittleEndian.PutUint32(data[offset:], uint32(e.psg.clockDivider))
-	offset += 4
-
-	return offset
+	e.psg.Serialize(data[offset:])
+	return offset + sn76489.SerializeSize
 }
 
 // deserializePSG reads PSG state from the data buffer
 func (e *EmulatorBase) deserializePSG(data []byte, offset int) int {
-	// Tone registers (3 x 2 bytes = 6 bytes)
-	for i := 0; i < 3; i++ {
-		e.psg.toneReg[i] = binary.LittleEndian.Uint16(data[offset:])
-		offset += 2
-	}
-
-	// Tone counters (3 x 2 bytes = 6 bytes)
-	for i := 0; i < 3; i++ {
-		e.psg.toneCounter[i] = binary.LittleEndian.Uint16(data[offset:])
-		offset += 2
-	}
-
-	// Tone outputs (3 bytes)
-	for i := 0; i < 3; i++ {
-		e.psg.toneOutput[i] = data[offset] != 0
-		offset++
-	}
-
-	// Noise register (1 byte)
-	e.psg.noiseReg = data[offset]
-	offset++
-
-	// Noise counter (2 bytes)
-	e.psg.noiseCounter = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-
-	// Noise shift register (2 bytes)
-	e.psg.noiseShift = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-
-	// Noise output (1 byte)
-	e.psg.noiseOutput = data[offset] != 0
-	offset++
-
-	// Volume (4 bytes)
-	copy(e.psg.volume[:], data[offset:offset+len(e.psg.volume)])
-	offset += len(e.psg.volume)
-
-	// Latch state (2 bytes)
-	e.psg.latchedChannel = data[offset]
-	offset++
-	e.psg.latchedType = data[offset]
-	offset++
-
-	// Clock counter (8 bytes, float64)
-	e.psg.clockCounter = math.Float64frombits(binary.LittleEndian.Uint64(data[offset:]))
-	offset += 8
-
-	// Clock divider (4 bytes, int)
-	e.psg.clockDivider = int(binary.LittleEndian.Uint32(data[offset:]))
-	offset += 4
-
-	return offset
+	e.psg.Deserialize(data[offset:])
+	return offset + sn76489.SerializeSize
 }
 
 // serializeInput writes Input state to the data buffer

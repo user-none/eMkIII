@@ -275,14 +275,14 @@ func (e *EmulatorBase) SetPause() {
 // SerializeSize returns the total size in bytes needed for a save state.
 func SerializeSize() int {
 	// Header: 22 bytes
-	// CPU: ~32 bytes
+	// CPU: 47 bytes (library SerializeSize)
 	// Memory: 8KB RAM + 32KB cartRAM + 3 bankSlot + 1 ramControl = 40964 bytes
 	// VDP: 16KB VRAM + 32 CRAM + 16 regs + misc = ~16571 bytes
 	// PSG: 40 bytes (library SerializeSize)
 	// Input: 2 bytes
 
 	return stateHeaderSize + // 22
-		32 + // CPU state
+		z80.SerializeSize + // CPU state
 		0x2000 + // RAM (8KB)
 		0x8000 + // Cart RAM (32KB)
 		3 + // bankSlot
@@ -403,149 +403,14 @@ func (e *EmulatorBase) VerifyState(data []byte) error {
 
 // serializeCPU writes CPU state to the data buffer
 func (e *EmulatorBase) serializeCPU(data []byte, offset int) int {
-	regs := e.cpu.Registers()
-
-	// PC, SP (4 bytes)
-	binary.LittleEndian.PutUint16(data[offset:], regs.PC)
-	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], regs.SP)
-	offset += 2
-
-	// Main registers AF, BC, DE, HL (8 bytes)
-	binary.LittleEndian.PutUint16(data[offset:], regs.AF)
-	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], regs.BC)
-	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], regs.DE)
-	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], regs.HL)
-	offset += 2
-
-	// IX, IY (4 bytes)
-	binary.LittleEndian.PutUint16(data[offset:], regs.IX)
-	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], regs.IY)
-	offset += 2
-
-	// Alternate registers AF', BC', DE', HL' (8 bytes)
-	binary.LittleEndian.PutUint16(data[offset:], regs.AF_)
-	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], regs.BC_)
-	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], regs.DE_)
-	offset += 2
-	binary.LittleEndian.PutUint16(data[offset:], regs.HL_)
-	offset += 2
-
-	// I, R (2 bytes)
-	data[offset] = regs.I
-	offset++
-	data[offset] = regs.R
-	offset++
-
-	// IFF1, IFF2 (2 bytes)
-	if regs.IFF1 {
-		data[offset] = 1
-	} else {
-		data[offset] = 0
-	}
-	offset++
-	if regs.IFF2 {
-		data[offset] = 1
-	} else {
-		data[offset] = 0
-	}
-	offset++
-
-	// IM (1 byte)
-	data[offset] = regs.IM
-	offset++
-
-	// HALT (1 byte)
-	if regs.Halted {
-		data[offset] = 1
-	} else {
-		data[offset] = 0
-	}
-	offset++
-
-	// Interrupt pending (1 byte) - use VDP as source of truth
-	if e.vdp.InterruptPending() {
-		data[offset] = 1
-	} else {
-		data[offset] = 0
-	}
-	offset++
-
-	return offset
+	e.cpu.Serialize(data[offset:])
+	return offset + z80.SerializeSize
 }
 
 // deserializeCPU reads CPU state from the data buffer
 func (e *EmulatorBase) deserializeCPU(data []byte, offset int) int {
-	var regs z80.Registers
-
-	// PC, SP
-	regs.PC = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-	regs.SP = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-
-	// Main registers AF, BC, DE, HL
-	regs.AF = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-	regs.BC = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-	regs.DE = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-	regs.HL = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-
-	// IX, IY
-	regs.IX = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-	regs.IY = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-
-	// Alternate registers
-	regs.AF_ = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-	regs.BC_ = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-	regs.DE_ = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-	regs.HL_ = binary.LittleEndian.Uint16(data[offset:])
-	offset += 2
-
-	// I, R
-	regs.I = data[offset]
-	offset++
-	regs.R = data[offset]
-	offset++
-
-	// IFF1, IFF2
-	regs.IFF1 = data[offset] != 0
-	offset++
-	regs.IFF2 = data[offset] != 0
-	offset++
-
-	// IM
-	regs.IM = data[offset]
-	offset++
-
-	// HALT
-	regs.Halted = data[offset] != 0
-	offset++
-
-	// Interrupt pending
-	intPending := data[offset] != 0
-	offset++
-
-	e.cpu.SetState(regs)
-
-	// Restore interrupt line state
-	e.cpu.INT(intPending, 0xFF)
-
-	return offset
+	e.cpu.Deserialize(data[offset:])
+	return offset + z80.SerializeSize
 }
 
 // serializeMemory writes Memory state to the data buffer

@@ -9,7 +9,7 @@ require (
 	github.com/hajimehoshi/ebiten/v2 v2.9.8
 	github.com/nwaples/rardecode/v2 v2.2.2
 	github.com/sqweek/dialog v0.0.0-20240226140203-065105509627
-	github.com/user-none/go-chip-z80 v0.0.0-20260214182008-08702559ea24
+	github.com/user-none/go-chip-z80 v0.0.0-20260215162438-a51e903d86a7
 	github.com/user-none/go-rcheevos v0.0.0-20260210020636-5a0e90917989
 	golang.design/x/clipboard v0.7.1
 	golang.org/x/image v0.35.0

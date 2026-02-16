@@ -135,6 +135,8 @@ github.com/user-none/go-chip-sn76489 v0.0.0-20260215161003-b694df9feb68 h1:p1Trp
 github.com/user-none/go-chip-sn76489 v0.0.0-20260215161003-b694df9feb68/go.mod h1:WJdKIGKYMXS8F4eDTaHoG44+l5b1Bm5JDksdAPhDGf0=
 github.com/user-none/go-chip-sn76489 v0.0.0-20260215223808-493ecd304c37 h1:E+QRJwr8R3YZuZvftOVdvr2X0HaOjFIshhfz87bY5xI=
 github.com/user-none/go-chip-sn76489 v0.0.0-20260215223808-493ecd304c37/go.mod h1:WJdKIGKYMXS8F4eDTaHoG44+l5b1Bm5JDksdAPhDGf0=
+github.com/user-none/go-chip-sn76489 v0.0.0-20260216111134-1da9b666b080 h1:wagV2NEnIG7QdFstzwNEsoLOJ71wcfqHV/r7a00y2Vw=
+github.com/user-none/go-chip-sn76489 v0.0.0-20260216111134-1da9b666b080/go.mod h1:WJdKIGKYMXS8F4eDTaHoG44+l5b1Bm5JDksdAPhDGf0=
 github.com/user-none/go-chip-z80 v0.0.0-20260214182008-08702559ea24 h1:4guJkJrmHvN1LfQYxnfxhQea8hzYECAfHhOa+1xJ9ao=
 github.com/user-none/go-chip-z80 v0.0.0-20260214182008-08702559ea24/go.mod h1:DEa23nvjxHzpDH3aAMDKa41UK860YiLUhLtscPc6Trs=
 github.com/user-none/go-chip-z80 v0.0.0-20260215162438-a51e903d86a7 h1:4FyhT0bDXa4J49IX+z1YcqERo/LkHEQ4n4+zZaQwaNg=

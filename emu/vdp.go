@@ -280,6 +280,8 @@ func (v *VDP) ReadData() uint8 {
 func (v *VDP) WriteData(value uint8) {
 	// Data port access clears the control write latch (matches real hardware)
 	v.writeLatch = false
+	// Writing to the data port also loads the value into the read buffer
+	v.readBuffer = value
 	if v.codeReg == 3 {
 		// CRAM write
 		cramAddr := v.addr & 0x1F

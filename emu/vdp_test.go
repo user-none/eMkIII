@@ -155,10 +155,60 @@ func TestVDP_ReadBuffer(t *testing.T) {
 		t.Errorf("First read (pre-fetch): expected 0xAA, got 0x%02X", first)
 	}
 
-	// The current implementation's read behavior: after first read,
-	// the buffer is reloaded from the same address before incrementing.
-	// This is a known quirk - subsequent reads return the same value
-	// until the address naturally advances past the pre-fetch point.
+	// Second read returns the next byte (VRAM[1])
+	second := vdp.ReadData()
+	if second != 0xBB {
+		t.Errorf("Second read: expected 0xBB, got 0x%02X", second)
+	}
+}
+
+// TestVDP_WriteDataUpdatesReadBuffer tests that writing to the data port
+// loads the written value into the read buffer
+func TestVDP_WriteDataUpdatesReadBuffer(t *testing.T) {
+	vdp := NewVDP()
+
+	// Write a known value to VRAM at address 0x100
+	vdp.WriteControl(0x00)
+	vdp.WriteControl(0x41) // VRAM write at 0x100
+	vdp.WriteData(0x42)    // Write 0x42 -- this should also load read buffer
+
+	// Now set up a VRAM read at a different address (0x200) where VRAM is 0x00
+	// The pre-fetch during read setup loads VRAM[0x200] into the buffer,
+	// overwriting the value from WriteData. So we need a different approach:
+	// Write to data port, then immediately read without re-setting the address.
+
+	// Start fresh: write 0xFF to VRAM[0] so we can distinguish it
+	vdp.WriteControl(0x00)
+	vdp.WriteControl(0x40) // VRAM write at 0x000
+	vdp.WriteData(0xFF)
+
+	// Now write 0x42 to VRAM[1] -- read buffer should become 0x42
+	vdp.WriteData(0x42)
+
+	// Switch to VRAM read mode at address 0x050 (contains 0x00)
+	// The pre-fetch loads VRAM[0x050]=0x00 into the buffer
+	vdp.WriteControl(0x50)
+	vdp.WriteControl(0x00) // VRAM read at 0x050
+
+	// First read returns the pre-fetched value (VRAM[0x050] = 0x00)
+	// This confirms the pre-fetch overwrites the WriteData buffer value,
+	// which is correct -- the read setup always pre-fetches.
+	first := vdp.ReadData()
+	if first != 0x00 {
+		t.Errorf("Read after write setup: expected 0x00, got 0x%02X", first)
+	}
+
+	// Test the actual behavior: write in VRAM write mode, then read without
+	// re-issuing a read command. ReadData always returns the buffer contents.
+	vdp.WriteControl(0x00)
+	vdp.WriteControl(0x40) // VRAM write at 0x000
+	vdp.WriteData(0xAB)    // Writes to VRAM[0], buffer = 0xAB
+
+	// ReadData returns buffer (0xAB), then loads VRAM[next_addr] into buffer
+	got := vdp.ReadData()
+	if got != 0xAB {
+		t.Errorf("Read after WriteData: expected 0xAB (from buffer), got 0x%02X", got)
+	}
 }
 
 // TestVDP_VBlankFlag tests status bit 7 set/clear behavior

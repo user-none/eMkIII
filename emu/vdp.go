@@ -246,8 +246,9 @@ func (v *VDP) WriteControl(value uint8) {
 
 		switch v.codeReg {
 		case 0: // VRAM read setup
-			// Pre-fetch byte into read buffer (address NOT incremented here)
+			// Pre-fetch byte into read buffer and increment address
 			v.readBuffer = v.vram[v.addr&0x3FFF]
+			v.addr = (v.addr + 1) & 0x3FFF
 		case 1: // VRAM write setup
 			// Nothing special needed
 		case 2: // Register write
@@ -271,8 +272,8 @@ func (v *VDP) ReadData() uint8 {
 	// Data port access clears the control write latch (matches real hardware)
 	v.writeLatch = false
 	data := v.readBuffer
-	v.addr = (v.addr + 1) & 0x3FFF
 	v.readBuffer = v.vram[v.addr&0x3FFF]
+	v.addr = (v.addr + 1) & 0x3FFF
 	return data
 }
 

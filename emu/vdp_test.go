@@ -211,6 +211,47 @@ func TestVDP_WriteDataUpdatesReadBuffer(t *testing.T) {
 	}
 }
 
+// TestVDP_VRAMReadSetupIncrementsAddress tests that VRAM read setup (code 0)
+// pre-fetches the byte and increments the address register
+func TestVDP_VRAMReadSetupIncrementsAddress(t *testing.T) {
+	vdp := NewVDP()
+
+	// Write known data to VRAM
+	vdp.WriteControl(0x00)
+	vdp.WriteControl(0x40) // VRAM write at 0x000
+	vdp.WriteData(0xAA)    // VRAM[0]
+	vdp.WriteData(0xBB)    // VRAM[1]
+	vdp.WriteData(0xCC)    // VRAM[2]
+	vdp.WriteData(0xDD)    // VRAM[3]
+
+	// Set up VRAM read at address 0x001
+	vdp.WriteControl(0x01)
+	vdp.WriteControl(0x00) // VRAM read at 0x001
+
+	// Address should be incremented to 0x002 after pre-fetch
+	if got := vdp.GetAddress(); got != 0x002 {
+		t.Errorf("Address after VRAM read setup at 0x001: expected 0x002, got 0x%04X", got)
+	}
+
+	// First read returns pre-fetched VRAM[1] = 0xBB
+	first := vdp.ReadData()
+	if first != 0xBB {
+		t.Errorf("First read: expected 0xBB, got 0x%02X", first)
+	}
+
+	// Second read returns VRAM[2] = 0xCC
+	second := vdp.ReadData()
+	if second != 0xCC {
+		t.Errorf("Second read: expected 0xCC, got 0x%02X", second)
+	}
+
+	// Third read returns VRAM[3] = 0xDD
+	third := vdp.ReadData()
+	if third != 0xDD {
+		t.Errorf("Third read: expected 0xDD, got 0x%02X", third)
+	}
+}
+
 // TestVDP_VBlankFlag tests status bit 7 set/clear behavior
 func TestVDP_VBlankFlag(t *testing.T) {
 	vdp := NewVDP()

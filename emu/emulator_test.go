@@ -265,7 +265,7 @@ func TestEmulator_FrameLoop_Logic(t *testing.T) {
 
 		vdp.UpdateLineCounter()
 
-		if i == activeHeight {
+		if i == activeHeight+1 {
 			vdp.SetVBlank()
 		}
 
@@ -366,6 +366,38 @@ func TestEmulator_VDPLineCounter(t *testing.T) {
 	// After 6 active scanlines, counter should have underflowed
 	if !vdp.GetLineIntPending() {
 		t.Error("Line interrupt should be pending after counter underflow")
+	}
+}
+
+// TestEmulator_VBlankFiringScanline tests that VBlank fires at activeHeight+1
+// frame interrupt flag is set at V-counter $C1 (line 193)
+// for 192-line mode and $E1 (line 225) for 224-line mode, not on the last active line.
+func TestEmulator_VBlankFiringScanline(t *testing.T) {
+	vdp := NewVDP()
+	activeHeight := vdp.ActiveHeight() // 192 for default mode
+
+	// Simulate scanlines leading up to and past VBlank
+	// On the last active line (191), VBlank should not be set
+	vdp.SetVCounter(uint16(activeHeight - 1))
+	if vdp.GetStatus()&0x80 != 0 {
+		t.Errorf("VBlank should not be set on last active line %d", activeHeight-1)
+	}
+
+	// On line activeHeight (192), VBlank should NOT fire yet
+	// This is the first non-active line but the frame interrupt doesn't fire here
+	vdp.SetVCounter(uint16(activeHeight))
+	if vdp.GetStatus()&0x80 != 0 {
+		t.Errorf("VBlank should not be set on line %d (V-counter $%02X)",
+			activeHeight, activeHeight)
+	}
+
+	// On line activeHeight+1 (193), VBlank SHOULD fire
+	// This matches MacDonald: V-counter $C1 for 192-line, $E1 for 224-line
+	vdp.SetVCounter(uint16(activeHeight + 1))
+	vdp.SetVBlank()
+	if vdp.GetStatus()&0x80 == 0 {
+		t.Errorf("VBlank should be set on line %d (V-counter $%02X)",
+			activeHeight+1, activeHeight+1)
 	}
 }
 

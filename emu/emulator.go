@@ -107,7 +107,10 @@ func (e *EmulatorBase) runScanlines() {
 		vblankChecked := false
 		lineInterruptChecked := false
 		cramLatched := false
-		isVBlankLine := (i == activeHeight)
+		// frame interrupt fires at V-counter $C1 (line 193) for
+		// 192-line mode and $E1 (line 225) for 224-line mode, one line after
+		// the last active display line.
+		isVBlankLine := (i == activeHeight+1)
 
 		consumed := 0
 		for consumed < scanlineBudget {

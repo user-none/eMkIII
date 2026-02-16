@@ -787,8 +787,8 @@ vectoring to address `$0038` on interrupt.
 ### Frame Interrupt (VBlank)
 
 - **Trigger:** Status register bit 7 (INT) is set at a specific scanline:
-  - 192-line mode: scanline 192 (first line after active display)
-  - 224-line mode: scanline 224
+  - 192-line mode: scanline 193 (V-counter `$C1`)
+  - 224-line mode: scanline 225 (V-counter `$E1`)
 - **Enable:** Register $01 bit 5 (IE0)
 - **Assert condition:** INT flag set AND IE0 bit set
 - **Clear:** Reading the status register (clears INT flag)

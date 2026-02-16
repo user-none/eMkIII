@@ -414,10 +414,10 @@ func TestVDP_FramebufferNotNil(t *testing.T) {
 	}
 
 	// Framebuffer is sized for maximum possible height (224) to support all display modes
-	// (192-line standard, 224-line extended, 240-line Game Gear)
+	// (192-line standard, 224-line extended)
 	bounds := fb.Bounds()
 	if bounds.Dx() != 256 || bounds.Dy() != 224 {
-		t.Errorf("Framebuffer size: expected 256x240 (MaxScreenHeight), got %dx%d", bounds.Dx(), bounds.Dy())
+		t.Errorf("Framebuffer size: expected 256x224 (MaxScreenHeight), got %dx%d", bounds.Dx(), bounds.Dy())
 	}
 }
 

@@ -22,7 +22,7 @@ func TestEmulator_ComponentIntegration(t *testing.T) {
 	samplesPerFrame := 48000 / timing.FPS
 	psg := sn76489.New(timing.CPUClockHz, 48000, samplesPerFrame*2, sn76489.Sega)
 
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 	bus := NewSMSBus(mem, io)
 	cpu := z80.New(bus)
 
@@ -146,7 +146,7 @@ func TestEmulator_ScanlineExecution(t *testing.T) {
 	vdp.SetTotalScanlines(timing.Scanlines)
 
 	psg := sn76489.New(timing.CPUClockHz, 48000, 2000, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 	bus := NewSMSBus(mem, io)
 	cpu := z80.New(bus)
 
@@ -237,7 +237,7 @@ func TestEmulator_FrameLoop_Logic(t *testing.T) {
 	vdp.SetTotalScanlines(timing.Scanlines)
 
 	psg := sn76489.New(timing.CPUClockHz, 48000, 2000, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 	bus := NewSMSBus(mem, io)
 	cpu := z80.New(bus)
 
@@ -303,7 +303,7 @@ func TestEmulator_FrameLoop_Logic(t *testing.T) {
 func TestEmulator_InputHandling(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 2000, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	// Initially all buttons released (0xFF)
 	if io.Input.Port1 != 0xFF {
@@ -716,5 +716,36 @@ func TestMemory_GetROMCRC32(t *testing.T) {
 
 	if crc != expected {
 		t.Errorf("GetROMCRC32: expected 0x%08X, got 0x%08X", expected, crc)
+	}
+}
+
+// TestSerialize_IOControlRoundTrip tests that ioControl survives serialize/deserialize
+func TestSerialize_IOControlRoundTrip(t *testing.T) {
+	base := createTestEmulatorBase()
+
+	// Write to port $3F
+	base.io.Out(0x3F, 0xF5)
+	if base.io.ioControl != 0xF5 {
+		t.Fatalf("ioControl not set: expected 0xF5, got 0x%02X", base.io.ioControl)
+	}
+
+	// Serialize
+	state, err := base.Serialize()
+	if err != nil {
+		t.Fatalf("Serialize failed: %v", err)
+	}
+
+	// Change ioControl
+	base.io.Out(0x3F, 0x00)
+
+	// Deserialize
+	err = base.Deserialize(state)
+	if err != nil {
+		t.Fatalf("Deserialize failed: %v", err)
+	}
+
+	// Verify restored
+	if base.io.ioControl != 0xF5 {
+		t.Errorf("ioControl not restored: expected 0xF5, got 0x%02X", base.io.ioControl)
 	}
 }

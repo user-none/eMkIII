@@ -9,12 +9,14 @@ type Input struct {
 }
 
 type SMSIO struct {
-	vdp   *VDP
-	psg   *sn76489.SN76489
-	Input *Input
+	vdp         *VDP
+	psg         *sn76489.SN76489
+	Input       *Input
+	nationality Nationality
+	ioControl   uint8 // Port $3F: I/O port control register
 }
 
-func NewSMSIO(vdp *VDP, psg *sn76489.SN76489) *SMSIO {
+func NewSMSIO(vdp *VDP, psg *sn76489.SN76489, nationality Nationality) *SMSIO {
 	return &SMSIO{
 		vdp: vdp,
 		psg: psg,
@@ -22,6 +24,8 @@ func NewSMSIO(vdp *VDP, psg *sn76489.SN76489) *SMSIO {
 			Port1: 0xFF, // All buttons released (active low)
 			Port2: 0xFF,
 		},
+		nationality: nationality,
+		ioControl:   0xFF, // All pins high at power-on
 	}
 }
 
@@ -40,7 +44,7 @@ func (e *SMSIO) In(addr uint8) uint8 {
 	case 0xC0: // $C0-$FF even: I/O port A (controller 1)
 		return e.Input.Port1
 	case 0xC1: // $C0-$FF odd: I/O port B (controller 2 + misc)
-		return e.Input.Port2
+		return e.readPortDD()
 	}
 	return 0xFF
 }
@@ -48,6 +52,8 @@ func (e *SMSIO) In(addr uint8) uint8 {
 func (e *SMSIO) Out(addr uint8, value uint8) {
 	// SMS uses partial address decoding
 	switch addr & 0xC1 {
+	case 0x01: // $00-$3F odd: I/O port control register
+		e.ioControl = value
 	case 0x40, 0x41: // $40-$7F: PSG
 		if e.psg != nil {
 			e.psg.Write(value)
@@ -120,4 +126,29 @@ func (i *Input) SetP2(up, down, left, right, btn1, btn2 bool) {
 	if btn2 {
 		i.Port2 &^= 0x08
 	}
+}
+
+// readPortDD synthesizes the port $DD read value.
+// Bits 0-5 come from controller data (Input.Port2).
+// Bits 6-7 come from the I/O control register ($3F) TH output levels.
+// On Japanese consoles, bits 6-7 are inverted.
+func (e *SMSIO) readPortDD() uint8 {
+	// Start with controller bits 0-5
+	result := e.Input.Port2 & 0x3F
+
+	// Bit 6 = Port A TH (from ioControl bit 5)
+	// Bit 7 = Port B TH (from ioControl bit 7)
+	if e.ioControl&0x20 != 0 {
+		result |= 0x40
+	}
+	if e.ioControl&0x80 != 0 {
+		result |= 0x80
+	}
+
+	// Japanese consoles invert TH bits
+	if e.nationality == NationalityJapanese {
+		result ^= 0xC0
+	}
+
+	return result
 }

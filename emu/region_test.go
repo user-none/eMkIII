@@ -72,3 +72,63 @@ func TestRegion_ScanlineTimingConsistency(t *testing.T) {
 		t.Errorf("PAL cycles per scanline: expected ~227, got %.1f", palCyclesPerScanline)
 	}
 }
+
+// TestNationality_String verifies string representation
+func TestNationality_String(t *testing.T) {
+	if NationalityExport.String() != "Export" {
+		t.Errorf("NationalityExport.String(): expected \"Export\", got %q", NationalityExport.String())
+	}
+	if NationalityJapanese.String() != "Japanese" {
+		t.Errorf("NationalityJapanese.String(): expected \"Japanese\", got %q", NationalityJapanese.String())
+	}
+}
+
+// TestDetectNationalityFromROM_ValidHeader tests detection with valid TMR SEGA headers
+func TestDetectNationalityFromROM_ValidHeader(t *testing.T) {
+	testCases := []struct {
+		name       string
+		regionCode uint8
+		expected   Nationality
+	}{
+		{"SMS Japan (code 3)", 0x3, NationalityJapanese},
+		{"SMS Export (code 4)", 0x4, NationalityExport},
+		{"GG Japan (code 5)", 0x5, NationalityExport},
+		{"GG Export (code 6)", 0x6, NationalityExport},
+		{"GG International (code 7)", 0x7, NationalityExport},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			rom := make([]byte, 0x8000)
+			copy(rom[0x7FF0:], "TMR SEGA")
+			// Region code in upper nibble of $7FFF, ROM size in lower nibble
+			rom[0x7FFF] = tc.regionCode<<4 | 0x0C // 0x0C = 32KB ROM size
+
+			got := DetectNationalityFromROM(rom)
+			if got != tc.expected {
+				t.Errorf("expected %v, got %v", tc.expected, got)
+			}
+		})
+	}
+}
+
+// TestDetectNationalityFromROM_NoSignature tests that missing TMR SEGA defaults to Export
+func TestDetectNationalityFromROM_NoSignature(t *testing.T) {
+	rom := make([]byte, 0x8000)
+	// No TMR SEGA signature written
+
+	got := DetectNationalityFromROM(rom)
+	if got != NationalityExport {
+		t.Errorf("expected Export for missing signature, got %v", got)
+	}
+}
+
+// TestDetectNationalityFromROM_TooSmall tests that small ROMs default to Export
+func TestDetectNationalityFromROM_TooSmall(t *testing.T) {
+	rom := make([]byte, 0x4000) // 16KB, too small for header at $7FF0
+
+	got := DetectNationalityFromROM(rom)
+	if got != NationalityExport {
+		t.Errorf("expected Export for small ROM, got %v", got)
+	}
+}

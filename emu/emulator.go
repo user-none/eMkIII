@@ -53,7 +53,8 @@ func InitEmulatorBase(rom []byte, region Region) EmulatorBase {
 	samplesPerFrame := sampleRate / timing.FPS
 	psg := sn76489.New(timing.CPUClockHz, sampleRate, samplesPerFrame*2, sn76489.Sega)
 
-	io := NewSMSIO(vdp, psg)
+	nationality := DetectNationalityFromROM(rom)
+	io := NewSMSIO(vdp, psg, nationality)
 	bus := NewSMSBus(mem, io)
 	cpu := z80.New(bus)
 
@@ -282,7 +283,7 @@ func SerializeSize() int {
 	// Memory: 8KB RAM + 32KB cartRAM + 3 bankSlot + 1 ramControl = 40964 bytes
 	// VDP: 16KB VRAM + 32 CRAM + 16 regs + misc = ~16571 bytes
 	// PSG: 40 bytes (library SerializeSize)
-	// Input: 2 bytes
+	// Input: 3 bytes (Port1, Port2, ioControl)
 
 	return stateHeaderSize + // 22
 		z80.SerializeSize + // CPU state
@@ -304,7 +305,7 @@ func SerializeSize() int {
 		4 + // hScrollLatch, reg2Latch, reg7Latch, vScrollLatch
 		1 + // interruptCheckRequired
 		sn76489.SerializeSize + // PSG state
-		2 // Input ports
+		3 // Input ports (2) + ioControl (1)
 }
 
 // Serialize creates a save state and returns it as a byte slice.
@@ -626,6 +627,8 @@ func (e *EmulatorBase) serializeInput(data []byte, offset int) int {
 	offset++
 	data[offset] = e.io.Input.Port2
 	offset++
+	data[offset] = e.io.ioControl
+	offset++
 	return offset
 }
 
@@ -634,6 +637,8 @@ func (e *EmulatorBase) deserializeInput(data []byte, offset int) int {
 	e.io.Input.Port1 = data[offset]
 	offset++
 	e.io.Input.Port2 = data[offset]
+	offset++
+	e.io.ioControl = data[offset]
 	offset++
 	return offset
 }

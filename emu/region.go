@@ -66,3 +66,45 @@ func DetectRegionFromROM(rom []byte) (Region, bool) {
 	}
 	return RegionNTSC, false
 }
+
+// Nationality represents the console nationality (Japanese or Export).
+// This is orthogonal to Region (NTSC/PAL): Japanese is always NTSC,
+// but Export can be either NTSC (Americas) or PAL (Europe).
+type Nationality int
+
+const (
+	NationalityExport Nationality = iota // Default
+	NationalityJapanese
+)
+
+func (n Nationality) String() string {
+	switch n {
+	case NationalityExport:
+		return "Export"
+	case NationalityJapanese:
+		return "Japanese"
+	default:
+		return "Unknown"
+	}
+}
+
+// DetectNationalityFromROM reads the ROM header to determine nationality.
+// Returns Export if the header is missing or unrecognizable.
+func DetectNationalityFromROM(rom []byte) Nationality {
+	// Header is at $7FF0; need at least $8000 bytes
+	if len(rom) < 0x8000 {
+		return NationalityExport
+	}
+
+	// Check for "TMR SEGA" signature at $7FF0
+	if string(rom[0x7FF0:0x7FF8]) != "TMR SEGA" {
+		return NationalityExport
+	}
+
+	// Region code is upper nibble of $7FFF
+	regionCode := rom[0x7FFF] >> 4
+	if regionCode == 3 { // SMS Japan
+		return NationalityJapanese
+	}
+	return NationalityExport
+}

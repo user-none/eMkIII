@@ -10,7 +10,7 @@ import (
 func TestIO_ControllerDefaultState(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	if io.Input.Port1 != 0xFF {
 		t.Errorf("Default Port1: expected 0xFF, got 0x%02X", io.Input.Port1)
@@ -24,7 +24,7 @@ func TestIO_ControllerDefaultState(t *testing.T) {
 func TestIO_ControllerInput(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	// Test individual buttons (active low - 0 = pressed)
 	testCases := []struct {
@@ -53,7 +53,7 @@ func TestIO_ControllerInput(t *testing.T) {
 func TestIO_PortDecoding(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	// Set up known state
 	io.Input.Port1 = 0xAA
@@ -68,12 +68,13 @@ func TestIO_PortDecoding(t *testing.T) {
 		t.Errorf("In($DC): expected 0xAA (Port1), got 0x%02X", got)
 	}
 
-	// Odd ports ($C1, $C3, etc.) return Port2
-	if got := io.In(0xC1); got != 0x55 {
-		t.Errorf("In($C1): expected 0x55 (Port2), got 0x%02X", got)
+	// Odd ports ($C1, $C3, etc.) return Port2 bits 0-5 + TH bits 6-7 from ioControl
+	// Port2=0x55 → bits 0-5 = 0x15, ioControl=0xFF → bits 6-7 = 0xC0, result = 0xD5
+	if got := io.In(0xC1); got != 0xD5 {
+		t.Errorf("In($C1): expected 0xD5 (Port2+TH), got 0x%02X", got)
 	}
-	if got := io.In(0xDD); got != 0x55 {
-		t.Errorf("In($DD): expected 0x55 (Port2), got 0x%02X", got)
+	if got := io.In(0xDD); got != 0xD5 {
+		t.Errorf("In($DD): expected 0xD5 (Port2+TH), got 0x%02X", got)
 	}
 }
 
@@ -81,7 +82,7 @@ func TestIO_PortDecoding(t *testing.T) {
 func TestIO_VCounterRead(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	// Set VDP V counter via SetVCounter
 	vdp.SetVCounter(100)
@@ -101,7 +102,7 @@ func TestIO_VCounterRead(t *testing.T) {
 func TestIO_HCounterRead(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	// Set VDP H counter
 	vdp.SetHCounter(50)
@@ -121,7 +122,7 @@ func TestIO_HCounterRead(t *testing.T) {
 func TestIO_VDPDataRouting(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	// Set up VDP for VRAM write (code = 1)
 	vdp.WriteControl(0x00) // Low address byte
@@ -141,7 +142,7 @@ func TestIO_VDPDataRouting(t *testing.T) {
 func TestIO_VDPControlRouting(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	// Write to control port via I/O
 	io.Out(0xBF, 0x00) // First byte of two-byte sequence
@@ -159,7 +160,7 @@ func TestIO_VDPControlRouting(t *testing.T) {
 func TestIO_PSGWrite(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	// Write volume to channel 0 via PSG port
 	io.Out(0x7F, 0x9F) // Channel 0 volume = 0x0F (silent)
@@ -178,7 +179,7 @@ func TestIO_PSGWrite(t *testing.T) {
 func TestIO_VDPDataRead(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	// Write some data to VRAM first
 	vdp.WriteControl(0x00) // Low address = 0
@@ -204,7 +205,7 @@ func TestIO_VDPDataRead(t *testing.T) {
 func TestIO_VDPStatusRead(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	// Set VBlank flag
 	vdp.SetVBlank()
@@ -226,7 +227,7 @@ func TestIO_VDPStatusRead(t *testing.T) {
 func TestIO_ControllerP2Input(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	// Test individual P2 buttons (active low - 0 = pressed)
 	// P2 Up: Port1 bit 6 clear (0xBF)
@@ -268,7 +269,7 @@ func TestIO_ControllerP2Input(t *testing.T) {
 func TestIO_ControllerP1P2Combined(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	// Set P1: Up + Button 1 (Port1 bits 0 and 4 clear = 0xEE)
 	// Set P2: Down + Button 2 (Port1 bit 7 clear, Port2 bit 3 clear)
@@ -308,7 +309,7 @@ func TestIO_ControllerP1P2Combined(t *testing.T) {
 func TestIO_PartialAddressDecoding(t *testing.T) {
 	vdp := NewVDP()
 	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
-	io := NewSMSIO(vdp, psg)
+	io := NewSMSIO(vdp, psg, NationalityExport)
 
 	io.Input.Port1 = 0x12
 	io.Input.Port2 = 0x34
@@ -324,10 +325,11 @@ func TestIO_PartialAddressDecoding(t *testing.T) {
 		{0xC2, 0x12, "Port1"},
 		{0xDC, 0x12, "Port1"},
 		{0xFE, 0x12, "Port1"},
-		{0xC1, 0x34, "Port2"},
-		{0xC3, 0x34, "Port2"},
-		{0xDD, 0x34, "Port2"},
-		{0xFF, 0x34, "Port2"},
+		// Port2=0x34: bits 0-5 = 0x34, ioControl=0xFF → bits 6-7 = 0xC0, result = 0xF4
+		{0xC1, 0xF4, "Port2+TH"},
+		{0xC3, 0xF4, "Port2+TH"},
+		{0xDD, 0xF4, "Port2+TH"},
+		{0xFF, 0xF4, "Port2+TH"},
 	}
 
 	for _, p := range ports {
@@ -335,4 +337,159 @@ func TestIO_PartialAddressDecoding(t *testing.T) {
 			t.Errorf("In(0x%02X): expected 0x%02X (%s), got 0x%02X", p.port, p.expect, p.desc, got)
 		}
 	}
+}
+
+// TestIO_Port3FWrite tests that port $3F writes are stored in ioControl
+func TestIO_Port3FWrite(t *testing.T) {
+	vdp := NewVDP()
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
+	io := NewSMSIO(vdp, psg, NationalityExport)
+
+	// Default should be 0xFF
+	if io.ioControl != 0xFF {
+		t.Errorf("Default ioControl: expected 0xFF, got 0x%02X", io.ioControl)
+	}
+
+	// Write via port $3F
+	io.Out(0x3F, 0xF5)
+	if io.ioControl != 0xF5 {
+		t.Errorf("After Out($3F, $F5): expected 0xF5, got 0x%02X", io.ioControl)
+	}
+
+	// Write via mirror port $01 (partial decoding: $01 & $C1 = $01)
+	io.Out(0x01, 0x55)
+	if io.ioControl != 0x55 {
+		t.Errorf("After Out($01, $55): expected 0x55, got 0x%02X", io.ioControl)
+	}
+}
+
+// TestIO_PortDDTHBits_Export tests TH bit synthesis for Export consoles
+func TestIO_PortDDTHBits_Export(t *testing.T) {
+	vdp := NewVDP()
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
+	io := NewSMSIO(vdp, psg, NationalityExport)
+
+	// Clear controller bits so only TH bits are visible
+	io.Input.Port2 = 0x00
+
+	testCases := []struct {
+		ioControl  uint8
+		expectedTH uint8 // bits 6-7 of $DD read
+	}{
+		{0xFF, 0xC0}, // bit5=1, bit7=1 → bit6=1, bit7=1
+		{0x00, 0x00}, // bit5=0, bit7=0 → bit6=0, bit7=0
+		{0x20, 0x40}, // bit5=1, bit7=0 → bit6=1, bit7=0
+		{0x80, 0x80}, // bit5=0, bit7=1 → bit6=0, bit7=1
+		{0x55, 0x00}, // bit5=0, bit7=0 → bit6=0, bit7=0
+		{0xF5, 0xC0}, // bit5=1, bit7=1 → bit6=1, bit7=1
+	}
+
+	for _, tc := range testCases {
+		io.Out(0x3F, tc.ioControl)
+		got := io.In(0xDD) & 0xC0
+		if got != tc.expectedTH {
+			t.Errorf("Export ioControl=0x%02X: expected TH bits 0x%02X, got 0x%02X",
+				tc.ioControl, tc.expectedTH, got)
+		}
+	}
+}
+
+// TestIO_PortDDTHBits_Japanese tests TH bit synthesis for Japanese consoles (inverted)
+func TestIO_PortDDTHBits_Japanese(t *testing.T) {
+	vdp := NewVDP()
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
+	io := NewSMSIO(vdp, psg, NationalityJapanese)
+
+	// Clear controller bits so only TH bits are visible
+	io.Input.Port2 = 0x00
+
+	testCases := []struct {
+		ioControl  uint8
+		expectedTH uint8 // bits 6-7 of $DD read (inverted vs Export)
+	}{
+		{0xFF, 0x00}, // Export would be 0xC0, inverted = 0x00
+		{0x00, 0xC0}, // Export would be 0x00, inverted = 0xC0
+		{0xF5, 0x00}, // Export would be 0xC0, inverted = 0x00
+		{0x55, 0xC0}, // Export would be 0x00, inverted = 0xC0
+	}
+
+	for _, tc := range testCases {
+		io.Out(0x3F, tc.ioControl)
+		got := io.In(0xDD) & 0xC0
+		if got != tc.expectedTH {
+			t.Errorf("Japanese ioControl=0x%02X: expected TH bits 0x%02X, got 0x%02X",
+				tc.ioControl, tc.expectedTH, got)
+		}
+	}
+}
+
+// TestIO_PortDDPreservesControllerBits tests that port $DD bits 0-5 still come from controller
+func TestIO_PortDDPreservesControllerBits(t *testing.T) {
+	vdp := NewVDP()
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
+	io := NewSMSIO(vdp, psg, NationalityExport)
+
+	testCases := []struct {
+		port2    uint8
+		expected uint8 // bits 0-5 of $DD read
+	}{
+		{0xFF, 0x3F},
+		{0x00, 0x00},
+		{0x0F, 0x0F},
+		{0x3F, 0x3F},
+		{0xAA, 0x2A},
+	}
+
+	for _, tc := range testCases {
+		io.Input.Port2 = tc.port2
+		got := io.In(0xDD) & 0x3F
+		if got != tc.expected {
+			t.Errorf("Port2=0x%02X: expected controller bits 0x%02X, got 0x%02X",
+				tc.port2, tc.expected, got)
+		}
+	}
+}
+
+// TestIO_RegionDetection_Sequence simulates the region detection sequence games perform
+func TestIO_RegionDetection_Sequence(t *testing.T) {
+	vdp := NewVDP()
+	psg := sn76489.New(3579545, 48000, 800, sn76489.Sega)
+
+	// Test Export console
+	t.Run("Export", func(t *testing.T) {
+		io := NewSMSIO(vdp, psg, NationalityExport)
+
+		// Step 1: Write $F5 (TH-A=1, TH-B=1)
+		io.Out(0x3F, 0xF5)
+		read1 := io.In(0xDD) & 0xC0
+		if read1 != 0xC0 {
+			t.Errorf("Export step 1: expected TH=0xC0 (both high), got 0x%02X", read1)
+		}
+
+		// Step 2: Write $55 (TH-A=0, TH-B=0)
+		io.Out(0x3F, 0x55)
+		read2 := io.In(0xDD) & 0xC0
+		if read2 != 0x00 {
+			t.Errorf("Export step 2: expected TH=0x00 (both low), got 0x%02X", read2)
+		}
+	})
+
+	// Test Japanese console
+	t.Run("Japanese", func(t *testing.T) {
+		io := NewSMSIO(vdp, psg, NationalityJapanese)
+
+		// Step 1: Write $F5 (TH-A=1, TH-B=1) — Japanese inverts
+		io.Out(0x3F, 0xF5)
+		read1 := io.In(0xDD) & 0xC0
+		if read1 != 0x00 {
+			t.Errorf("Japanese step 1: expected TH=0x00 (inverted), got 0x%02X", read1)
+		}
+
+		// Step 2: Write $55 (TH-A=0, TH-B=0) — Japanese inverts
+		io.Out(0x3F, 0x55)
+		read2 := io.In(0xDD) & 0xC0
+		if read2 != 0xC0 {
+			t.Errorf("Japanese step 2: expected TH=0xC0 (inverted), got 0x%02X", read2)
+		}
+	})
 }

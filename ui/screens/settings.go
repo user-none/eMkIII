@@ -318,6 +318,7 @@ func (s *SettingsScreen) setupNavigation() {
 		s.SetNavTransition("sidebar", types.DirRight, "audio-mute", types.NavIndexFirst)
 		s.SetNavTransition("audio-mute", types.DirLeft, "sidebar", types.NavIndexFirst)
 		s.SetNavTransition("audio-volume", types.DirLeft, "sidebar", types.NavIndexFirst)
+		s.SetNavTransition("audio-ff-mute", types.DirLeft, "sidebar", types.NavIndexFirst)
 	case 4: // Rewind
 		s.SetNavTransition("sidebar", types.DirRight, "rewind-enable", types.NavIndexFirst)
 		s.SetNavTransition("rewind-enable", types.DirLeft, "sidebar", types.NavIndexFirst)

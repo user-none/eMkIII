@@ -47,8 +47,9 @@ type RewindConfig struct {
 
 // AudioConfig contains audio-related settings
 type AudioConfig struct {
-	Volume float64 `json:"volume"`
-	Muted  bool    `json:"muted"`
+	Volume          float64 `json:"volume"`
+	Muted           bool    `json:"muted"`
+	FastForwardMute bool    `json:"fastForwardMute"` // Mute audio during fast-forward (default: true)
 }
 
 // WindowConfig contains window position and size
@@ -140,8 +141,9 @@ func DefaultConfig() *Config {
 			CropBorder: false,
 		},
 		Audio: AudioConfig{
-			Volume: 1.0,
-			Muted:  false,
+			Volume:          1.0,
+			Muted:           false,
+			FastForwardMute: true,
 		},
 		Window: WindowConfig{
 			Width:  900,

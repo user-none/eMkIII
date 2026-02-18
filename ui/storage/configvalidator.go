@@ -32,6 +32,9 @@ func detectPresentKeys(jsonBytes []byte) map[string]bool {
 			if _, ok := audio["volume"]; ok {
 				present["audio.volume"] = true
 			}
+			if _, ok := audio["fastForwardMute"]; ok {
+				present["audio.fastForwardMute"] = true
+			}
 		}
 	}
 
@@ -95,6 +98,9 @@ func ApplyMissingDefaults(config *Config, presentKeys map[string]bool) {
 	}
 	if !presentKeys["audio.volume"] {
 		config.Audio.Volume = defaults.Audio.Volume
+	}
+	if !presentKeys["audio.fastForwardMute"] {
+		config.Audio.FastForwardMute = defaults.Audio.FastForwardMute
 	}
 	if !presentKeys["window.width"] {
 		config.Window.Width = defaults.Window.Width

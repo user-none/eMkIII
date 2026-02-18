@@ -20,14 +20,15 @@ func TestDetectPresentKeys(t *testing.T) {
 				"version": 1,
 				"theme": "Default",
 				"fontSize": 14,
-				"audio": {"volume": 1.0},
+				"audio": {"volume": 1.0, "fastForwardMute": true},
 				"window": {"width": 900, "height": 650},
 				"library": {"viewMode": "icon", "sortBy": "title"},
 				"rewind": {"bufferSizeMB": 40, "frameStep": 1}
 			}`,
 			expected: map[string]bool{
 				"version": true, "theme": true, "fontSize": true,
-				"audio.volume": true, "window.width": true, "window.height": true,
+				"audio.volume": true, "audio.fastForwardMute": true,
+				"window.width": true, "window.height": true,
 				"library.viewMode": true, "library.sortBy": true,
 				"rewind.bufferSizeMB": true, "rewind.frameStep": true,
 			},
@@ -136,6 +137,9 @@ func TestApplyMissingDefaults(t *testing.T) {
 		if config.Rewind.FrameStep != defaults.Rewind.FrameStep {
 			t.Errorf("rewind.frameStep: got %d, want %d", config.Rewind.FrameStep, defaults.Rewind.FrameStep)
 		}
+		if config.Audio.FastForwardMute != defaults.Audio.FastForwardMute {
+			t.Errorf("audio.fastForwardMute: got %v, want %v", config.Audio.FastForwardMute, defaults.Audio.FastForwardMute)
+		}
 	})
 
 	t.Run("present keys preserved even when zero", func(t *testing.T) {
@@ -180,14 +184,15 @@ func TestApplyMissingDefaults(t *testing.T) {
 			Version:  1,
 			Theme:    "Dark",
 			FontSize: 20,
-			Audio:    AudioConfig{Volume: 0.5},
+			Audio:    AudioConfig{Volume: 0.5, FastForwardMute: false},
 			Window:   WindowConfig{Width: 1024, Height: 768},
 			Library:  LibraryView{ViewMode: "list", SortBy: "lastPlayed"},
 			Rewind:   RewindConfig{BufferSizeMB: 100, FrameStep: 5},
 		}
 		presentKeys := map[string]bool{
 			"version": true, "theme": true, "fontSize": true,
-			"audio.volume": true, "window.width": true, "window.height": true,
+			"audio.volume": true, "audio.fastForwardMute": true,
+			"window.width": true, "window.height": true,
 			"library.viewMode": true, "library.sortBy": true,
 			"rewind.bufferSizeMB": true, "rewind.frameStep": true,
 		}
@@ -208,6 +213,9 @@ func TestApplyMissingDefaults(t *testing.T) {
 		}
 		if config.Window.Width != 1024 {
 			t.Errorf("window.width should remain 1024, got %d", config.Window.Width)
+		}
+		if config.Audio.FastForwardMute != false {
+			t.Errorf("audio.fastForwardMute should remain false, got %v", config.Audio.FastForwardMute)
 		}
 	})
 }

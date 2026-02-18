@@ -72,6 +72,10 @@ type GameplayManager struct {
 	achievementScreenshotPending bool
 	achievementScreenshotMu      sync.Mutex
 
+	// Turbo (fast-forward)
+	turboState    *TurboState
+	turboAudioBuf []int16 // Pre-allocated buffer for collecting multi-frame audio
+
 	// External dependencies (not owned by GameplayManager)
 	saveStateManager   *SaveStateManager
 	screenshotManager  *ScreenshotManager
@@ -107,6 +111,7 @@ func NewGameplayManager(
 ) *GameplayManager {
 	gm := &GameplayManager{
 		autoSaveInterval:   style.AutoSaveInterval,
+		turboState:         &TurboState{multiplier: 1},
 		saveStateManager:   saveStateManager,
 		screenshotManager:  screenshotManager,
 		notification:       notification,
@@ -276,6 +281,15 @@ func (gm *GameplayManager) Launch(gameCRC string, resume bool) bool {
 	return true
 }
 
+// runEmulatorFrame advances the emulator by one frame and processes achievements.
+// Called from the emulation goroutine.
+func (gm *GameplayManager) runEmulatorFrame() {
+	gm.emulator.RunFrame()
+	if gm.achievementManager != nil {
+		gm.achievementManager.DoFrame()
+	}
+}
+
 // emulationLoop runs on a dedicated goroutine. It executes emulator frames,
 // queues audio, updates the shared framebuffer, and paces itself using
 // audio-driven timing (ADT).
@@ -300,17 +314,32 @@ func (gm *GameplayManager) emulationLoop() {
 			gm.emulator.SetPause()
 		}
 
-		// Run one frame of emulation
-		gm.emulator.RunFrame()
+		// Read turbo state
+		multiplier := gm.turboState.Read()
+		fastForwardMute := gm.config.Audio.FastForwardMute
 
-		// Process RetroAchievements (reads emulator memory — must be same goroutine)
-		if gm.achievementManager != nil {
-			gm.achievementManager.DoFrame()
+		// Run extra turbo frames (advance emulation, optionally collect audio)
+		for i := 1; i < multiplier; i++ {
+			gm.runEmulatorFrame()
+			if !fastForwardMute {
+				gm.turboAudioBuf = append(gm.turboAudioBuf, gm.emulator.GetAudioSamples()...)
+			}
 		}
+
+		// Run the primary frame
+		gm.runEmulatorFrame()
 
 		// Queue audio samples
 		if gm.audioPlayer != nil {
-			gm.audioPlayer.QueueSamples(gm.emulator.GetAudioSamples())
+			switch {
+			case multiplier == 1:
+				gm.audioPlayer.QueueSamples(gm.emulator.GetAudioSamples())
+			case !fastForwardMute:
+				gm.turboAudioBuf = append(gm.turboAudioBuf, gm.emulator.GetAudioSamples()...)
+				averaged := averageAudio(gm.turboAudioBuf, multiplier)
+				gm.audioPlayer.QueueSamples(averaged)
+				gm.turboAudioBuf = gm.turboAudioBuf[:0]
+			}
 		}
 
 		// Update shared framebuffer for Draw thread
@@ -425,6 +454,9 @@ func (gm *GameplayManager) Update() (pauseMenuOpened bool, err error) {
 
 	// Poll input and write to shared state (emu goroutine reads it)
 	gm.pollInputToShared()
+
+	// Handle turbo key input (F4 cycles speed)
+	gm.handleTurboKey()
 
 	// Check rewind input (R key)
 	if gm.rewindBuffer != nil {
@@ -585,6 +617,7 @@ func (gm *GameplayManager) Exit(saveResume bool) {
 	gm.emuControl = nil
 	gm.autoSaveState = nil
 	gm.autoSaveReady = false
+	gm.turboAudioBuf = nil
 
 	// Close audio player
 	if gm.audioPlayer != nil {
@@ -670,6 +703,21 @@ func (gm *GameplayManager) pollInputToShared() {
 	}
 	if smsPause {
 		gm.sharedInput.SetPause()
+	}
+}
+
+// handleTurboKey checks F4 to cycle turbo speed: Off → 2x → 3x → Off.
+func (gm *GameplayManager) handleTurboKey() {
+	if inpututil.IsKeyJustPressed(ebiten.KeyF4) {
+		multiplier := gm.turboState.CycleMultiplier()
+		switch multiplier {
+		case 1:
+			gm.notification.ShowShort("Turbo: Off")
+		case 2:
+			gm.notification.ShowShort("Turbo: 2x")
+		case 3:
+			gm.notification.ShowShort("Turbo: 3x")
+		}
 	}
 }
 

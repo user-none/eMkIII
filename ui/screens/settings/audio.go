@@ -56,6 +56,9 @@ func (a *AudioSection) Build(focus types.FocusManager) *widget.Container {
 	// Volume control row
 	section.AddChild(a.buildVolumeRow(focus))
 
+	// Fast-forward mute toggle
+	section.AddChild(a.buildFastForwardMuteRow(focus))
+
 	a.setupNavigation(focus)
 
 	return section
@@ -65,9 +68,12 @@ func (a *AudioSection) Build(focus types.FocusManager) *widget.Container {
 func (a *AudioSection) setupNavigation(focus types.FocusManager) {
 	focus.RegisterNavZone("audio-mute", types.NavZoneHorizontal, []string{"audio-mute"}, 0)
 	focus.RegisterNavZone("audio-volume", types.NavZoneGrid, []string{"audio-vol-dec", "audio-vol-inc"}, 2)
+	focus.RegisterNavZone("audio-ff-mute", types.NavZoneHorizontal, []string{"audio-ff-mute"}, 0)
 
 	focus.SetNavTransition("audio-mute", types.DirDown, "audio-volume", types.NavIndexFirst)
 	focus.SetNavTransition("audio-volume", types.DirUp, "audio-mute", types.NavIndexFirst)
+	focus.SetNavTransition("audio-volume", types.DirDown, "audio-ff-mute", types.NavIndexFirst)
+	focus.SetNavTransition("audio-ff-mute", types.DirUp, "audio-volume", types.NavIndexFirst)
 }
 
 // buildVolumeRow creates the volume control row with [-] value [+] buttons
@@ -225,6 +231,54 @@ func (a *AudioSection) buildMuteRow(focus types.FocusManager) *widget.Container 
 		}),
 	)
 	focus.RegisterFocusButton("audio-mute", toggleBtn)
+	row.AddChild(toggleBtn)
+
+	return row
+}
+
+// buildFastForwardMuteRow creates the fast-forward audio mute toggle row
+func (a *AudioSection) buildFastForwardMuteRow(focus types.FocusManager) *widget.Container {
+	row := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(style.Surface)),
+		widget.ContainerOpts.Layout(widget.NewGridLayout(
+			widget.GridLayoutOpts.Columns(2),
+			widget.GridLayoutOpts.Stretch([]bool{true, false}, []bool{true}),
+			widget.GridLayoutOpts.Spacing(style.DefaultSpacing, 0),
+			widget.GridLayoutOpts.Padding(widget.NewInsetsSimple(style.SmallSpacing)),
+		)),
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
+		),
+	)
+
+	label := widget.NewText(
+		widget.TextOpts.Text("Mute Fast-Forward Audio", style.FontFace(), style.Text),
+		widget.TextOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
+				VerticalPosition: widget.GridLayoutPositionCenter,
+			}),
+		),
+	)
+	row.AddChild(label)
+
+	toggleBtn := widget.NewButton(
+		widget.ButtonOpts.Image(style.ActiveButtonImage(a.config.Audio.FastForwardMute)),
+		widget.ButtonOpts.Text(boolToOnOff(a.config.Audio.FastForwardMute), style.FontFace(), style.ButtonTextColor()),
+		widget.ButtonOpts.TextPadding(widget.NewInsetsSimple(style.ButtonPaddingSmall)),
+		widget.ButtonOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
+				VerticalPosition: widget.GridLayoutPositionCenter,
+			}),
+			widget.WidgetOpts.MinSize(style.Px(50), 0),
+		),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			a.config.Audio.FastForwardMute = !a.config.Audio.FastForwardMute
+			storage.SaveConfig(a.config)
+			focus.SetPendingFocus("audio-ff-mute")
+			a.callback.RequestRebuild()
+		}),
+	)
+	focus.RegisterFocusButton("audio-ff-mute", toggleBtn)
 	row.AddChild(toggleBtn)
 
 	return row

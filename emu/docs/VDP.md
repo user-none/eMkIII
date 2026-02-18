@@ -182,7 +182,7 @@ Registers 0-10 (`$00`-`$0A`) are functional. Writes to registers 11-15
 |-----|------|----------|
 | 7 | VS  | Vertical scroll lock: columns 24-31 (pixels 192-255) ignore vertical scroll |
 | 6 | HS  | Horizontal scroll lock: rows 0-1 (lines 0-15) ignore horizontal scroll |
-| 5 | LCB | Left column blank: mask leftmost 8 pixels with overscan color from background palette entry 0 + Register $07 |
+| 5 | LCB | Left column blank: mask leftmost 8 pixels with overscan color from Register $07 |
 | 4 | IE1 | Line interrupt enable |
 | 3 | EC  | Shift all sprites left by 8 pixels |
 | 2 | M4  | Mode 4 enable (must be set for SMS display mode) |
@@ -260,8 +260,13 @@ backdrop/overscan color. The full CRAM index is `16 + (Reg7 & $0F)`.
 
 This color fills:
 - The border area around the active display
-- Any pixel where the background tile color index is 0 (transparent)
 - The masked left column when LCB (Register $00, bit 5) is enabled
+- The entire active display when the display is disabled (Register $01 bit 6 = 0)
+
+Note: Background tile color index 0 is **not** replaced by the backdrop. It
+renders as a normal palette lookup (`CRAM[paletteSelect*16 + 0]`). Color index 0
+is only "transparent" in the sense that sprites show through it regardless of
+the tile's priority bit.
 
 ### Register $08 -- Background X Scroll (Horizontal Scroll)
 
@@ -356,9 +361,11 @@ tiles available with the canonical layout above.
 
 ### Color Index 0 and Transparency
 
-- In background tiles, color index 0 is the backdrop color (from Register $07).
-- In sprites, color index 0 is transparent (the background shows through).
-- Background palette entry 0 is used for the left column blank mask.
+- In background tiles, color index 0 is a normal palette lookup
+  (`CRAM[paletteSelect*16 + 0]`). It is "transparent" only for priority
+  purposes: sprites show through it even when the tile's priority bit is set.
+- In sprites, color index 0 is transparent (the pixel is not drawn and the
+  background shows through).
 
 ### CRAM Address Wrapping
 

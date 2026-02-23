@@ -459,13 +459,18 @@ func (v *VDP) renderBackground(line uint16) {
 		}
 
 		// Calculate the effective Y position with vertical scroll
-		// In 224-line mode, use 256 as the modulo (full 8-bit scroll range)
-		// In 192-line mode, use 224 (28 rows × 8 pixels)
-		var scrollMod uint16 = 224
+		var effectiveY uint16
 		if activeHeight == 224 {
-			scrollMod = 256
+			// 224-line mode: 256 modulo via bitmask
+			effectiveY = (uint16(line) + uint16(effectiveVScroll)) & 0xFF
+		} else {
+			// 192-line mode: 224 modulo via conditional subtraction
+			// Max value is 191 + 255 = 446 < 2 * 224, so it wraps at most once
+			effectiveY = uint16(line) + uint16(effectiveVScroll)
+			if effectiveY >= 224 {
+				effectiveY -= 224
+			}
 		}
-		effectiveY := (uint16(line) + uint16(effectiveVScroll)) % scrollMod
 
 		// Which row of tiles (0-27)
 		tileRow := effectiveY / 8
@@ -561,8 +566,10 @@ func (v *VDP) renderSprites(line uint16) {
 
 	// Zoomed sprites are 2x size (register 1 bit 0)
 	zoom := 1
+	zoomShift := 0
 	if v.register[1]&0x01 != 0 {
 		zoom = 2
+		zoomShift = 1
 	}
 	effectiveHeight := spriteHeight * zoom
 
@@ -619,7 +626,7 @@ func (v *VDP) renderSprites(line uint16) {
 			}
 
 			// Calculate which line of the sprite we're on
-			spriteLine := (int(line) - spriteY) / zoom
+			spriteLine := (int(line) - spriteY) >> zoomShift
 
 			sprites[spriteCount] = spriteInfo{
 				x:       spriteX,
@@ -665,7 +672,7 @@ func (v *VDP) renderSprites(line uint16) {
 			}
 
 			// Get pixel from pattern (accounting for zoom)
-			patternPx := px / zoom
+			patternPx := px >> zoomShift
 			shift := uint(7 - patternPx)
 			colorIndex := ((bp0 >> shift) & 1) |
 				(((bp1 >> shift) & 1) << 1) |

@@ -461,11 +461,11 @@ func TestEmulator_AudioSampleCount(t *testing.T) {
 // Save State Serialization Tests
 // =============================================================================
 
-// createTestEmulatorBase creates an EmulatorBase for testing serialization
-func createTestEmulatorBase() *EmulatorBase {
+// createTestEmulator creates an Emulator for testing serialization
+func createTestEmulator() *Emulator {
 	rom := createTestROM(4)
-	base := InitEmulatorBase(rom, RegionNTSC)
-	return &base
+	e, _ := NewEmulator(rom, RegionNTSC)
+	return &e
 }
 
 // TestSerializeSize verifies consistent size returned
@@ -485,7 +485,7 @@ func TestSerializeSize(t *testing.T) {
 
 // TestSerializeDeserializeRoundTrip tests save state round-trip
 func TestSerializeDeserializeRoundTrip(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	// Run a few CPU steps to change state
 	for i := 0; i < 100; i++ {
@@ -532,7 +532,7 @@ func TestSerializeDeserializeRoundTrip(t *testing.T) {
 
 // TestVerifyState_ValidState tests that a valid state passes verification
 func TestVerifyState_ValidState(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	state, err := base.Serialize()
 	if err != nil {
@@ -547,7 +547,7 @@ func TestVerifyState_ValidState(t *testing.T) {
 
 // TestVerifyState_InvalidMagic tests wrong magic bytes rejection
 func TestVerifyState_InvalidMagic(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	state, err := base.Serialize()
 	if err != nil {
@@ -565,7 +565,7 @@ func TestVerifyState_InvalidMagic(t *testing.T) {
 
 // TestVerifyState_UnsupportedVersion tests future version rejection
 func TestVerifyState_UnsupportedVersion(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	state, err := base.Serialize()
 	if err != nil {
@@ -583,7 +583,7 @@ func TestVerifyState_UnsupportedVersion(t *testing.T) {
 
 // TestVerifyState_CorruptData tests bad CRC32 rejection
 func TestVerifyState_CorruptData(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	state, err := base.Serialize()
 	if err != nil {
@@ -603,7 +603,7 @@ func TestVerifyState_CorruptData(t *testing.T) {
 
 // TestVerifyState_WrongROM tests mismatched ROM CRC32 rejection
 func TestVerifyState_WrongROM(t *testing.T) {
-	base1 := createTestEmulatorBase()
+	base1 := createTestEmulator()
 
 	state, err := base1.Serialize()
 	if err != nil {
@@ -615,8 +615,8 @@ func TestVerifyState_WrongROM(t *testing.T) {
 	for i := range differentROM {
 		differentROM[i] = byte(i & 0xFF)
 	}
-	init2 := InitEmulatorBase(differentROM, RegionNTSC)
-	base2 := &init2
+	e2, _ := NewEmulator(differentROM, RegionNTSC)
+	base2 := &e2
 
 	err = base2.VerifyState(state)
 	if err == nil {
@@ -626,7 +626,7 @@ func TestVerifyState_WrongROM(t *testing.T) {
 
 // TestVerifyState_TooShort tests rejection of truncated data
 func TestVerifyState_TooShort(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	// Create data smaller than header
 	state := make([]byte, stateHeaderSize-1)
@@ -641,8 +641,8 @@ func TestVerifyState_TooShort(t *testing.T) {
 func TestDeserialize_PreservesRegion(t *testing.T) {
 	// Create emulator with NTSC
 	ntscROM := createTestROM(4)
-	ntscInit := InitEmulatorBase(ntscROM, RegionNTSC)
-	baseNTSC := &ntscInit
+	ntscEmu, _ := NewEmulator(ntscROM, RegionNTSC)
+	baseNTSC := &ntscEmu
 
 	// Save state
 	state, err := baseNTSC.Serialize()
@@ -651,8 +651,8 @@ func TestDeserialize_PreservesRegion(t *testing.T) {
 	}
 
 	// Create new emulator with PAL using same ROM
-	palInit := InitEmulatorBase(ntscROM, RegionPAL)
-	basePAL := &palInit
+	palEmu, _ := NewEmulator(ntscROM, RegionPAL)
+	basePAL := &palEmu
 
 	// Verify initial region is PAL
 	if basePAL.GetRegion() != RegionPAL {
@@ -673,7 +673,7 @@ func TestDeserialize_PreservesRegion(t *testing.T) {
 
 // TestSerialize_StateIntegrity tests that serialized state has correct format
 func TestSerialize_StateIntegrity(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	state, err := base.Serialize()
 	if err != nil {
@@ -721,7 +721,7 @@ func TestMemory_GetROMCRC32(t *testing.T) {
 
 // TestSerialize_IOControlRoundTrip tests that ioControl survives serialize/deserialize
 func TestSerialize_IOControlRoundTrip(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	// Write to port $3F
 	base.io.Out(0x3F, 0xF5)
@@ -747,5 +747,217 @@ func TestSerialize_IOControlRoundTrip(t *testing.T) {
 	// Verify restored
 	if base.io.ioControl != 0xF5 {
 		t.Errorf("ioControl not restored: expected 0xF5, got 0x%02X", base.io.ioControl)
+	}
+}
+
+// =============================================================================
+// SetInput Bitmask Tests
+// =============================================================================
+
+// TestEmulator_SetInput_Bitmask tests bitmask-based input unpacking
+func TestEmulator_SetInput_Bitmask(t *testing.T) {
+	e := createTestEmulator()
+
+	// Press Up (bit 0) and Button 1 (bit 4)
+	e.SetInput(0, (1<<0)|(1<<4))
+
+	// Up should be pressed (bit 0 of Port1 clear = pressed)
+	if e.io.Input.Port1&0x01 != 0 {
+		t.Error("Up should be pressed (bit 0 clear)")
+	}
+	// Button 1 should be pressed (bit 4 of Port1 clear = pressed)
+	if e.io.Input.Port1&0x10 != 0 {
+		t.Error("Button 1 should be pressed (bit 4 clear)")
+	}
+	// Down should not be pressed (bit 1 of Port1 set = released)
+	if e.io.Input.Port1&0x02 == 0 {
+		t.Error("Down should not be pressed (bit 1 set)")
+	}
+
+	// Release all
+	e.SetInput(0, 0)
+	if e.io.Input.Port1 != 0xFF {
+		t.Errorf("All released: expected 0xFF, got 0x%02X", e.io.Input.Port1)
+	}
+}
+
+// TestEmulator_SetInput_Player2 tests that player 2 input routes correctly
+func TestEmulator_SetInput_Player2(t *testing.T) {
+	e := createTestEmulator()
+
+	// Press all directions on P2
+	e.SetInput(1, (1<<0)|(1<<1)|(1<<2)|(1<<3)|(1<<4)|(1<<5))
+
+	// P2 Up/Down in bits 0-1 of Port2
+	if e.io.Input.Port2&0x01 != 0 {
+		t.Error("P2 Up should be pressed")
+	}
+	if e.io.Input.Port2&0x02 != 0 {
+		t.Error("P2 Down should be pressed")
+	}
+}
+
+// TestEmulator_SetInput_PauseEdge tests pause NMI edge detection
+func TestEmulator_SetInput_PauseEdge(t *testing.T) {
+	e := createTestEmulator()
+
+	// First call with pause not pressed - no NMI
+	e.SetInput(0, 0)
+
+	// Now press pause (bit 7) - should trigger NMI
+	e.SetInput(0, 1<<7)
+
+	// Hold pause - should NOT re-trigger NMI
+	e.SetInput(0, 1<<7)
+
+	// Release and re-press - should trigger again
+	e.SetInput(0, 0)
+	e.SetInput(0, 1<<7)
+}
+
+// =============================================================================
+// Crop Border Tests
+// =============================================================================
+
+// TestEmulator_CropBorder tests framebuffer crop border behavior
+func TestEmulator_CropBorder(t *testing.T) {
+	e := createTestEmulator()
+
+	// Without crop, should return full width
+	fb := e.GetFramebuffer()
+	stride := e.GetFramebufferStride()
+	if stride != ScreenWidth*4 {
+		t.Errorf("Normal stride: expected %d, got %d", ScreenWidth*4, stride)
+	}
+	if len(fb) == 0 {
+		t.Error("Framebuffer should not be empty")
+	}
+
+	// Enable crop border
+	e.SetOption("crop_border", "true")
+
+	// Enable VDP left column blank (register 0, bit 5)
+	e.vdp.WriteControl(0x20)
+	e.vdp.WriteControl(0x80)
+
+	stride = e.GetFramebufferStride()
+	if stride != (ScreenWidth-8)*4 {
+		t.Errorf("Cropped stride: expected %d, got %d", (ScreenWidth-8)*4, stride)
+	}
+
+	fb = e.GetFramebuffer()
+	expectedLen := (ScreenWidth - 8) * 4 * e.GetActiveHeight()
+	if len(fb) != expectedLen {
+		t.Errorf("Cropped framebuffer length: expected %d, got %d", expectedLen, len(fb))
+	}
+}
+
+// =============================================================================
+// BatterySaver Tests
+// =============================================================================
+
+// TestEmulator_SRAM tests SRAM get/set round-trip
+func TestEmulator_SRAM(t *testing.T) {
+	e := createTestEmulator()
+
+	if !e.HasSRAM() {
+		t.Error("HasSRAM should return true")
+	}
+
+	// Write some data to cart RAM
+	e.mem.cartRAM[0] = 0xAB
+	e.mem.cartRAM[1] = 0xCD
+
+	sram := e.GetSRAM()
+	if sram[0] != 0xAB || sram[1] != 0xCD {
+		t.Errorf("GetSRAM: expected [0xAB, 0xCD], got [0x%02X, 0x%02X]", sram[0], sram[1])
+	}
+
+	// Verify it's a copy (modifying returned slice doesn't affect emulator)
+	sram[0] = 0xFF
+	if e.mem.cartRAM[0] != 0xAB {
+		t.Error("GetSRAM should return a copy, not a reference")
+	}
+
+	// Test SetSRAM
+	newData := make([]byte, 0x8000)
+	newData[0] = 0x11
+	newData[1] = 0x22
+	e.SetSRAM(newData)
+
+	if e.mem.cartRAM[0] != 0x11 || e.mem.cartRAM[1] != 0x22 {
+		t.Errorf("SetSRAM: expected [0x11, 0x22], got [0x%02X, 0x%02X]",
+			e.mem.cartRAM[0], e.mem.cartRAM[1])
+	}
+}
+
+// =============================================================================
+// MemoryInspector Tests
+// =============================================================================
+
+// TestEmulator_ReadMemory tests flat address memory reading
+func TestEmulator_ReadMemory(t *testing.T) {
+	e := createTestEmulator()
+
+	// Write known values to system RAM
+	e.mem.ram[0] = 0xDE
+	e.mem.ram[1] = 0xAD
+
+	buf := make([]byte, 4)
+	n := e.ReadMemory(0, buf)
+	if n != 4 {
+		t.Errorf("ReadMemory: expected 4 bytes read, got %d", n)
+	}
+	if buf[0] != 0xDE || buf[1] != 0xAD {
+		t.Errorf("ReadMemory: expected [0xDE, 0xAD, ...], got [0x%02X, 0x%02X, ...]",
+			buf[0], buf[1])
+	}
+
+	// Read past system RAM boundary should stop
+	buf = make([]byte, 4)
+	n = e.ReadMemory(0x2000, buf)
+	if n != 0 {
+		t.Errorf("ReadMemory past boundary: expected 0 bytes, got %d", n)
+	}
+}
+
+// =============================================================================
+// MemoryMapper Tests
+// =============================================================================
+
+// TestEmulator_MemoryMap tests memory region listing
+func TestEmulator_MemoryMap(t *testing.T) {
+	e := createTestEmulator()
+
+	regions := e.MemoryMap()
+	if len(regions) != 2 {
+		t.Fatalf("MemoryMap: expected 2 regions, got %d", len(regions))
+	}
+
+	// System RAM
+	if regions[0].Size != 0x2000 {
+		t.Errorf("System RAM size: expected 0x2000, got 0x%X", regions[0].Size)
+	}
+	// Save RAM
+	if regions[1].Size != 0x8000 {
+		t.Errorf("Save RAM size: expected 0x8000, got 0x%X", regions[1].Size)
+	}
+}
+
+// TestEmulator_ReadWriteRegion tests region read/write round-trip
+func TestEmulator_ReadWriteRegion(t *testing.T) {
+	e := createTestEmulator()
+
+	// Write to system RAM via WriteRegion
+	data := make([]byte, 0x2000)
+	data[0] = 0xBE
+	data[1] = 0xEF
+	e.WriteRegion(1, data) // MemorySystemRAM = 1
+
+	// Read back via ReadRegion
+	result := e.ReadRegion(1)
+	if result[0] != 0xBE || result[1] != 0xEF {
+		t.Errorf("ReadRegion: expected [0xBE, 0xEF], got [0x%02X, 0x%02X]",
+			result[0], result[1])
 	}
 }

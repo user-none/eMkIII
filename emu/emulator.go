@@ -5,9 +5,17 @@ import (
 	"errors"
 	"hash/crc32"
 
+	emucore "github.com/user-none/eblitui/api"
 	"github.com/user-none/go-chip-sn76489"
 	"github.com/user-none/go-chip-z80"
 )
+
+// Compile-time interface checks.
+var _ emucore.Emulator = (*Emulator)(nil)
+var _ emucore.SaveStater = (*Emulator)(nil)
+var _ emucore.BatterySaver = (*Emulator)(nil)
+var _ emucore.MemoryInspector = (*Emulator)(nil)
+var _ emucore.MemoryMapper = (*Emulator)(nil)
 
 const (
 	ScreenWidth     = 256
@@ -22,8 +30,8 @@ const (
 	stateHeaderSize = 22 // magic(12) + version(2) + romCRC(4) + dataCRC(4)
 )
 
-// EmulatorBase contains fields shared by all platform implementations
-type EmulatorBase struct {
+// Emulator contains the emulator core components.
+type Emulator struct {
 	cpu                 *z80.CPU
 	mem                 *Memory
 	vdp                 *VDP
@@ -36,14 +44,20 @@ type EmulatorBase struct {
 	timing    RegionTiming
 	scanlines int
 
+	// Input edge detection for pause button
+	prevButtons [2]uint32
+
+	// Crop border support
+	cropBorder bool
+	cropBuffer []byte
+
 	// Pre-allocated audio buffers to avoid per-frame allocations
 	frameSamples []float32 // Collects float32 samples during scanline emulation
 	audioBuffer  []int16   // Final int16 stereo output for external consumption
 }
 
-// InitEmulatorBase creates and initializes the shared emulator components.
-// Exported for use by bridge packages.
-func InitEmulatorBase(rom []byte, region Region) EmulatorBase {
+// NewEmulator creates and initializes the emulator components.
+func NewEmulator(rom []byte, region Region) (Emulator, error) {
 	mem := NewMemory(rom)
 	vdp := NewVDP()
 
@@ -60,7 +74,7 @@ func InitEmulatorBase(rom []byte, region Region) EmulatorBase {
 
 	cyclesPerScanlineFP := (timing.CPUClockHz * 65536) / timing.FPS / timing.Scanlines
 
-	return EmulatorBase{
+	return Emulator{
 		cpu:                 cpu,
 		mem:                 mem,
 		vdp:                 vdp,
@@ -70,20 +84,21 @@ func InitEmulatorBase(rom []byte, region Region) EmulatorBase {
 		region:              region,
 		timing:              timing,
 		scanlines:           timing.Scanlines,
+		cropBuffer:          make([]byte, (ScreenWidth-8)*MaxScreenHeight*4),
 		// Pre-allocate audio buffers: ~800 samples/frame at 48kHz/60fps
 		frameSamples: make([]float32, 0, 1024),
 		audioBuffer:  make([]int16, 0, 2048),
-	}
+	}, nil
 }
 
 // checkAndSetInterrupt updates CPU interrupt state based on VDP pending interrupts
-func (e *EmulatorBase) checkAndSetInterrupt() {
+func (e *Emulator) checkAndSetInterrupt() {
 	e.cpu.INT(e.vdp.InterruptPending(), 0xFF)
 }
 
 // runScanlines executes one frame of CPU/VDP/PSG emulation.
 // Audio samples are accumulated in e.frameSamples.
-func (e *EmulatorBase) runScanlines() {
+func (e *Emulator) runScanlines() {
 	activeHeight := e.vdp.ActiveHeight()
 
 	var targetCyclesFP int = 0
@@ -178,43 +193,79 @@ func (e *EmulatorBase) runScanlines() {
 	}
 }
 
-// SetInput sets Player 1 controller state from external source
-func (e *EmulatorBase) SetInput(up, down, left, right, btn1, btn2 bool) {
-	e.io.Input.SetP1(up, down, left, right, btn1, btn2)
+// SetInput unpacks a button bitmask and sets controller state for the given player.
+func (e *Emulator) SetInput(player int, buttons uint32) {
+	up := buttons&(1<<emucore.ButtonUp) != 0
+	down := buttons&(1<<emucore.ButtonDown) != 0
+	left := buttons&(1<<emucore.ButtonLeft) != 0
+	right := buttons&(1<<emucore.ButtonRight) != 0
+	btn1 := buttons&(1<<4) != 0
+	btn2 := buttons&(1<<5) != 0
+
+	switch player {
+	case 0:
+		e.io.Input.SetP1(up, down, left, right, btn1, btn2)
+		// Edge detect pause (bit 7): trigger NMI on press (0->1)
+		pauseNow := buttons&(1<<7) != 0
+		pausePrev := e.prevButtons[0]&(1<<7) != 0
+		if pauseNow && !pausePrev {
+			e.cpu.NMI()
+		}
+	case 1:
+		e.io.Input.SetP2(up, down, left, right, btn1, btn2)
+	}
+
+	if player < 2 {
+		e.prevButtons[player] = buttons
+	}
 }
 
-// SetInputP2 sets Player 2 controller state from external source
-func (e *EmulatorBase) SetInputP2(up, down, left, right, btn1, btn2 bool) {
-	e.io.Input.SetP2(up, down, left, right, btn1, btn2)
-}
-
-// GetFramebuffer returns raw RGBA pixel data for current frame
-func (e *EmulatorBase) GetFramebuffer() []byte {
+// GetFramebuffer returns raw RGBA pixel data for current frame.
+// When crop border is enabled and the VDP has left column blank active,
+// the left 8 pixels are stripped from each row.
+func (e *Emulator) GetFramebuffer() []byte {
+	if e.cropBorder && e.vdp.LeftColumnBlankEnabled() {
+		srcStride := e.vdp.framebuffer.Stride
+		dstStride := (ScreenWidth - 8) * 4
+		activeHeight := e.vdp.ActiveHeight()
+		for y := 0; y < activeHeight; y++ {
+			srcOff := y*srcStride + 8*4 // skip 8 pixels
+			dstOff := y * dstStride
+			copy(e.cropBuffer[dstOff:dstOff+dstStride], e.vdp.framebuffer.Pix[srcOff:srcOff+dstStride])
+		}
+		return e.cropBuffer[:dstStride*activeHeight]
+	}
 	return e.vdp.framebuffer.Pix
 }
 
-// GetFramebufferStride returns the stride (bytes per row) of the framebuffer
-func (e *EmulatorBase) GetFramebufferStride() int {
+// GetFramebufferStride returns the stride (bytes per row) of the framebuffer.
+func (e *Emulator) GetFramebufferStride() int {
+	if e.cropBorder && e.vdp.LeftColumnBlankEnabled() {
+		return (ScreenWidth - 8) * 4
+	}
 	return e.vdp.framebuffer.Stride
 }
 
 // GetActiveHeight returns the current active display height (192 or 224)
-func (e *EmulatorBase) GetActiveHeight() int {
+func (e *Emulator) GetActiveHeight() int {
 	return e.vdp.ActiveHeight()
 }
 
 // GetRegion returns the emulator's region setting
-func (e *EmulatorBase) GetRegion() Region {
+func (e *Emulator) GetRegion() Region {
 	return e.region
 }
 
-// GetTiming returns the region timing configuration
-func (e *EmulatorBase) GetTiming() RegionTiming {
-	return e.timing
+// GetTiming returns FPS and scanline count for the current region.
+func (e *Emulator) GetTiming() emucore.Timing {
+	return emucore.Timing{
+		FPS:       e.timing.FPS,
+		Scanlines: e.timing.Scanlines,
+	}
 }
 
 // SetRegion updates the emulator's region configuration
-func (e *EmulatorBase) SetRegion(region Region) {
+func (e *Emulator) SetRegion(region Region) {
 	e.region = region
 	e.timing = GetTimingForRegion(region)
 	e.scanlines = e.timing.Scanlines
@@ -222,13 +273,24 @@ func (e *EmulatorBase) SetRegion(region Region) {
 	e.cyclesPerScanlineFP = (e.timing.CPUClockHz * 65536) / e.timing.FPS / e.timing.Scanlines
 }
 
+// SetOption applies a core option change identified by key.
+func (e *Emulator) SetOption(key string, value string) {
+	switch key {
+	case "crop_border":
+		e.cropBorder = value == "true"
+	}
+}
+
+// Close releases any resources held by the emulator.
+func (e *Emulator) Close() {}
+
 // =============================================================================
 // Shared Emulation Methods
 // =============================================================================
 
 // RunFrame executes one frame of emulation.
 // Audio samples are accumulated in the internal buffer.
-func (e *EmulatorBase) RunFrame() {
+func (e *Emulator) RunFrame() {
 	// Reset audio buffer for this frame
 	e.audioBuffer = e.audioBuffer[:0]
 
@@ -245,31 +307,26 @@ func (e *EmulatorBase) RunFrame() {
 }
 
 // GetAudioSamples returns accumulated audio samples as 16-bit stereo PCM.
-func (e *EmulatorBase) GetAudioSamples() []int16 {
+func (e *Emulator) GetAudioSamples() []int16 {
 	return e.audioBuffer
 }
 
-// LeftColumnBlankEnabled returns whether VDP has left column blank enabled.
-func (e *EmulatorBase) LeftColumnBlankEnabled() bool {
-	return e.vdp.LeftColumnBlankEnabled()
+// HasSRAM reports whether the loaded ROM uses battery-backed save.
+// SMS cartridges always have 32KB cart RAM available.
+func (e *Emulator) HasSRAM() bool {
+	return true
 }
 
-// GetSystemRAM returns a pointer to the 8KB system RAM.
-// Used by libretro for RetroAchievements memory exposure.
-func (e *EmulatorBase) GetSystemRAM() *[0x2000]uint8 {
-	return e.mem.GetSystemRAM()
+// GetSRAM returns a copy of the current SRAM contents.
+func (e *Emulator) GetSRAM() []byte {
+	sram := make([]byte, len(e.mem.cartRAM))
+	copy(sram, e.mem.cartRAM[:])
+	return sram
 }
 
-// GetCartRAM returns a pointer to the 32KB cartridge RAM.
-// Used by libretro for battery-backed save RAM persistence.
-func (e *EmulatorBase) GetCartRAM() *[0x8000]uint8 {
-	return e.mem.GetCartRAM()
-}
-
-// SetPause triggers the SMS pause button (NMI) for one frame.
-// The NMI is triggered on the next frame start.
-func (e *EmulatorBase) SetPause() {
-	e.cpu.NMI()
+// SetSRAM loads SRAM contents into the emulator.
+func (e *Emulator) SetSRAM(data []byte) {
+	copy(e.mem.cartRAM[:], data)
 }
 
 // =============================================================================
@@ -309,7 +366,7 @@ func SerializeSize() int {
 }
 
 // Serialize creates a save state and returns it as a byte slice.
-func (e *EmulatorBase) Serialize() ([]byte, error) {
+func (e *Emulator) Serialize() ([]byte, error) {
 	size := SerializeSize()
 	data := make([]byte, size)
 
@@ -345,7 +402,7 @@ func (e *EmulatorBase) Serialize() ([]byte, error) {
 
 // Deserialize restores emulator state from a save state byte slice.
 // Note: Region is NOT restored - the current region setting is preserved.
-func (e *EmulatorBase) Deserialize(data []byte) error {
+func (e *Emulator) Deserialize(data []byte) error {
 	if err := e.VerifyState(data); err != nil {
 		return err
 	}
@@ -371,7 +428,7 @@ func (e *EmulatorBase) Deserialize(data []byte) error {
 }
 
 // VerifyState checks if a save state is valid without loading it.
-func (e *EmulatorBase) VerifyState(data []byte) error {
+func (e *Emulator) VerifyState(data []byte) error {
 	// Check minimum length (must be at least header + expected state data)
 	expectedSize := SerializeSize()
 	if len(data) < expectedSize {
@@ -406,19 +463,19 @@ func (e *EmulatorBase) VerifyState(data []byte) error {
 }
 
 // serializeCPU writes CPU state to the data buffer
-func (e *EmulatorBase) serializeCPU(data []byte, offset int) int {
+func (e *Emulator) serializeCPU(data []byte, offset int) int {
 	e.cpu.Serialize(data[offset:])
 	return offset + z80.SerializeSize
 }
 
 // deserializeCPU reads CPU state from the data buffer
-func (e *EmulatorBase) deserializeCPU(data []byte, offset int) int {
+func (e *Emulator) deserializeCPU(data []byte, offset int) int {
 	e.cpu.Deserialize(data[offset:])
 	return offset + z80.SerializeSize
 }
 
 // serializeMemory writes Memory state to the data buffer
-func (e *EmulatorBase) serializeMemory(data []byte, offset int) int {
+func (e *Emulator) serializeMemory(data []byte, offset int) int {
 	// System RAM (8KB)
 	copy(data[offset:], e.mem.ram[:])
 	offset += len(e.mem.ram)
@@ -439,7 +496,7 @@ func (e *EmulatorBase) serializeMemory(data []byte, offset int) int {
 }
 
 // deserializeMemory reads Memory state from the data buffer
-func (e *EmulatorBase) deserializeMemory(data []byte, offset int) int {
+func (e *Emulator) deserializeMemory(data []byte, offset int) int {
 	// System RAM (8KB)
 	copy(e.mem.ram[:], data[offset:offset+len(e.mem.ram)])
 	offset += len(e.mem.ram)
@@ -460,7 +517,7 @@ func (e *EmulatorBase) deserializeMemory(data []byte, offset int) int {
 }
 
 // serializeVDP writes VDP state to the data buffer
-func (e *EmulatorBase) serializeVDP(data []byte, offset int) int {
+func (e *Emulator) serializeVDP(data []byte, offset int) int {
 	// VRAM (16KB)
 	copy(data[offset:], e.vdp.vram[:])
 	offset += len(e.vdp.vram)
@@ -541,7 +598,7 @@ func (e *EmulatorBase) serializeVDP(data []byte, offset int) int {
 }
 
 // deserializeVDP reads VDP state from the data buffer
-func (e *EmulatorBase) deserializeVDP(data []byte, offset int) int {
+func (e *Emulator) deserializeVDP(data []byte, offset int) int {
 	// VRAM (16KB)
 	copy(e.vdp.vram[:], data[offset:offset+len(e.vdp.vram)])
 	offset += len(e.vdp.vram)
@@ -610,19 +667,19 @@ func (e *EmulatorBase) deserializeVDP(data []byte, offset int) int {
 }
 
 // serializePSG writes PSG state to the data buffer
-func (e *EmulatorBase) serializePSG(data []byte, offset int) int {
+func (e *Emulator) serializePSG(data []byte, offset int) int {
 	e.psg.Serialize(data[offset:])
 	return offset + sn76489.SerializeSize
 }
 
 // deserializePSG reads PSG state from the data buffer
-func (e *EmulatorBase) deserializePSG(data []byte, offset int) int {
+func (e *Emulator) deserializePSG(data []byte, offset int) int {
 	e.psg.Deserialize(data[offset:])
 	return offset + sn76489.SerializeSize
 }
 
 // serializeInput writes Input state to the data buffer
-func (e *EmulatorBase) serializeInput(data []byte, offset int) int {
+func (e *Emulator) serializeInput(data []byte, offset int) int {
 	data[offset] = e.io.Input.Port1
 	offset++
 	data[offset] = e.io.Input.Port2
@@ -633,7 +690,7 @@ func (e *EmulatorBase) serializeInput(data []byte, offset int) int {
 }
 
 // deserializeInput reads Input state from the data buffer
-func (e *EmulatorBase) deserializeInput(data []byte, offset int) int {
+func (e *Emulator) deserializeInput(data []byte, offset int) int {
 	e.io.Input.Port1 = data[offset]
 	offset++
 	e.io.Input.Port2 = data[offset]
@@ -643,16 +700,65 @@ func (e *EmulatorBase) deserializeInput(data []byte, offset int) int {
 	return offset
 }
 
-// ConvertAudioSamples converts float32 mono samples to int16 stereo samples.
-// Each mono sample is duplicated for left and right channels.
-// Attenuates by 0.5 to compensate for acoustic summing.
-// Exported for use by libretro tests.
-func ConvertAudioSamples(samples []float32) []int16 {
-	result := make([]int16, len(samples)*2)
-	for i, sample := range samples {
-		intSample := int16(sample * 32767 * 0.5)
-		result[i*2] = intSample
-		result[i*2+1] = intSample
+// =============================================================================
+// MemoryInspector interface
+// =============================================================================
+
+// Flat address boundaries for ReadMemory.
+const (
+	systemRAMStart = 0x0000
+	systemRAMEnd   = 0x1FFF
+)
+
+// ReadMemory reads from a flat address into buf and returns the number
+// of bytes read. SMS flat address mapping for RetroAchievements:
+// 0x0000-0x1FFF -> System RAM (8KB)
+func (e *Emulator) ReadMemory(addr uint32, buf []byte) uint32 {
+	var count uint32
+	for i := range buf {
+		cur := addr + uint32(i)
+		if cur >= systemRAMStart && cur <= systemRAMEnd {
+			buf[i] = e.mem.ram[cur]
+			count++
+		} else {
+			return count
+		}
 	}
-	return result
+	return count
+}
+
+// =============================================================================
+// MemoryMapper interface
+// =============================================================================
+
+// MemoryMap returns a list of available memory regions with sizes.
+func (e *Emulator) MemoryMap() []emucore.MemoryRegion {
+	return []emucore.MemoryRegion{
+		{Type: emucore.MemorySystemRAM, Size: 0x2000},
+		{Type: emucore.MemorySaveRAM, Size: 0x8000},
+	}
+}
+
+// ReadRegion returns a copy of the specified memory region.
+func (e *Emulator) ReadRegion(regionType int) []byte {
+	switch regionType {
+	case emucore.MemorySystemRAM:
+		out := make([]byte, len(e.mem.ram))
+		copy(out, e.mem.ram[:])
+		return out
+	case emucore.MemorySaveRAM:
+		return e.GetSRAM()
+	default:
+		return nil
+	}
+}
+
+// WriteRegion writes data to the specified memory region.
+func (e *Emulator) WriteRegion(regionType int, data []byte) {
+	switch regionType {
+	case emucore.MemorySystemRAM:
+		copy(e.mem.ram[:], data)
+	case emucore.MemorySaveRAM:
+		e.SetSRAM(data)
+	}
 }

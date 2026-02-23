@@ -48,16 +48,6 @@ func TestRegion_DefaultRegion(t *testing.T) {
 	}
 }
 
-// TestRegion_String verifies string representation
-func TestRegion_String(t *testing.T) {
-	if RegionNTSC.String() != "NTSC" {
-		t.Errorf("RegionNTSC.String(): expected \"NTSC\", got %q", RegionNTSC.String())
-	}
-	if RegionPAL.String() != "PAL" {
-		t.Errorf("RegionPAL.String(): expected \"PAL\", got %q", RegionPAL.String())
-	}
-}
-
 // TestRegion_ScanlineTimingConsistency verifies timing relationships
 func TestRegion_ScanlineTimingConsistency(t *testing.T) {
 	// NTSC: ~3.58MHz / 262 scanlines / 60fps ≈ 228 cycles per scanline

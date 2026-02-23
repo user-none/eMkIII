@@ -1,4 +1,4 @@
-.PHONY: all clean emkiii macos libretro icons iconset
+.PHONY: all clean libretro standalone macos icons iconset
 
 # Output directories
 BUILD_DIR := build
@@ -12,14 +12,14 @@ ICON_ICNS := $(BUILD_DIR)/icon.icns
 IOS_ICON := ios/eMkIII/Resources/Assets.xcassets/AppIcon.appiconset/icon.png
 
 # Build all targets
-all: emkiii
+all: libretro standalone
 
 # Build the standalone binary
-emkiii:
-	go build -o $(BUILD_DIR)/emkiii .
+standalone:
+	go build -o $(BUILD_DIR)/emkiii ./cmd/standalone/
 
 # Build macOS .app bundle
-macos: emkiii icons
+macos: standalone icons
 	@echo "Creating $(APP_NAME).app bundle..."
 	@mkdir -p "$(APP_BUNDLE)/Contents/MacOS"
 	@mkdir -p "$(APP_BUNDLE)/Contents/Resources"
@@ -33,7 +33,7 @@ macos: emkiii icons
 
 # Build libretro core
 libretro:
-	go build -tags libretro -buildmode=c-shared -o $(BUILD_DIR)/emkiii_libretro.dylib ./bridge/libretro/
+	go build -buildmode=c-shared -o $(BUILD_DIR)/emkiii_libretro.dylib ./cmd/libretro/
 
 # Generate icons from master PNG
 icons: $(ICON_ICNS) $(IOS_ICON)

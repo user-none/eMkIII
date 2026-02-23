@@ -1,56 +1,38 @@
 import Foundation
-import Emulator // The gomobile-generated framework
+import Emulator
+import EblituiIOS
 
-/// Swift wrapper for the Go emulator
-class EmulatorBridge {
-    /// Screen dimensions
-    static let screenWidth = 256
-    static let maxScreenHeight = 224
-
-    /// Audio sample rate
-    static let audioSampleRate = 48000
-
-    /// Whether emulator is loaded
+/// Concrete emulator engine wrapping the Go Emulator framework.
+class EmkiiiEmulatorEngine: EmulatorEngine {
     private(set) var isLoaded = false
 
-    /// Current active height (192 or 224)
-    var activeHeight: Int {
-        return EmuiosFrameHeight()
-    }
-
-    /// Current region (0=NTSC, 1=PAL)
-    var region: Int {
-        return EmuiosRegion()
-    }
-
-    /// FPS for current region
     var fps: Int {
-        return EmuiosGetFPS(region)
+        return EmuiosGetFPS()
     }
 
-    /// Whether left column blanking is enabled (for border cropping)
-    var leftColumnBlankEnabled: Bool {
-        return EmuiosLeftBlank()
+    var hasSaveStates: Bool {
+        return EmuiosHasSaveStates()
+    }
+
+    var hasSRAM: Bool {
+        return EmuiosHasSRAM()
     }
 
     // MARK: - Initialization
 
-    /// Load a ROM from file path with auto-detected region
     func loadROM(path: String) -> Bool {
         let regionCode = EmuiosDetectRegionFromPath(path)
-        let success = EmuiosInitFromPath(path, regionCode)
+        let success = EmuiosInit(path, regionCode)
         isLoaded = success
         return success
     }
 
-    /// Load a ROM from file path with specified region
     func loadROM(path: String, region: Int) -> Bool {
-        let success = EmuiosInitFromPath(path, region)
+        let success = EmuiosInit(path, region)
         isLoaded = success
         return success
     }
 
-    /// Unload the current ROM
     func unload() {
         EmuiosClose()
         isLoaded = false
@@ -58,20 +40,17 @@ class EmulatorBridge {
 
     // MARK: - Frame Execution
 
-    /// Run one frame of emulation
     func runFrame() {
         EmuiosRunFrame()
     }
 
-    /// Get the framebuffer as RGBA data
-    func getFrameBuffer() -> Data? {
+    func getFrameBuffer() -> FrameData? {
         guard let data = EmuiosGetFrameData() else { return nil }
-        return Data(data)
+        return FrameData(pixels: Data(data), stride: EmuiosFrameStride(), activeHeight: EmuiosFrameHeight())
     }
 
     // MARK: - Audio
 
-    /// Get audio samples as int16 stereo PCM data
     func getAudioSamples() -> Data? {
         guard let data = EmuiosGetAudioData() else { return nil }
         return Data(data)
@@ -79,20 +58,20 @@ class EmulatorBridge {
 
     // MARK: - Input
 
-    /// Set player 1 controller state
-    func setInput(up: Bool, down: Bool, left: Bool, right: Bool, button1: Bool, button2: Bool) {
-        EmuiosSetInput(up, down, left, right, button1, button2)
+    func setInput(player: Int, buttons: Int) {
+        EmuiosSetInput(player, buttons)
     }
 
-    /// Trigger SMS pause button (NMI)
-    func triggerPause() {
-        EmuiosSetPause()
+    // MARK: - Core Options
+
+    func setOption(key: String, value: String) {
+        EmuiosSetOption(key, value)
     }
 
     // MARK: - Save States
 
-    /// Create a save state
     func serialize() -> Data? {
+        guard hasSaveStates else { return nil }
         guard EmuiosSaveState() else { return nil }
 
         let len = EmuiosStateLen()
@@ -105,15 +84,15 @@ class EmulatorBridge {
         return Data(bytes)
     }
 
-    /// Load a save state
     func deserialize(data: Data) -> Bool {
+        guard hasSaveStates else { return false }
         return EmuiosLoadState(data)
     }
 
     // MARK: - SRAM (Battery Save)
 
-    /// Get cartridge RAM (SRAM) data
-    func getCartRAM() -> Data? {
+    func getSRAM() -> Data? {
+        guard hasSRAM else { return nil }
         EmuiosPrepareSRAM()
         let len = EmuiosSRAMLen()
         guard len > 0 else { return nil }
@@ -125,46 +104,8 @@ class EmulatorBridge {
         return Data(bytes)
     }
 
-    /// Set cartridge RAM (SRAM) data
-    func setCartRAM(data: Data) {
+    func setSRAM(data: Data) {
+        guard hasSRAM else { return }
         EmuiosLoadSRAM(data)
-    }
-
-    // MARK: - Static Helpers
-
-    /// Calculate CRC32 of ROM file
-    /// Returns nil on error
-    static func crc32(ofPath path: String) -> UInt32? {
-        let result = EmuiosGetCRC32FromPath(path)
-        if result < 0 {
-            return nil
-        }
-        return UInt32(result)
-    }
-
-    /// Detect region for ROM file (0=NTSC, 1=PAL)
-    static func detectRegion(path: String) -> Int {
-        return EmuiosDetectRegionFromPath(path)
-    }
-
-    /// Get FPS for region code
-    static func fps(for regionCode: Int) -> Int {
-        return EmuiosGetFPS(regionCode)
-    }
-
-    /// Extract ROM from archive and store as {CRC32}.sms
-    /// - Parameters:
-    ///   - srcPath: Path to source file (archive or raw ROM)
-    ///   - destDir: Directory to store extracted ROM
-    /// - Returns: Tuple of (crc32 hex string, original filename) on success, nil on error
-    static func extractAndStoreROM(srcPath: String, destDir: String) -> (crc32: String, filename: String)? {
-        var error: NSError?
-        guard let result = EmuiosExtractAndStoreROM(srcPath, destDir, &error) else {
-            if let error = error {
-                Log.romImport.error("Extract failed: \(error.localizedDescription)")
-            }
-            return nil
-        }
-        return (crc32: result.crc32, filename: result.filename)
     }
 }

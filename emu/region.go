@@ -1,25 +1,18 @@
 package emu
 
-import "hash/crc32"
+import (
+	"hash/crc32"
 
-// Region represents the console region (NTSC or PAL)
-type Region int
-
-const (
-	RegionNTSC Region = iota
-	RegionPAL
+	emucore "github.com/user-none/eblitui/api"
 )
 
-func (r Region) String() string {
-	switch r {
-	case RegionNTSC:
-		return "NTSC"
-	case RegionPAL:
-		return "PAL"
-	default:
-		return "Unknown"
-	}
-}
+// Region is an alias for emucore.Region so internal code compiles unchanged.
+type Region = emucore.Region
+
+const (
+	RegionNTSC = emucore.RegionNTSC
+	RegionPAL  = emucore.RegionPAL
+)
 
 // RegionTiming holds timing constants for a specific region
 type RegionTiming struct {

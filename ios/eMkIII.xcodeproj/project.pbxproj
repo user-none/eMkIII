@@ -3,30 +3,17 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		01000001 /* eMkIIIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000001 /* eMkIIIApp.swift */; };
-		01000002 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000002 /* AppState.swift */; };
-		01000003 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000003 /* LibraryView.swift */; };
-		01000004 /* GameDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000004 /* GameDetailView.swift */; };
-		01000005 /* GameplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000005 /* GameplayView.swift */; };
-		01000006 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000006 /* SettingsView.swift */; };
-		01000007 /* EmulatorBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000007 /* EmulatorBridge.swift */; };
-		01000008 /* MetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000008 /* MetalRenderer.swift */; };
-		01000009 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000009 /* AudioEngine.swift */; };
-		0100000A /* TouchControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200000A /* TouchControlsView.swift */; };
-		0100000B /* Library.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200000B /* Library.swift */; };
-		0100000C /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200000C /* Config.swift */; };
-		0100000D /* SaveState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200000D /* SaveState.swift */; };
-		0100000E /* StoragePaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200000E /* StoragePaths.swift */; };
-		0100000F /* RDBParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200000F /* RDBParser.swift */; };
-		01000010 /* ArtworkDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000010 /* ArtworkDownloader.swift */; };
 		01000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 02000011 /* Assets.xcassets */; };
 		01000012 /* Emulator.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02000012 /* Emulator.xcframework */; };
 		01000013 /* Emulator.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 02000012 /* Emulator.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		01000014 /* Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000014 /* Logging.swift */; };
+		52B0B7A72F4BBEC90063E895 /* EblituiIOS in Frameworks */ = {isa = PBXBuildFile; productRef = 52B0B7A62F4BBEC90063E895 /* EblituiIOS */; };
+		52B0B7A92F4BBF150063E895 /* EmulatorBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52B0B7A82F4BBF150063E895 /* EmulatorBridge.swift */; };
+		52B0B7AA2F4BBF160063E895 /* BridgeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52B0B7AB2F4BBF160063E895 /* BridgeProvider.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -45,26 +32,12 @@
 
 /* Begin PBXFileReference section */
 		02000001 /* eMkIIIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = eMkIIIApp.swift; sourceTree = "<group>"; };
-		02000002 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
-		02000003 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
-		02000004 /* GameDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameDetailView.swift; sourceTree = "<group>"; };
-		02000005 /* GameplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameplayView.swift; sourceTree = "<group>"; };
-		02000006 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		02000007 /* EmulatorBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmulatorBridge.swift; sourceTree = "<group>"; };
-		02000008 /* MetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderer.swift; sourceTree = "<group>"; };
-		02000009 /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
-		0200000A /* TouchControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchControlsView.swift; sourceTree = "<group>"; };
-		0200000B /* Library.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Library.swift; sourceTree = "<group>"; };
-		0200000C /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
-		0200000D /* SaveState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveState.swift; sourceTree = "<group>"; };
-		0200000E /* StoragePaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoragePaths.swift; sourceTree = "<group>"; };
-		0200000F /* RDBParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RDBParser.swift; sourceTree = "<group>"; };
-		02000010 /* ArtworkDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkDownloader.swift; sourceTree = "<group>"; };
 		02000011 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		02000012 /* Emulator.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Emulator.xcframework; sourceTree = "<group>"; };
-		02000014 /* Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logging.swift; sourceTree = "<group>"; };
 		04000001 /* eMkIII.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = eMkIII.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		527EF69B2F37F097001F2BFB /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		52B0B7A82F4BBF150063E895 /* EmulatorBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmulatorBridge.swift; sourceTree = "<group>"; };
+		52B0B7AB2F4BBF160063E895 /* BridgeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeProvider.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,6 +46,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				01000012 /* Emulator.xcframework in Frameworks */,
+				52B0B7A72F4BBEC90063E895 /* EblituiIOS in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -93,12 +67,7 @@
 			isa = PBXGroup;
 			children = (
 				06000005 /* App */,
-				06000006 /* Views */,
 				06000007 /* Emulator */,
-				06000008 /* Controls */,
-				06000009 /* Storage */,
-				0600000A /* Metadata */,
-				0600000C /* Utilities */,
 				0600000B /* Resources */,
 			);
 			path = eMkIII;
@@ -124,58 +93,17 @@
 			isa = PBXGroup;
 			children = (
 				02000001 /* eMkIIIApp.swift */,
-				02000002 /* AppState.swift */,
 			);
 			path = App;
-			sourceTree = "<group>";
-		};
-		06000006 /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				02000003 /* LibraryView.swift */,
-				02000004 /* GameDetailView.swift */,
-				02000005 /* GameplayView.swift */,
-				02000006 /* SettingsView.swift */,
-			);
-			path = Views;
 			sourceTree = "<group>";
 		};
 		06000007 /* Emulator */ = {
 			isa = PBXGroup;
 			children = (
-				02000007 /* EmulatorBridge.swift */,
-				02000008 /* MetalRenderer.swift */,
-				02000009 /* AudioEngine.swift */,
+				52B0B7AB2F4BBF160063E895 /* BridgeProvider.swift */,
+				52B0B7A82F4BBF150063E895 /* EmulatorBridge.swift */,
 			);
 			path = Emulator;
-			sourceTree = "<group>";
-		};
-		06000008 /* Controls */ = {
-			isa = PBXGroup;
-			children = (
-				0200000A /* TouchControlsView.swift */,
-			);
-			path = Controls;
-			sourceTree = "<group>";
-		};
-		06000009 /* Storage */ = {
-			isa = PBXGroup;
-			children = (
-				0200000B /* Library.swift */,
-				0200000C /* Config.swift */,
-				0200000D /* SaveState.swift */,
-				0200000E /* StoragePaths.swift */,
-			);
-			path = Storage;
-			sourceTree = "<group>";
-		};
-		0600000A /* Metadata */ = {
-			isa = PBXGroup;
-			children = (
-				0200000F /* RDBParser.swift */,
-				02000010 /* ArtworkDownloader.swift */,
-			);
-			path = Metadata;
 			sourceTree = "<group>";
 		};
 		0600000B /* Resources */ = {
@@ -184,14 +112,6 @@
 				02000011 /* Assets.xcassets */,
 			);
 			path = Resources;
-			sourceTree = "<group>";
-		};
-		0600000C /* Utilities */ = {
-			isa = PBXGroup;
-			children = (
-				02000014 /* Logging.swift */,
-			);
-			path = Utilities;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -211,6 +131,9 @@
 			dependencies = (
 			);
 			name = eMkIII;
+			packageProductDependencies = (
+				52B0B7A62F4BBEC90063E895 /* EblituiIOS */,
+			);
 			productName = eMkIII;
 			productReference = 04000001 /* eMkIII.app */;
 			productType = "com.apple.product-type.application";
@@ -223,7 +146,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					07000001 = {
 						CreatedOnToolsVersion = 15.0;
@@ -239,6 +162,9 @@
 				Base,
 			);
 			mainGroup = 06000001;
+			packageReferences = (
+				52B0B7A52F4BBEC90063E895 /* XCRemoteSwiftPackageReference "eblitui-ios" */,
+			);
 			productRefGroup = 06000004 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -265,22 +191,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				01000001 /* eMkIIIApp.swift in Sources */,
-				01000002 /* AppState.swift in Sources */,
-				01000003 /* LibraryView.swift in Sources */,
-				01000004 /* GameDetailView.swift in Sources */,
-				01000005 /* GameplayView.swift in Sources */,
-				01000006 /* SettingsView.swift in Sources */,
-				01000007 /* EmulatorBridge.swift in Sources */,
-				01000008 /* MetalRenderer.swift in Sources */,
-				01000009 /* AudioEngine.swift in Sources */,
-				0100000A /* TouchControlsView.swift in Sources */,
-				0100000B /* Library.swift in Sources */,
-				0100000C /* Config.swift in Sources */,
-				0100000D /* SaveState.swift in Sources */,
-				0100000E /* StoragePaths.swift in Sources */,
-				0100000F /* RDBParser.swift in Sources */,
-				01000010 /* ArtworkDownloader.swift in Sources */,
-				01000014 /* Logging.swift in Sources */,
+				52B0B7A92F4BBF150063E895 /* EmulatorBridge.swift in Sources */,
+				52B0B7AA2F4BBF160063E895 /* BridgeProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -345,6 +257,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -401,6 +314,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -502,6 +416,24 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		52B0B7A52F4BBEC90063E895 /* XCRemoteSwiftPackageReference "eblitui-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/user-none/eblitui-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		52B0B7A62F4BBEC90063E895 /* EblituiIOS */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = EblituiIOS;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 09000001 /* Project object */;
 }

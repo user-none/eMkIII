@@ -17,17 +17,17 @@ ROMs default to Sega mapper with NTSC timing.
 
 ```bash
 # Launch standalone UI (game library, settings, save states)
-go run main.go
+go run ./cmd/standalone/main.go
 
 # Direct emulator mode (bypasses UI, loads ROM directly)
-go run main.go -rom <path-to-rom>
+go run ./cmd/standalone/main.go -rom <path-to-rom>
 
 # Override region detection manually
-go run main.go -rom <path-to-rom> -region ntsc
-go run main.go -rom <path-to-rom> -region pal
+go run ./cmd/standalone/main.go -rom <path-to-rom> -region ntsc
+go run ./cmd/standalone/main.go -rom <path-to-rom> -region pal
 
 # Crop left border (hides 8-pixel blank column when enabled by game)
-go run main.go -rom <path-to-rom> -crop-border
+go run ./cmd/standalone/main.go -rom <path-to-rom> -crop-border
 
 # Run tests
 go test ./...
@@ -35,7 +35,7 @@ go test ./...
 
 ## Prerequisites
 
-No external native libraries are required. Audio is handled by [oto](https://github.com/ebitengine/oto) (pure Go).
+No external native libraries are required.
 
 ## Makefile
 
@@ -43,7 +43,7 @@ The top-level Makefile provides targets for building distributable applications.
 
 | Target | Description |
 |--------|-------------|
-| `make emkiii` | Build standalone binary to `build/emkiii` |
+| `make standalone` | Build standalone binary to `build/emkiii` |
 | `make macos` | Build macOS .app bundle to `build/eMkIII.app` |
 | `make libretro` | Build libretro core to `build/emkiii_libretro.dylib` |
 | `make icons` | Generate icons for macOS and iOS from `assets/icon.png` |
@@ -81,7 +81,7 @@ When launched without a `-rom` argument, the emulator opens a standalone UI:
 #### Controls
 
 **Keyboard (Gameplay):**
-- **Movement:** WASD or Arrow Keys
+- **Movement:** WASD
 - **Buttons:** J (Button 1), K (Button 2)
 - **SMS Pause:** Enter (hardware pause button, triggers NMI)
 
@@ -115,22 +115,21 @@ When launched without a `-rom` argument, the emulator opens a standalone UI:
 
 The standalone UI includes a comprehensive shader system for authentic retro display effects:
 
-| Category | Shaders |
-|----------|---------|
-| CRT Simulation | CRT (curved screen), Scanlines, Phosphor Glow, Halation, CRT Gamma |
-| Analog Video | NTSC Artifacts, NTSC Rainbow, Color Bleed, Horizontal Softness, Vertical Blur |
-| Display Types | LCD Grid, Dot Matrix, Interlace |
-| Signal Degradation | VHS Distortion, Rolling Band, RF Noise |
-| Color Effects | Monochrome, Sepia |
-| Enhancement | Pixel Smoothing (xBR), Phosphor Persistence |
-
-Shaders can be configured separately for UI (menus) and gameplay. Multiple shaders can be stacked and are applied in weighted order for correct visual layering.
+Shaders can be configured separately for UI (menus) and gameplay. Multiple
+shaders can be stacked and are applied in weighted order for correct visual
+layering.
 
 #### RetroAchievements
 
-The standalone UI integrates with [RetroAchievements](https://retroachievements.org) to track and unlock achievements while playing. Features include unlock notifications with badges, unlock sound, auto-screenshot, achievement overlay during gameplay (Tab), progress tracking on the game detail screen, Spectator Mode, and Encore Mode. Configure in Settings > RetroAchievements.
+The standalone UI integrates with
+[RetroAchievements](https://retroachievements.org) to track and unlock
+achievements while playing. Features include unlock notifications with badges,
+unlock sound, auto-screenshot, achievement overlay during gameplay (Tab),
+progress tracking on the game detail screen, Spectator Mode, and Encore Mode.
+Configure in Settings > RetroAchievements.
 
-**Note:** This emulator is not officially recognized by RetroAchievements, so achievements unlock in softcore mode only.
+**Note:** This emulator is not officially recognized by RetroAchievements, so
+achievements unlock in softcore mode only.
 
 #### Data Location
 
@@ -144,22 +143,24 @@ The standalone UI integrates with [RetroAchievements](https://retroachievements.
 
 ```
 {data}/
-├── config.json          # Application settings
-├── library.json         # Game library and metadata
-├── metadata/sms.rdb     # Downloaded game database
-├── saves/{crc32}/       # Per-game save states and SRAM
-├── artwork/{crc32}/     # Per-game box art
-└── screenshots/         # Screenshots
+|-- config.json          # Application settings
+|-- library.json         # Game library and metadata
+|-- metadata/sms.rdb     # Downloaded game database
+|-- saves/{crc32}/       # Per-game save states and SRAM
+|-- artwork/{crc32}/     # Per-game box art
++-- screenshots/         # Screenshots
 ```
 
 ### CLI (Direct Mode)
 
-When launched with the `-rom` flag, the emulator bypasses the UI and loads the ROM directly. This mode is useful for quick testing or integration with external launchers.
+When launched with the `-rom` flag, the emulator bypasses the UI and loads the
+ROM directly. This mode is useful for quick testing or integration with
+external launchers.
 
 #### Controls
 
 **Keyboard:**
-- **Movement:** WASD or Arrow Keys
+- **Movement:** WASD
 - **Buttons:** J (Button 1), K (Button 2)
 - **SMS Pause:** Enter
 
@@ -169,13 +170,12 @@ When launched with the `-rom` flag, the emulator bypasses the UI and loads the R
 
 ### iOS App
 
-The iOS app is a native Swift application that embeds the emulator via gomobile.
+The iOS app is a native Swift application that embeds the emulator.
 
 #### Prerequisites
 
 - Xcode 15+ with iOS SDK
 - Go 1.21+
-- gomobile: `go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init`
 
 #### Build Instructions
 
@@ -185,7 +185,7 @@ The iOS app is a native Swift application that embeds the emulator via gomobile.
    ```
    This copies the app icon to the iOS asset catalog.
 
-2. **Generate the gomobile framework:**
+2. **Generate the framework:**
    ```bash
    cd ios
    make framework
@@ -208,7 +208,7 @@ The iOS app is a native Swift application that embeds the emulator via gomobile.
 - Touch controls with virtual D-pad and buttons
 - Game library with box art
 - Resume state and SRAM persistence
-- Gamepad support (MFi controllers)
+- Gamepad support
 - Metal rendering
 
 **Supported ROM formats:** `.sms`, `.zip`, `.7z`, `.gz`, `.tar.gz`, `.rar` (auto-detected)
@@ -219,85 +219,49 @@ The iOS app is a native Swift application that embeds the emulator via gomobile.
 - Virtual D-pad on the left side of the screen
 - Button 1 and Button 2 on the right side
 
-**Gamepad** (MFi controllers):
+**Gamepad**
 - **Movement:** D-pad or left analog stick
 - **Buttons:** A (Button 1), B (Button 2)
 
 ## Architecture
 
-The emulator uses Ebiten for windowing/rendering, go-chip-z80 for CPU emulation, oto for audio output, and ebitenui for the standalone UI. The emulator runs on a dedicated goroutine with audio-driven timing (ADT) — frame pacing is controlled by audio buffer feedback rather than Ebiten's fixed TPS, eliminating clock drift between display and audio.
-
-The standalone UI follows a manager pattern with clear separation of concerns:
-- `App` - Main application, implements `ebiten.Game`, owns screens and managers
-- `GameplayManager` - Emulator lifecycle, input handling, auto-save, play time tracking
-- `InputManager` - UI navigation with gamepad repeat support
-- `ScanManager` - ROM scanning orchestration and library updates
+The emulator core (`emu/`) is framework-agnostic and handles all SMS emulation
+logic. UI, audio, rendering, ROM loading, and platform integration are provided
+by the external `eblitui` modules. The emkiii project connects its core to
+eblitui through an adapter that implements the `emucore.CoreFactory` interface
+from `eblitui/api`. Each front-end entry point registers this factory with its
+respective eblitui module.
 
 **Package structure:**
-- `main.go` - Entry point; launches UI by default, or direct emulator with `-rom` flag
-- `ui/` - Standalone UI application
-  - `app.go` - Main application struct, screen management, Ebiten game loop
-  - `state.go` - AppState enum (Library, Detail, Settings, etc.)
-  - `gameplay.go` - GameplayManager: emulator lifecycle, input, auto-save, play time tracking
-  - `input.go` - InputManager: UI navigation with gamepad repeat support
-  - `scan_manager.go` - ScanManager: ROM scanning orchestration
-  - `screens/` - Library, Detail, Settings, Scan Progress, Error screens
-    - `base.go` - BaseScreen: common scroll/focus management for screens
-  - `pausemenu.go` - In-game pause overlay with keyboard/gamepad navigation
-  - `savestate.go` - Save state management (10 slots per game, auto-save)
-  - `rewind.go` - Rewind buffer: ring buffer of serialized states with acceleration curve
-  - `screenshot.go` - Screenshot capture (F12)
-  - `notification.go` - On-screen notifications (default, short, achievement with badges)
-  - `audio.go` - Audio playback via oto (48kHz stereo)
-  - `audiobuffer.go` - Thread-safe ring buffer (io.Reader for oto's pull model)
-  - `emuthread.go` - SharedInput, SharedFramebuffer, EmuControl for goroutine communication
-  - `search.go` - Live game title search/filter overlay
-  - `achievementoverlay.go` - Achievement list overlay during gameplay (Tab)
-  - `scanner.go` - ROM discovery and metadata lookup
-  - `metadata.go` - RDB download and artwork fetching
-  - `achievements/` - RetroAchievements integration (login, unlock tracking, badges)
-  - `storage/` - Config and library JSON persistence
-  - `style/` - Theme colors (8 themes), widget builders, constants
-  - `shader/` - Shader system with weight-based ordering
-  - `rdb/` - RDB parser for game metadata lookup
-  - `assets/` - Embedded placeholder images
-- `cli/` - CLI runner for direct ROM launch mode:
-  - `runner.go` - Ebiten game wrapper for direct emulation (bypasses UI)
+- `adapter/adapter.go` - Implements `emucore.CoreFactory` from `eblitui/api`, defining system metadata (name, extensions, screen dimensions), button mappings, and core-specific options (crop border)
+- `cmd/standalone/main.go` - Standalone UI entry point; registers the adapter factory with `eblitui/standalone`
+- `cmd/libretro/main.go` - Libretro core entry point; registers the adapter factory with `eblitui/libretro`
+- `cmd/ios/ios.go` - iOS bridge entry point; re-exports `eblitui-ios` functions for Swift integration
 - `emu/` - Core emulation components (framework-agnostic):
   - `emulator.go` - Core `EmulatorBase` struct orchestrating CPU/VDP/PSG/Memory, frame timing, scanline execution
   - `bus.go` - SMSBus adapter bridging Memory and SMSIO into the go-chip-z80 Bus interface
   - `vdp.go` - Video Display Processor with VRAM (16KB), CRAM (32 bytes), 16 registers; implements background/sprite rendering, scrolling, interrupts, collision detection, per-scanline scroll latching, 192/224-line display modes
   - `mem.go` - 64KB memory space with Sega mapper ($FFFC-$FFFF) and Codemasters mapper ($0000/$4000/$8000) support, 32KB cartridge RAM
   - `io.go` - I/O port handler; maps VDP, PSG, and controller ports with SMS partial address decoding
-  - `psg.go` - SN76489 sound chip with 3 tone channels, 1 noise channel, 4-bit volume, 15-bit LFSR; 48kHz stereo output
   - `region.go` - NTSC/PAL timing constants (CPU clock, scanlines, FPS), region auto-detection via CRC32 lookup
-  - `romdb.go` - Embedded ROM database (357 games) mapping CRC32 to mapper type and region
-- `bridge/` - Platform-specific wrappers:
-  - `ebiten/emulator.go` - Ebiten wrapper: rendering, keyboard/gamepad input, resizable window, cached framebuffer support
-  - `ios/ios.go` - gomobile bridge for iOS: exposes emulator API to Swift
-  - `libretro/main.go` - Libretro core: API exports, core options (region, crop border), XRGB8888 video output
-  - `libretro/libretro.h`, `cfuncs.h` - C headers for libretro API
-- `romloader/` - ROM loading with archive support:
-  - `loader.go` - Main loader with magic byte format detection
-  - `zip.go`, `gzip.go`, `sevenzip.go`, `rar.go` - Archive format handlers
-- `ios/` - Native iOS app (Swift/SwiftUI):
+  - `romdb.go` - Embedded ROM database mapping CRC32 to mapper type and region
+  - `version.go` - Version constant
+- `ios/` - Native iOS app (Swift/Xcode):
   - `eMkIII/` - App source: views, models, Metal renderer, audio engine
   - `eMkIII.xcodeproj/` - Xcode project
-  - `Makefile` - gomobile framework build script
+  - `Makefile` - framework build script
+- `docs/` - Hardware documentation (VDP, PSG, SMS, Game Gear)
 
-**Execution flow:** The emulator runs on a dedicated goroutine that steps the
-CPU through scanlines (262 NTSC / 313 PAL, ~228 cycles each), updating V/H
-counters, checking interrupts, rendering via VDP, and generating PSG samples.
-Audio samples are batched per-frame and queued to oto via a ring buffer.
-Frame pacing uses audio-driven timing (ADT): sleep duration is adjusted based
-on audio buffer level (±10% when below/above thresholds). The Ebiten `Update()`
-thread polls input into shared state, and `Draw()` renders from a shared
-framebuffer snapshot.
+**Execution flow:** The emulator core steps the CPU through scanlines
+(262 NTSC / 313 PAL, ~228 cycles each), updating V/H counters, checking
+interrupts, rendering via VDP, and generating PSG samples. Audio output,
+frame pacing, input handling, and rendering are managed by the eblitui
+front-end modules.
 
 **Display modes:**
-- 256×192 (standard Mode 4) - default
-- 256×224 (extended height Mode 4) - enabled when M1 and M2 bits set
-- 248×192/224 (cropped) - optional left border crop when VDP blank column enabled
+- 256x192 (standard Mode 4) - default
+- 256x224 (extended height Mode 4) - enabled when M1 and M2 bits set
+- 248x192/224 (cropped) - optional left border crop when VDP blank column enabled
 - Window is resizable with aspect ratio preservation (default 2x scale)
 
 **Region timing:**
@@ -309,16 +273,12 @@ framebuffer snapshot.
 
 ## Dependencies
 
-- `github.com/hajimehoshi/ebiten/v2` - Windowing, rendering, input
-- `github.com/ebitenui/ebitenui` - Retained-mode UI widgets
-- `github.com/sqweek/dialog` - Native OS file picker dialogs
+- `github.com/user-none/eblitui/api` - Core interface (`emucore.CoreFactory`)
+- `github.com/user-none/eblitui/standalone` - Standalone ebiten UI
+- `github.com/user-none/eblitui/libretro` - Libretro core framework
+- `github.com/user-none/eblitui-ios` - iOS framework
 - `github.com/user-none/go-chip-z80` - Z80 CPU emulation
-- `github.com/ebitengine/oto/v3` - Audio output (pure Go, cross-platform)
-- `github.com/user-none/go-rcheevos` - RetroAchievements API client
-- `github.com/bodgit/sevenzip` - 7z archive support
-- `github.com/nwaples/rardecode/v2` - RAR archive support
-- `golang.org/x/image` - Font rendering
-- `golang.design/x/clipboard` - System clipboard access
+- `github.com/user-none/go-chip-sn76489` - SN76489 PSG emulation
 
 ## Implementation Status
 
@@ -326,16 +286,16 @@ framebuffer snapshot.
 |-----------|--------|-------|
 | CPU | Complete | Z80 via go-chip-z80 with built-in cycle-accurate timing, EI delay, and interrupt handling |
 | Memory | Complete | 64KB with Sega mapper (3 slots + cart RAM) and Codemasters mapper (CRC32 detection) |
-| VDP | Complete | Tiles, sprites (8×8/8×16, zoom), scrolling, priority, interrupts, per-scanline latching, 192/224-line modes |
-| PSG | Complete | Full SN76489 emulation (3 tone + 1 noise), 48kHz output |
+| VDP | Complete | Tiles, sprites (8x8/8x16, zoom), scrolling, priority, interrupts, per-scanline latching, 192/224-line modes |
+| PSG | Complete | SN76489 via go-chip-sn76489 (3 tone + 1 noise), 48kHz output |
 | I/O | Complete | Controller ports, VDP/PSG port decoding, V/H counter reads with accurate H-counter table |
 | ROM Loading | Complete | Supports .sms, .zip, .7z, .gz, .tar.gz, .rar with magic byte detection |
 | Input | Complete | Keyboard (WASD/Arrows + JK) and gamepad (D-pad/stick + A/B) for P1 controller |
 | Region | Complete | Auto-detection via CRC32 database (357 games), manual override with `-region` flag |
-| Libretro | Complete | Full core implementation with region/crop options, works with RetroArch |
-| Standalone UI | Complete | Library management, save states (10 slots + auto-save), rewind, screenshots, themes, achievements, play time tracking |
-| iOS App | Complete | Native Swift app with touch controls, Metal rendering, gamepad support, save states |
-| Tests | Complete | Unit tests for I/O, memory, VDP, PSG, region timing, ROM loading, and libretro |
+| Libretro | Complete | Core implementation via eblitui/libretro with region/crop options, works with RetroArch |
+| Standalone UI | Complete | Via eblitui/standalone: library management, save states (10 slots + auto-save), rewind, screenshots, themes, achievements, play time tracking |
+| iOS App | Complete | Native Swift app via eblitui-ios with touch controls, Metal rendering, gamepad support, save states |
+| Tests | Complete | Unit tests in emu/ for I/O, memory, VDP, PSG, region timing |
 
 ## Unsupported Functionality
 
@@ -357,7 +317,7 @@ in the future.
 ## Libretro Core Reload Issue
 
 The libretro core cannot be unloaded and reloaded within the same RetroArch
-session. This is a fundamental limitation of Go shared libraries—the Go runtime
+session. This is a fundamental limitation of Go shared libraries - the Go runtime
 cannot be safely unloaded via `dlclose()` and reinitialized via `dlopen()`.
 When RetroArch closes a game and attempts to load another, the Go runtime
 enters an inconsistent state causing crashes or hangs. **Workaround:** Restart

@@ -19,8 +19,20 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 		Extensions:      []string{".sms"},
 		ScreenWidth:     emu.ScreenWidth,
 		MaxScreenHeight: emu.MaxScreenHeight,
-		AspectRatio:     256.0 / 192.0,
-		SampleRate:      48000,
+		// NTSC pixel aspect ratio for SMS (8:7).
+		// The SMS master clock is 10.738635 MHz. The pixel clock is
+		// master/2 and 256 active pixels span the same active line time
+		// as the Genesis (both VDPs share the same timing lineage).
+		// SMS: 256 pixels at 5.369318 MHz = 47.68 us active time.
+		// This is identical to Genesis H40 (2560 master clocks at
+		// 53.693175 MHz = 47.68 us). Since SMS has 256 pixels in the
+		// same active time that Genesis H40 has 320, each SMS pixel is
+		// 320/256 = 5/4 wider:
+		// PAR = (32/35) * (5/4) = 8/7
+		// The PAL master clock differs by <1%, so this value is used
+		// for both NTSC and PAL.
+		PixelAspectRatio: 8.0 / 7.0,
+		SampleRate:       48000,
 		Buttons: []emucore.Button{
 			{Name: "1", ID: 4, DefaultKey: "J", DefaultPad: "A"},
 			{Name: "2", ID: 5, DefaultKey: "K", DefaultPad: "B"},

@@ -3,10 +3,10 @@ module github.com/user-none/emkiii
 go 1.25.7
 
 require (
-	github.com/user-none/eblitui-ios v0.1.0
-	github.com/user-none/eblitui/api v0.2.1
-	github.com/user-none/eblitui/libretro v0.1.0
-	github.com/user-none/eblitui/standalone v0.3.0
+	github.com/user-none/eblitui-ios v0.2.0
+	github.com/user-none/eblitui/api v0.3.0
+	github.com/user-none/eblitui/libretro v0.2.0
+	github.com/user-none/eblitui/standalone v0.4.0
 	github.com/user-none/go-chip-sn76489 v0.0.0-20260216111134-1da9b666b080
 	github.com/user-none/go-chip-z80 v0.0.0-20260215162438-a51e903d86a7
 )

@@ -191,6 +191,7 @@ func (e *Emulator) runScanlines() {
 			e.frameSamples = append(e.frameSamples, buffer[:count]...)
 		}
 	}
+
 }
 
 // SetInput unpacks a button bitmask and sets controller state for the given player.

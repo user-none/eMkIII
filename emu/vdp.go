@@ -438,63 +438,74 @@ func (v *VDP) renderBackground(line uint16) {
 	vScroll := v.vScrollLatch
 
 	// Top row scroll lock (register 0 bit 6) - top 2 rows ignore horizontal scroll
-	topRowLock := v.register[0]&0x40 != 0
+	// Resolve once: depends only on the scanline, not on x
+	effectiveHScroll := hScroll
+	if v.register[0]&0x40 != 0 && line < 16 {
+		effectiveHScroll = 0
+	}
+
 	// Right column scroll lock (register 0 bit 7) - right 8 columns ignore vertical scroll
 	rightColLock := v.register[0]&0x80 != 0
 
-	// Render 256 pixels (32 tiles × 8 pixels)
-	for x := 0; x < ScreenWidth; x++ {
-		// Determine effective scroll values based on lock bits
-		effectiveHScroll := hScroll
-		effectiveVScroll := vScroll
+	if rightColLock {
+		// Two zones: x=[0,192) uses vScroll, x=[192,256) uses vScroll=0
+		v.renderBackgroundTiles(line, 0, 192, effectiveHScroll, vScroll, nameTableBase, activeHeight)
+		v.renderBackgroundTiles(line, 192, ScreenWidth, effectiveHScroll, 0, nameTableBase, activeHeight)
+	} else {
+		v.renderBackgroundTiles(line, 0, ScreenWidth, effectiveHScroll, vScroll, nameTableBase, activeHeight)
+	}
+}
 
-		// Top 2 tile rows (lines 0-15) ignore horizontal scroll if locked
-		if topRowLock && line < 16 {
-			effectiveHScroll = 0
+// renderBackgroundTiles renders background tiles for a horizontal zone of a scanline.
+// Within a zone, vScroll is constant so effectiveY, tileRow, tileLine, and rowBase
+// are computed once and reused across all tiles. The loop iterates by tile, performing
+// VRAM reads and entry parsing once per tile rather than once per pixel.
+func (v *VDP) renderBackgroundTiles(line uint16, startX, endX int, hScroll, vScroll uint8, nameTableBase uint16, activeHeight int) {
+	if startX >= endX {
+		return
+	}
+
+	// Calculate the effective Y position with vertical scroll (constant for the zone)
+	var effectiveY uint16
+	if activeHeight == 224 {
+		// 224-line mode: 256 modulo via bitmask
+		effectiveY = (uint16(line) + uint16(vScroll)) & 0xFF
+	} else {
+		// 192-line mode: 224 modulo via conditional subtraction
+		// Max value is 191 + 255 = 446 < 2 * 224, so it wraps at most once
+		effectiveY = uint16(line) + uint16(vScroll)
+		if effectiveY >= 224 {
+			effectiveY -= 224
 		}
+	}
 
-		// Right 8 columns (pixels 192-255) ignore vertical scroll if locked
-		if rightColLock && x >= 192 {
-			effectiveVScroll = 0
-		}
+	tileRow := effectiveY / 8
+	tileLine := effectiveY % 8
 
-		// Calculate the effective Y position with vertical scroll
-		var effectiveY uint16
-		if activeHeight == 224 {
-			// 224-line mode: 256 modulo via bitmask
-			effectiveY = (uint16(line) + uint16(effectiveVScroll)) & 0xFF
-		} else {
-			// 192-line mode: 224 modulo via conditional subtraction
-			// Max value is 191 + 255 = 446 < 2 * 224, so it wraps at most once
-			effectiveY = uint16(line) + uint16(effectiveVScroll)
-			if effectiveY >= 224 {
-				effectiveY -= 224
-			}
-		}
+	// Name table row base address (constant for the zone)
+	// Name table is 32 tiles wide, 2 bytes per entry
+	rowBase := nameTableBase + tileRow*32*2
 
-		// Which row of tiles (0-27)
-		tileRow := effectiveY / 8
-		// Which line within the tile (0-7)
-		tileLine := effectiveY % 8
+	// Framebuffer direct pixel access
+	pix := v.framebuffer.Pix
+	stride := v.framebuffer.Stride
+	yOffset := int(line) * stride
 
+	x := startX
+	for x < endX {
 		// Calculate effective X with horizontal scroll
-		// Note: horizontal scroll scrolls the screen LEFT (subtracts)
-		effectiveX := (uint16(x) - uint16(effectiveHScroll)) & 0xFF
+		// Horizontal scroll scrolls the screen LEFT (subtracts)
+		effectiveX := (uint16(x) - uint16(hScroll)) & 0xFF
 
-		// Which column of tiles (0-31)
 		tileCol := effectiveX / 8
-		// Which pixel within the tile (0-7)
-		tilePixel := effectiveX % 8
+		tilePixelStart := int(effectiveX % 8)
 
-		// Calculate name table entry address
-		// Name table is 32×28 tiles, 2 bytes per entry
-		nameTableAddr := nameTableBase + (tileRow*32+tileCol)*2
-
-		// Read the 2-byte name table entry
+		// Read the 2-byte name table entry (once per tile)
+		nameTableAddr := rowBase + tileCol*2
 		entryLo := v.vram[nameTableAddr&0x3FFF]
 		entryHi := v.vram[(nameTableAddr+1)&0x3FFF]
 
-		// Parse name table entry:
+		// Parse name table entry (once per tile):
 		// Bits 0-8: pattern index (9 bits, 512 patterns)
 		// Bit 9: horizontal flip
 		// Bit 10: vertical flip
@@ -503,51 +514,57 @@ func (v *VDP) renderBackground(line uint16) {
 		patternIndex := uint16(entryLo) | (uint16(entryHi&0x01) << 8)
 		hFlip := (entryHi & 0x02) != 0
 		vFlip := (entryHi & 0x04) != 0
-		paletteSelect := (entryHi & 0x08) >> 3
+		paletteOffset := uint8((entryHi&0x08)>>3) * 16
 		priority := (entryHi & 0x10) != 0
 
-		// Calculate which line of the pattern to use
+		// Calculate which line of the pattern to use (once per tile)
 		patternLine := tileLine
 		if vFlip {
 			patternLine = 7 - tileLine
 		}
 
-		// Calculate pixel position within tile
-		pixelPos := tilePixel
-		if hFlip {
-			pixelPos = 7 - tilePixel
-		}
-
-		// Get pattern data
-		// Each pattern is 32 bytes (8 lines × 4 bytes per line)
-		// 4 bytes per line = 4 bitplanes for 4bpp
+		// Read 4 bitplanes (once per tile)
+		// Each pattern is 32 bytes (8 lines x 4 bytes per line)
 		patternAddr := patternIndex*32 + patternLine*4
-
-		// Read 4 bitplanes
 		bp0 := v.vram[patternAddr&0x3FFF]
 		bp1 := v.vram[(patternAddr+1)&0x3FFF]
 		bp2 := v.vram[(patternAddr+2)&0x3FFF]
 		bp3 := v.vram[(patternAddr+3)&0x3FFF]
 
-		// Extract the pixel color from bitplanes
-		// Bit 7 is leftmost pixel, bit 0 is rightmost
-		shift := 7 - pixelPos
-		colorIndex := ((bp0 >> shift) & 1) |
-			(((bp1 >> shift) & 1) << 1) |
-			(((bp2 >> shift) & 1) << 2) |
-			(((bp3 >> shift) & 1) << 3)
+		// Render pixels from this tile
+		// Start at tilePixelStart (may be mid-tile for the first tile)
+		// End at 7 or when we reach endX
+		for tp := tilePixelStart; tp < 8 && x < endX; tp++ {
+			// Extract pixel color from the already-loaded bitplanes
+			// Bit 7 is leftmost pixel, bit 0 is rightmost
+			pixelPos := tp
+			if hFlip {
+				pixelPos = 7 - tp
+			}
+			shift := uint(7 - pixelPos)
+			colorIndex := ((bp0 >> shift) & 1) |
+				(((bp1 >> shift) & 1) << 1) |
+				(((bp2 >> shift) & 1) << 2) |
+				(((bp3 >> shift) & 1) << 3)
 
-		// Get color from CRAM
-		// paletteSelect=0: CRAM 0-15, paletteSelect=1: CRAM 16-31
-		cramIndex := uint8(paletteSelect)*16 + colorIndex
-		pixelColor := v.cramToColor(cramIndex)
+			// Get color from CRAM and write to framebuffer
+			c := v.cramLatch[(paletteOffset+colorIndex)&0x1F]
+			cr := (c >> 0) & 0x03
+			cg := (c >> 2) & 0x03
+			cb := (c >> 4) & 0x03
 
-		v.framebuffer.SetRGBA(x, int(line), pixelColor)
+			p := yOffset + x*4
+			pix[p] = paletteScale[cr]
+			pix[p+1] = paletteScale[cg]
+			pix[p+2] = paletteScale[cb]
+			pix[p+3] = 0xFF
 
-		// Track priority: background is in front of sprites if priority bit set
-		// and pixel is not transparent (colorIndex != 0)
-		if priority && colorIndex != 0 {
-			v.bgPriority[x] = true
+			// Track priority
+			if priority && colorIndex != 0 {
+				v.bgPriority[x] = true
+			}
+
+			x++
 		}
 	}
 }

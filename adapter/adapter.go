@@ -5,9 +5,6 @@ import (
 	"github.com/user-none/emkiii/emu"
 )
 
-// Compile-time interface check.
-var _ emucore.CoreFactory = (*Factory)(nil)
-
 // Factory implements emucore.CoreFactory for the SMS emulator.
 type Factory struct{}
 

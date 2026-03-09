@@ -23,7 +23,7 @@ func main() {
 		if *cropBorder {
 			options["crop_border"] = "true"
 		}
-		if err := standalone.RunDirect(factory, *romPath, *regionFlag, options); err != nil {
+		if err := standalone.RunDirect(factory, *romPath, *regionFlag, options, nil); err != nil {
 			log.Fatal(err)
 		}
 		return

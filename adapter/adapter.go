@@ -46,8 +46,9 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 				Category:    emucore.CoreOptionCategoryVideo,
 			},
 		},
-		RDBName:       "Sega - Master System - Mark III",
-		ThumbnailRepo: "Sega_-_Master_System_-_Mark_III",
+		MetadataVariants: []emucore.MetadataVariant{
+			{Name: "Master System", RDBName: "Sega - Master System - Mark III", ThumbnailRepo: "Sega_-_Master_System_-_Mark_III"},
+		},
 		DataDirName:   "emkiii",
 		ConsoleID:     2,
 		CoreName:      emu.Name,

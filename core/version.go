@@ -1,4 +1,4 @@
-package emu
+package core
 
 // Core emulator version
 const (

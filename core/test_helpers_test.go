@@ -1,4 +1,4 @@
-package emu
+package core
 
 // createTestROM creates a test ROM with the given number of 16KB banks.
 // Each bank is filled with its bank number (0, 1, 2, etc.) to allow

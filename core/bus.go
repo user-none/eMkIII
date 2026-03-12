@@ -1,4 +1,4 @@
-package emu
+package core
 
 // SMSBus adapts Memory and SMSIO into the go-chip-z80 Bus interface.
 type SMSBus struct {

@@ -1,4 +1,4 @@
-package emu
+package core
 
 // ROMInfo contains mapper and region information for a known ROM.
 type ROMInfo struct {

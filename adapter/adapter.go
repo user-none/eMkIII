@@ -2,7 +2,7 @@ package adapter
 
 import (
 	emucore "github.com/user-none/eblitui/api"
-	"github.com/user-none/emkiii/emu"
+	"github.com/user-none/emkiii/core"
 )
 
 // Factory implements emucore.CoreFactory for the SMS emulator.
@@ -14,8 +14,8 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 		Name:            "emkiii",
 		ConsoleName:     "Sega Master System",
 		Extensions:      []string{".sms"},
-		ScreenWidth:     emu.ScreenWidth,
-		MaxScreenHeight: emu.MaxScreenHeight,
+		ScreenWidth:     core.ScreenWidth,
+		MaxScreenHeight: core.MaxScreenHeight,
 		// NTSC pixel aspect ratio for SMS (8:7).
 		// The SMS master clock is 10.738635 MHz. The pixel clock is
 		// master/2 and 256 active pixels span the same active line time
@@ -51,15 +51,15 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 		},
 		DataDirName:   "emkiii",
 		ConsoleID:     2,
-		CoreName:      emu.Name,
-		CoreVersion:   emu.Version,
-		SerializeSize: emu.SerializeSize(),
+		CoreName:      core.Name,
+		CoreVersion:   core.Version,
+		SerializeSize: core.SerializeSize(),
 	}
 }
 
 // CreateEmulator creates a new emulator instance with the given ROM and region.
 func (f *Factory) CreateEmulator(rom []byte, region emucore.Region) (emucore.Emulator, error) {
-	e, err := emu.NewEmulator(rom, region)
+	e, err := core.NewEmulator(rom, region)
 	if err != nil {
 		return nil, err
 	}
@@ -69,5 +69,5 @@ func (f *Factory) CreateEmulator(rom []byte, region emucore.Region) (emucore.Emu
 // DetectRegion auto-detects the region from ROM data.
 // The bool return indicates whether the region was found in the database.
 func (f *Factory) DetectRegion(rom []byte) (emucore.Region, bool) {
-	return emu.DetectRegionFromROM(rom)
+	return core.DetectRegionFromROM(rom)
 }

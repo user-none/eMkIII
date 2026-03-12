@@ -1,4 +1,4 @@
-package emu
+package core
 
 import (
 	"encoding/binary"

@@ -1,4 +1,4 @@
-package emu
+package core
 
 import "github.com/user-none/go-chip-sn76489"
 

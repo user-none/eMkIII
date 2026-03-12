@@ -50,7 +50,7 @@ func (f *Factory) SystemInfo() coreif.SystemInfo {
 			{Name: "Master System", RDBName: "Sega - Master System - Mark III", ThumbnailRepo: "Sega_-_Master_System_-_Mark_III"},
 		},
 		DataDirName:   "emkiii",
-		ConsoleID:     2,
+		ConsoleID:     11,
 		CoreName:      core.Name,
 		CoreVersion:   core.Version,
 		SerializeSize: core.SerializeSize(),

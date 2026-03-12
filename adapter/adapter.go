@@ -1,16 +1,16 @@
 package adapter
 
 import (
-	emucore "github.com/user-none/eblitui/api"
+	"github.com/user-none/eblitui/coreif"
 	"github.com/user-none/emkiii/core"
 )
 
-// Factory implements emucore.CoreFactory for the SMS emulator.
+// Factory implements CoreFactory for the SMS emulator.
 type Factory struct{}
 
 // SystemInfo returns system metadata for UI configuration.
-func (f *Factory) SystemInfo() emucore.SystemInfo {
-	return emucore.SystemInfo{
+func (f *Factory) SystemInfo() coreif.SystemInfo {
+	return coreif.SystemInfo{
 		Name:            "emkiii",
 		ConsoleName:     "Sega Master System",
 		Extensions:      []string{".sms"},
@@ -30,23 +30,23 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 		// for both NTSC and PAL.
 		PixelAspectRatio: 8.0 / 7.0,
 		SampleRate:       48000,
-		Buttons: []emucore.Button{
+		Buttons: []coreif.Button{
 			{Name: "1", ID: 4, DefaultKey: "J", DefaultPad: "A"},
 			{Name: "2", ID: 5, DefaultKey: "K", DefaultPad: "B"},
 			{Name: "Start", ID: 7, DefaultKey: "Enter", DefaultPad: "Start"},
 		},
 		Players: 2,
-		CoreOptions: []emucore.CoreOption{
+		CoreOptions: []coreif.CoreOption{
 			{
 				Key:         "crop_border",
 				Label:       "Crop Left Border",
 				Description: "Crop blank left column when enabled by game",
-				Type:        emucore.CoreOptionBool,
+				Type:        coreif.CoreOptionBool,
 				Default:     "false",
-				Category:    emucore.CoreOptionCategoryVideo,
+				Category:    coreif.CoreOptionCategoryVideo,
 			},
 		},
-		MetadataVariants: []emucore.MetadataVariant{
+		MetadataVariants: []coreif.MetadataVariant{
 			{Name: "Master System", RDBName: "Sega - Master System - Mark III", ThumbnailRepo: "Sega_-_Master_System_-_Mark_III"},
 		},
 		DataDirName:   "emkiii",
@@ -58,7 +58,7 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 }
 
 // CreateEmulator creates a new emulator instance with the given ROM and region.
-func (f *Factory) CreateEmulator(rom []byte, region emucore.Region) (emucore.Emulator, error) {
+func (f *Factory) CreateEmulator(rom []byte, region coreif.Region) (coreif.Emulator, error) {
 	e, err := core.NewEmulator(rom, region)
 	if err != nil {
 		return nil, err
@@ -68,6 +68,6 @@ func (f *Factory) CreateEmulator(rom []byte, region emucore.Region) (emucore.Emu
 
 // DetectRegion auto-detects the region from ROM data.
 // The bool return indicates whether the region was found in the database.
-func (f *Factory) DetectRegion(rom []byte) (emucore.Region, bool) {
+func (f *Factory) DetectRegion(rom []byte) (coreif.Region, bool) {
 	return core.DetectRegionFromROM(rom)
 }

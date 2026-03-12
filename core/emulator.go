@@ -5,7 +5,7 @@ import (
 	"errors"
 	"hash/crc32"
 
-	emucore "github.com/user-none/eblitui/api"
+	"github.com/user-none/eblitui/coreif"
 	"github.com/user-none/go-chip-sn76489"
 	"github.com/user-none/go-chip-z80"
 )
@@ -189,10 +189,10 @@ func (e *Emulator) runScanlines() {
 
 // SetInput unpacks a button bitmask and sets controller state for the given player.
 func (e *Emulator) SetInput(player int, buttons uint32) {
-	up := buttons&(1<<emucore.ButtonUp) != 0
-	down := buttons&(1<<emucore.ButtonDown) != 0
-	left := buttons&(1<<emucore.ButtonLeft) != 0
-	right := buttons&(1<<emucore.ButtonRight) != 0
+	up := buttons&(1<<coreif.ButtonUp) != 0
+	down := buttons&(1<<coreif.ButtonDown) != 0
+	left := buttons&(1<<coreif.ButtonLeft) != 0
+	right := buttons&(1<<coreif.ButtonRight) != 0
 	btn1 := buttons&(1<<4) != 0
 	btn2 := buttons&(1<<5) != 0
 
@@ -251,8 +251,8 @@ func (e *Emulator) GetRegion() Region {
 }
 
 // GetTiming returns FPS and scanline count for the current region.
-func (e *Emulator) GetTiming() emucore.Timing {
-	return emucore.Timing{
+func (e *Emulator) GetTiming() coreif.Timing {
+	return coreif.Timing{
 		FPS:       e.timing.FPS,
 		Scanlines: e.timing.Scanlines,
 	}
@@ -732,21 +732,21 @@ func (e *Emulator) ReadMemory(addr uint32, buf []byte) uint32 {
 // =============================================================================
 
 // MemoryMap returns a list of available memory regions with sizes.
-func (e *Emulator) MemoryMap() []emucore.MemoryRegion {
-	return []emucore.MemoryRegion{
-		{Type: emucore.MemorySystemRAM, Size: 0x2000},
-		{Type: emucore.MemorySaveRAM, Size: 0x8000},
+func (e *Emulator) MemoryMap() []coreif.MemoryRegion {
+	return []coreif.MemoryRegion{
+		{Type: coreif.MemorySystemRAM, Size: 0x2000},
+		{Type: coreif.MemorySaveRAM, Size: 0x8000},
 	}
 }
 
 // ReadRegion returns a copy of the specified memory region.
 func (e *Emulator) ReadRegion(regionType int) []byte {
 	switch regionType {
-	case emucore.MemorySystemRAM:
+	case coreif.MemorySystemRAM:
 		out := make([]byte, len(e.mem.ram))
 		copy(out, e.mem.ram[:])
 		return out
-	case emucore.MemorySaveRAM:
+	case coreif.MemorySaveRAM:
 		return e.GetSRAM()
 	default:
 		return nil
@@ -756,9 +756,9 @@ func (e *Emulator) ReadRegion(regionType int) []byte {
 // WriteRegion writes data to the specified memory region.
 func (e *Emulator) WriteRegion(regionType int, data []byte) {
 	switch regionType {
-	case emucore.MemorySystemRAM:
+	case coreif.MemorySystemRAM:
 		copy(e.mem.ram[:], data)
-	case emucore.MemorySaveRAM:
+	case coreif.MemorySaveRAM:
 		e.SetSRAM(data)
 	}
 }

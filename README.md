@@ -228,12 +228,12 @@ The iOS app is a native Swift application that embeds the emulator.
 The emulator core (`emu/`) is framework-agnostic and handles all SMS emulation
 logic. UI, audio, rendering, ROM loading, and platform integration are provided
 by the external `eblitui` modules. The emkiii project connects its core to
-eblitui through an adapter that implements the `emucore.CoreFactory` interface
-from `eblitui/api`. Each front-end entry point registers this factory with its
+eblitui through an adapter that implements the `coreif.CoreFactory` interface
+from `eblitui/coreif`. Each front-end entry point registers this factory with its
 respective eblitui module.
 
 **Package structure:**
-- `adapter/adapter.go` - Implements `emucore.CoreFactory` from `eblitui/api`, defining system metadata (name, extensions, screen dimensions), button mappings, and core-specific options (crop border)
+- `adapter/adapter.go` - Implements `coreif.CoreFactory` from `eblitui/coreif`, defining system metadata (name, extensions, screen dimensions), button mappings, and core-specific options (crop border)
 - `cmd/standalone/main.go` - Standalone UI entry point; registers the adapter factory with `eblitui/standalone`
 - `cmd/libretro/main.go` - Libretro core entry point; registers the adapter factory with `eblitui/libretro`
 - `cmd/ios/ios.go` - iOS bridge entry point; re-exports `eblitui-ios` functions for Swift integration
@@ -273,7 +273,7 @@ front-end modules.
 
 ## Dependencies
 
-- `github.com/user-none/eblitui/api` - Core interface (`emucore.CoreFactory`)
+- `github.com/user-none/eblitui/coreif` - Core interface (`coreif.CoreFactory`)
 - `github.com/user-none/eblitui/standalone` - Standalone ebiten UI
 - `github.com/user-none/eblitui/libretro` - Libretro core framework
 - `github.com/user-none/eblitui-ios` - iOS framework

@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"github.com/user-none/eblitui/coreif"
+	"github.com/user-none/emkiii"
 	"github.com/user-none/emkiii/core"
 )
 
@@ -51,8 +52,8 @@ func (f *Factory) SystemInfo() coreif.SystemInfo {
 		},
 		DataDirName:   "emkiii",
 		ConsoleID:     11,
-		CoreName:      core.Name,
-		CoreVersion:   core.Version,
+		CoreName:      emkiii.Name,
+		CoreVersion:   emkiii.Version,
 		SerializeSize: core.SerializeSize(),
 	}
 }

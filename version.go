@@ -1,6 +1,6 @@
 package emkiii
 
 const (
-	Name    = "eMkIII"
+	Name    = "emkiii"
 	Version = "1.0.0"
 )

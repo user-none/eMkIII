@@ -3,11 +3,11 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 60;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		01000001 /* eMkIIIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000001 /* eMkIIIApp.swift */; };
+		01000001 /* EmulatorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02000001 /* EmulatorApp.swift */; };
 		01000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 02000011 /* Assets.xcassets */; };
 		01000012 /* Emulator.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02000012 /* Emulator.xcframework */; };
 		01000013 /* Emulator.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 02000012 /* Emulator.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -31,10 +31,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		02000001 /* eMkIIIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = eMkIIIApp.swift; sourceTree = "<group>"; };
+		02000001 /* EmulatorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmulatorApp.swift; sourceTree = "<group>"; };
 		02000011 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		02000012 /* Emulator.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Emulator.xcframework; sourceTree = "<group>"; };
-		04000001 /* eMkIII.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = eMkIII.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		04000001 /* emkiii.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = emkiii.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		527EF69B2F37F097001F2BFB /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 		52B0B7A82F4BBF150063E895 /* EmulatorBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmulatorBridge.swift; sourceTree = "<group>"; };
 		52B0B7AB2F4BBF160063E895 /* BridgeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeProvider.swift; sourceTree = "<group>"; };
@@ -56,21 +56,21 @@
 		06000001 = {
 			isa = PBXGroup;
 			children = (
-				06000002 /* eMkIII */,
+				06000002 /* Sources */,
 				06000003 /* Frameworks */,
 				06000004 /* Products */,
 				527EF69B2F37F097001F2BFB /* Signing.xcconfig */,
 			);
 			sourceTree = "<group>";
 		};
-		06000002 /* eMkIII */ = {
+		06000002 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
 				06000005 /* App */,
 				06000007 /* Emulator */,
 				0600000B /* Resources */,
 			);
-			path = eMkIII;
+			path = Sources;
 			sourceTree = "<group>";
 		};
 		06000003 /* Frameworks */ = {
@@ -84,7 +84,7 @@
 		06000004 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				04000001 /* eMkIII.app */,
+				04000001 /* emkiii.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -92,7 +92,7 @@
 		06000005 /* App */ = {
 			isa = PBXGroup;
 			children = (
-				02000001 /* eMkIIIApp.swift */,
+				02000001 /* EmulatorApp.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -117,9 +117,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		07000001 /* eMkIII */ = {
+		07000001 /* emkiii */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 08000003 /* Build configuration list for PBXNativeTarget "eMkIII" */;
+			buildConfigurationList = 08000003 /* Build configuration list for PBXNativeTarget "emkiii" */;
 			buildPhases = (
 				05000002 /* Sources */,
 				05000001 /* Frameworks */,
@@ -130,12 +130,12 @@
 			);
 			dependencies = (
 			);
-			name = eMkIII;
+			name = emkiii;
 			packageProductDependencies = (
 				52B0B7A62F4BBEC90063E895 /* EblituiIOS */,
 			);
-			productName = eMkIII;
-			productReference = 04000001 /* eMkIII.app */;
+			productName = emkiii;
+			productReference = 04000001 /* emkiii.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -153,7 +153,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 08000001 /* Build configuration list for PBXProject "eMkIII" */;
+			buildConfigurationList = 08000001 /* Build configuration list for PBXProject "ios" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -169,7 +169,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				07000001 /* eMkIII */,
+				07000001 /* emkiii */,
 			);
 		};
 /* End PBXProject section */
@@ -190,7 +190,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				01000001 /* eMkIIIApp.swift in Sources */,
+				01000001 /* EmulatorApp.swift in Sources */,
 				52B0B7A92F4BBF150063E895 /* EmulatorBridge.swift in Sources */,
 				52B0B7AA2F4BBF160063E895 /* BridgeProvider.swift in Sources */,
 			);
@@ -333,7 +333,7 @@
 					"$(PROJECT_DIR)/Frameworks",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = eMkIII;
+				INFOPLIST_KEY_CFBundleDisplayName = emkiii;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -347,7 +347,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.emkiii.app;
+				PRODUCT_BUNDLE_IDENTIFIER = "github.com-user-none-emkiii";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -370,7 +370,7 @@
 					"$(PROJECT_DIR)/Frameworks",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = eMkIII;
+				INFOPLIST_KEY_CFBundleDisplayName = emkiii;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -384,7 +384,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.emkiii.app;
+				PRODUCT_BUNDLE_IDENTIFIER = "github.com-user-none-emkiii";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -397,7 +397,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		08000001 /* Build configuration list for PBXProject "eMkIII" */ = {
+		08000001 /* Build configuration list for PBXProject "ios" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0A000001 /* Debug */,
@@ -406,7 +406,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		08000003 /* Build configuration list for PBXNativeTarget "eMkIII" */ = {
+		08000003 /* Build configuration list for PBXNativeTarget "emkiii" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0A000003 /* Debug */,

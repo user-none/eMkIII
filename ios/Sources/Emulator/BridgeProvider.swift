@@ -2,8 +2,8 @@ import Foundation
 import Emulator
 import EblituiIOS
 
-/// Concrete bridge provider for the emkiii (Master System) emulator.
-struct EmkiiiBridgeProvider: EmulatorBridgeProvider {
+/// Concrete bridge provider for the emulator core.
+struct CoreBridgeProvider: EmulatorBridgeProvider {
     private static var cachedSystemInfo: SystemInfo?
 
     static var systemInfo: SystemInfo {
@@ -20,7 +20,7 @@ struct EmkiiiBridgeProvider: EmulatorBridgeProvider {
     }
 
     static func createEngine() -> EmulatorEngine {
-        return EmkiiiEmulatorEngine()
+        return CoreEmulatorEngine()
     }
 
     static func crc32(ofPath path: String) -> UInt32? {

@@ -3,7 +3,7 @@ module github.com/user-none/emkiii
 go 1.25.7
 
 require (
-	github.com/user-none/eblitui-ios v0.2.0
+	github.com/user-none/eblitui-ios v0.3.0
 	github.com/user-none/eblitui/coreif v0.4.0
 	github.com/user-none/eblitui/libretro v0.3.0
 	github.com/user-none/eblitui/standalone v0.5.0
@@ -34,9 +34,8 @@ require (
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/sqweek/dialog v0.0.0-20260123140253-64c163d53aac // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
-	github.com/user-none/eblitui/api v0.2.0 // indirect
 	github.com/user-none/eblitui/rdb v0.1.0 // indirect
-	github.com/user-none/eblitui/romloader v0.1.0 // indirect
+	github.com/user-none/eblitui/romloader v0.2.0 // indirect
 	github.com/user-none/go-rcheevos v0.0.0 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
 	golang.design/x/clipboard v0.7.1 // indirect

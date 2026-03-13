@@ -2,11 +2,11 @@ import SwiftUI
 import EblituiIOS
 
 @main
-struct eMkIIIApp: App {
+struct EmulatorApp: App {
     @StateObject private var appState: AppState
 
     init() {
-        EmulatorBridge.register(EmkiiiBridgeProvider.self)
+        EmulatorBridge.register(CoreBridgeProvider.self)
         _appState = StateObject(wrappedValue: AppState())
     }
 

@@ -16,18 +16,18 @@ ROMs default to Sega mapper with NTSC timing.
 ## Build and Run Commands
 
 ```bash
-# Launch standalone UI (game library, settings, save states)
-go run ./cmd/standalone/main.go
+# Launch desktop UI (game library, settings, save states)
+go run ./cmd/desktop/main.go
 
 # Direct emulator mode (bypasses UI, loads ROM directly)
-go run ./cmd/standalone/main.go -rom <path-to-rom>
+go run ./cmd/desktop/main.go -rom <path-to-rom>
 
 # Override region detection manually
-go run ./cmd/standalone/main.go -rom <path-to-rom> -region ntsc
-go run ./cmd/standalone/main.go -rom <path-to-rom> -region pal
+go run ./cmd/desktop/main.go -rom <path-to-rom> -region ntsc
+go run ./cmd/desktop/main.go -rom <path-to-rom> -region pal
 
 # Crop left border (hides 8-pixel blank column when enabled by game)
-go run ./cmd/standalone/main.go -rom <path-to-rom> -crop-border
+go run ./cmd/desktop/main.go -rom <path-to-rom> -crop-border
 
 # Run tests
 go test ./...
@@ -43,7 +43,7 @@ The top-level Makefile provides targets for building distributable applications.
 
 | Target | Description |
 |--------|-------------|
-| `make standalone` | Build standalone binary to `build/emkiii` |
+| `make desktop` | Build desktop binary to `build/emkiii` |
 | `make macos` | Build macOS .app bundle to `build/eMkIII.app` |
 | `make libretro` | Build libretro core to `build/emkiii_libretro.dylib` |
 | `make icons` | Generate icons for macOS and iOS from `assets/icon.png` |
@@ -61,9 +61,9 @@ make libretro
 
 ## User Interfaces
 
-### Standalone UI
+### Desktop UI
 
-When launched without a `-rom` argument, the emulator opens a standalone UI:
+When launched without a `-rom` argument, the emulator opens a desktop UI:
 
 - **Game Library:** Browse games in icon or list view with sorting (title, last played, play time), favorites filtering, and search filter (press `/` to filter by title)
 - **ROM Scanning:** Add ROM folders, scan for games with automatic metadata lookup from libretro database
@@ -113,7 +113,7 @@ When launched without a `-rom` argument, the emulator opens a standalone UI:
 
 #### Shader Effects
 
-The standalone UI includes a comprehensive shader system for authentic retro display effects:
+The desktop UI includes a comprehensive shader system for authentic retro display effects:
 
 Shaders can be configured separately for UI (menus) and gameplay. Multiple
 shaders can be stacked and are applied in weighted order for correct visual
@@ -121,7 +121,7 @@ layering.
 
 #### RetroAchievements
 
-The standalone UI integrates with
+The desktop UI integrates with
 [RetroAchievements](https://retroachievements.org) to track and unlock
 achievements while playing. Features include unlock notifications with badges,
 unlock sound, auto-screenshot, achievement overlay during gameplay (Tab),
@@ -234,7 +234,7 @@ respective eblitui module.
 
 **Package structure:**
 - `adapter/adapter.go` - Implements `coreif.CoreFactory` from `eblitui/coreif`, defining system metadata (name, extensions, screen dimensions), button mappings, and core-specific options (crop border)
-- `cmd/standalone/main.go` - Standalone UI entry point; registers the adapter factory with `eblitui/standalone`
+- `cmd/desktop/main.go` - Desktop UI entry point; registers the adapter factory with `eblitui/desktop`
 - `cmd/libretro/main.go` - Libretro core entry point; registers the adapter factory with `eblitui/libretro`
 - `cmd/ios/ios.go` - iOS bridge entry point; re-exports `eblitui-ios` functions for Swift integration
 - `emu/` - Core emulation components (framework-agnostic):
@@ -274,7 +274,7 @@ front-end modules.
 ## Dependencies
 
 - `github.com/user-none/eblitui/coreif` - Core interface (`coreif.CoreFactory`)
-- `github.com/user-none/eblitui/standalone` - Standalone ebiten UI
+- `github.com/user-none/eblitui/desktop` - Desktop ebiten UI
 - `github.com/user-none/eblitui/libretro` - Libretro core framework
 - `github.com/user-none/eblitui-ios` - iOS framework
 - `github.com/user-none/go-chip-z80` - Z80 CPU emulation
@@ -293,7 +293,7 @@ front-end modules.
 | Input | Complete | Keyboard (WASD/Arrows + JK) and gamepad (D-pad/stick + A/B) for P1 controller |
 | Region | Complete | Auto-detection via CRC32 database (357 games), manual override with `-region` flag |
 | Libretro | Complete | Core implementation via eblitui/libretro with region/crop options, works with RetroArch |
-| Standalone UI | Complete | Via eblitui/standalone: library management, save states (10 slots + auto-save), rewind, screenshots, themes, achievements, play time tracking |
+| Desktop UI | Complete | Via eblitui/desktop: library management, save states (10 slots + auto-save), rewind, screenshots, themes, achievements, play time tracking |
 | iOS App | Complete | Native Swift app via eblitui-ios with touch controls, Metal rendering, gamepad support, save states |
 | Tests | Complete | Unit tests in emu/ for I/O, memory, VDP, PSG, region timing |
 

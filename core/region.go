@@ -1,68 +1,58 @@
 package core
 
-import (
-	"hash/crc32"
+import "hash/crc32"
 
-	"github.com/user-none/eblitui/coreif"
-)
-
-// Region is an alias for coreif.Region so internal code compiles unchanged.
-type Region = coreif.Region
+// VideoStandard represents the video standard (NTSC or PAL).
+type VideoStandard int
 
 const (
-	RegionNTSC = coreif.RegionNTSC
-	RegionPAL  = coreif.RegionPAL
+	VideoNTSC VideoStandard = iota
+	VideoPAL
 )
 
-// RegionTiming holds timing constants for a specific region
-type RegionTiming struct {
+// VideoTiming holds timing constants for a specific video standard.
+type VideoTiming struct {
 	CPUClockHz int // Z80 clock frequency
 	Scanlines  int // Total scanlines per frame
 	FPS        int // Frames per second
 }
 
-// NTSC timing: 3.579545 MHz, 262 scanlines, 60 Hz
-var NTSCTiming = RegionTiming{
+// NTSCTiming: 3.579545 MHz, 262 scanlines, 60 Hz
+var NTSCTiming = VideoTiming{
 	CPUClockHz: 3579545,
 	Scanlines:  262,
 	FPS:        60,
 }
 
-// PAL timing: 3.546893 MHz, 313 scanlines, 50 Hz
-var PALTiming = RegionTiming{
+// PALTiming: 3.546893 MHz, 313 scanlines, 50 Hz
+var PALTiming = VideoTiming{
 	CPUClockHz: 3546893,
 	Scanlines:  313,
 	FPS:        50,
 }
 
-// GetTimingForRegion returns the appropriate timing constants
-func GetTimingForRegion(r Region) RegionTiming {
-	if r == RegionPAL {
+// GetVideoTiming returns the appropriate timing constants.
+func GetVideoTiming(v VideoStandard) VideoTiming {
+	if v == VideoPAL {
 		return PALTiming
 	}
 	return NTSCTiming
 }
 
-// DefaultRegion returns the default region (NTSC).
-// SMS ROM headers don't distinguish PAL from NTSC for export regions,
-// so use the --region flag to specify PAL games.
-func DefaultRegion() Region {
-	return RegionNTSC
-}
-
-// DetectRegionFromROM returns the region for a ROM based on CRC32 lookup.
-// Returns (detected region, true) if found in database, (NTSC, false) if not found.
-func DetectRegionFromROM(rom []byte) (Region, bool) {
+// DetectVideoStandardFromROM returns the video standard for a ROM based on
+// CRC32 lookup. Returns (detected standard, true) if found in database,
+// (VideoNTSC, false) if not found.
+func DetectVideoStandardFromROM(rom []byte) (VideoStandard, bool) {
 	crc := crc32.ChecksumIEEE(rom)
 	if info, ok := romDatabase[crc]; ok {
-		return info.Region, true
+		return info.VideoStd, true
 	}
-	return RegionNTSC, false
+	return VideoNTSC, false
 }
 
 // Nationality represents the console nationality (Japanese or Export).
-// This is orthogonal to Region (NTSC/PAL): Japanese is always NTSC,
-// but Export can be either NTSC (Americas) or PAL (Europe).
+// This is orthogonal to video standard (NTSC/PAL): Japanese is always
+// NTSC, but Export can be either NTSC (Americas) or PAL (Europe).
 type Nationality int
 
 const (

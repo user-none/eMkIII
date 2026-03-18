@@ -8,28 +8,28 @@ import (
 // TestROMDatabase_KnownEntries tests that known game CRCs return correct info
 func TestROMDatabase_KnownEntries(t *testing.T) {
 	testCases := []struct {
-		name       string
-		crc        uint32
-		wantMapper MapperType
-		wantRegion Region
+		name         string
+		crc          uint32
+		wantMapper   MapperType
+		wantVideoStd VideoStandard
 	}{
 		// NTSC Sega games
-		{"Sonic the Hedgehog", 0xb519e833, MapperSega, RegionNTSC},
-		{"Alex Kidd in Miracle World", 0x50a8e8a7, MapperSega, RegionNTSC},
-		{"Phantasy Star", 0x07301f83, MapperSega, RegionNTSC},
+		{"Sonic the Hedgehog", 0xb519e833, MapperSega, VideoNTSC},
+		{"Alex Kidd in Miracle World", 0x50a8e8a7, MapperSega, VideoNTSC},
+		{"Phantasy Star", 0x07301f83, MapperSega, VideoNTSC},
 
 		// PAL Sega games
-		{"Sonic the Hedgehog 2", 0x5b3b922c, MapperSega, RegionPAL},
-		{"Streets of Rage", 0x4ab3790f, MapperSega, RegionPAL},
-		{"Aladdin", 0xc8718d40, MapperSega, RegionPAL},
+		{"Sonic the Hedgehog 2", 0x5b3b922c, MapperSega, VideoPAL},
+		{"Streets of Rage", 0x4ab3790f, MapperSega, VideoPAL},
+		{"Aladdin", 0xc8718d40, MapperSega, VideoPAL},
 
 		// Codemasters games (PAL)
-		{"Fantastic Dizzy", 0xb9664ae1, MapperCodemasters, RegionPAL},
-		{"Cosmic Spacehead", 0x29822980, MapperCodemasters, RegionPAL},
-		{"Micro Machines (PAL)", 0xa577ce46, MapperCodemasters, RegionPAL},
+		{"Fantastic Dizzy", 0xb9664ae1, MapperCodemasters, VideoPAL},
+		{"Cosmic Spacehead", 0x29822980, MapperCodemasters, VideoPAL},
+		{"Micro Machines (PAL)", 0xa577ce46, MapperCodemasters, VideoPAL},
 
 		// Codemasters (NTSC, not in CSV)
-		{"Micro Machines (NTSC)", 0xa567a0c6, MapperCodemasters, RegionNTSC},
+		{"Micro Machines (NTSC)", 0xa567a0c6, MapperCodemasters, VideoNTSC},
 	}
 
 	for _, tc := range testCases {
@@ -41,8 +41,8 @@ func TestROMDatabase_KnownEntries(t *testing.T) {
 			if info.Mapper != tc.wantMapper {
 				t.Errorf("Mapper: got %v, want %v", info.Mapper, tc.wantMapper)
 			}
-			if info.Region != tc.wantRegion {
-				t.Errorf("Region: got %v, want %v", info.Region, tc.wantRegion)
+			if info.VideoStd != tc.wantVideoStd {
+				t.Errorf("VideoStd: got %v, want %v", info.VideoStd, tc.wantVideoStd)
 			}
 		})
 	}
@@ -63,54 +63,49 @@ func TestROMDatabase_AllEntriesValid(t *testing.T) {
 		if info.Mapper != MapperSega && info.Mapper != MapperCodemasters {
 			t.Errorf("CRC 0x%08x has invalid mapper: %v", crc, info.Mapper)
 		}
-		if info.Region != RegionNTSC && info.Region != RegionPAL {
-			t.Errorf("CRC 0x%08x has invalid region: %v", crc, info.Region)
+		if info.VideoStd != VideoNTSC && info.VideoStd != VideoPAL {
+			t.Errorf("CRC 0x%08x has invalid video standard: %v", crc, info.VideoStd)
 		}
 	}
 }
 
-// TestDetectRegionFromROM_KnownROM tests detection of a known ROM
-func TestDetectRegionFromROM_KnownROM(t *testing.T) {
-	// Create a fake ROM that would have the CRC of Sonic the Hedgehog
-	// We can't easily create a ROM with a specific CRC, so we test with actual lookup
+// TestDetectVideoStandardFromROM_KnownROM tests detection of a known ROM
+func TestDetectVideoStandardFromROM_KnownROM(t *testing.T) {
 	testCases := []struct {
-		name       string
-		crc        uint32
-		wantRegion Region
-		wantFound  bool
+		name         string
+		crc          uint32
+		wantVideoStd VideoStandard
+		wantFound    bool
 	}{
-		{"Sonic the Hedgehog (NTSC)", 0xb519e833, RegionNTSC, true},
-		{"Sonic the Hedgehog 2 (PAL)", 0x5b3b922c, RegionPAL, true},
-		{"Fantastic Dizzy (PAL)", 0xb9664ae1, RegionPAL, true},
+		{"Sonic the Hedgehog (NTSC)", 0xb519e833, VideoNTSC, true},
+		{"Sonic the Hedgehog 2 (PAL)", 0x5b3b922c, VideoPAL, true},
+		{"Fantastic Dizzy (PAL)", 0xb9664ae1, VideoPAL, true},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Since we can't create a ROM with a known CRC easily,
-			// directly test the lookup mechanism
 			info, ok := romDatabase[tc.crc]
 			if !ok != !tc.wantFound {
 				t.Errorf("Found=%v, want found=%v", ok, tc.wantFound)
 			}
-			if ok && info.Region != tc.wantRegion {
-				t.Errorf("Region=%v, want %v", info.Region, tc.wantRegion)
+			if ok && info.VideoStd != tc.wantVideoStd {
+				t.Errorf("VideoStd=%v, want %v", info.VideoStd, tc.wantVideoStd)
 			}
 		})
 	}
 }
 
-// TestDetectRegionFromROM_UnknownROM tests detection of an unknown ROM
-func TestDetectRegionFromROM_UnknownROM(t *testing.T) {
-	// Create a ROM that won't be in the database
+// TestDetectVideoStandardFromROM_UnknownROM tests detection of an unknown ROM
+func TestDetectVideoStandardFromROM_UnknownROM(t *testing.T) {
 	unknownROM := []byte{0xDE, 0xAD, 0xBE, 0xEF, 0x12, 0x34, 0x56, 0x78}
 
-	region, found := DetectRegionFromROM(unknownROM)
+	videoStd, found := DetectVideoStandardFromROM(unknownROM)
 
 	if found {
 		t.Errorf("Unknown ROM should not be found in database")
 	}
-	if region != RegionNTSC {
-		t.Errorf("Unknown ROM should default to NTSC, got %v", region)
+	if videoStd != VideoNTSC {
+		t.Errorf("Unknown ROM should default to NTSC, got %v", videoStd)
 	}
 }
 
@@ -141,7 +136,6 @@ func TestDetectMapper_Codemasters(t *testing.T) {
 
 // TestDetectMapper_Integration tests the detectMapper function via NewMemory
 func TestDetectMapper_Integration(t *testing.T) {
-	// Create a ROM that won't be in the database (unknown ROM)
 	unknownROM := make([]byte, 0x8000) // 32KB
 	for i := range unknownROM {
 		unknownROM[i] = byte(i & 0xFF)
@@ -153,23 +147,20 @@ func TestDetectMapper_Integration(t *testing.T) {
 	}
 }
 
-// TestDetectRegionFromROM_Integration tests the full detection function
-func TestDetectRegionFromROM_Integration(t *testing.T) {
-	// Create some test data and verify the CRC calculation path works
+// TestDetectVideoStandardFromROM_Integration tests the full detection function
+func TestDetectVideoStandardFromROM_Integration(t *testing.T) {
 	testData := []byte("test rom data for crc verification")
 	expectedCRC := crc32.ChecksumIEEE(testData)
 
-	// Verify CRC is computed correctly
 	if expectedCRC == 0 {
 		t.Error("CRC should not be zero for non-empty data")
 	}
 
-	// The ROM shouldn't be in our database
-	region, found := DetectRegionFromROM(testData)
+	videoStd, found := DetectVideoStandardFromROM(testData)
 	if found {
 		t.Error("Random test data should not be found in database")
 	}
-	if region != RegionNTSC {
-		t.Errorf("Default region should be NTSC, got %v", region)
+	if videoStd != VideoNTSC {
+		t.Errorf("Default should be NTSC, got %v", videoStd)
 	}
 }

@@ -12,18 +12,20 @@ import (
 
 func main() {
 	romPath := flag.String("rom", "", "path to ROM file (opens UI if not provided)")
-	regionFlag := flag.String("region", "auto", "region: auto, ntsc, or pal")
+	regionFlag := flag.String("region", "auto", "video standard: auto, ntsc, or pal")
 	cropBorder := flag.Bool("crop-border", false, "crop blank left column when enabled by game")
 	flag.Parse()
 
 	factory := &adapter.Factory{}
 
 	if *romPath != "" {
-		options := map[string]string{}
+		options := map[string]string{
+			"video_standard": *regionFlag,
+		}
 		if *cropBorder {
 			options["crop_border"] = "true"
 		}
-		if err := standalone.RunDirect(factory, *romPath, *regionFlag, options, nil); err != nil {
+		if err := standalone.RunDirect(factory, *romPath, options, nil); err != nil {
 			log.Fatal(err)
 		}
 		return

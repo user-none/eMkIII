@@ -104,7 +104,7 @@ type VDP struct {
 	reg7Latch    uint8 // Latched backdrop color index for current scanline
 	// Per-frame latched values (latched once at start of frame during VBlank)
 	vScrollLatch uint8 // Latched vScroll for entire frame (per-frame, NOT per-scanline)
-	// Region info for V-counter calculation
+	// Video standard info for V-counter calculation
 	totalScanlines int // 262 for NTSC, 313 for PAL
 
 	// Interrupt state tracking

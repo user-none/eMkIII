@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"hash/crc32"
+	"strings"
 
 	"github.com/user-none/eblitui/coreif"
 	"github.com/user-none/go-chip-sn76489"
@@ -32,9 +33,9 @@ type Emulator struct {
 	io                  *SMSIO
 	cyclesPerScanlineFP int // Fixed-point (16 fractional bits) for accurate timing
 
-	// Region timing
-	region    Region
-	timing    RegionTiming
+	// Video standard timing
+	videoStd  VideoStandard
+	timing    VideoTiming
 	scanlines int
 
 	// Input edge detection for pause button
@@ -50,11 +51,15 @@ type Emulator struct {
 }
 
 // NewEmulator creates and initializes the emulator components.
-func NewEmulator(rom []byte, region Region) (Emulator, error) {
+// The video standard is auto-detected from the ROM database,
+// falling back to NTSC if not found.
+func NewEmulator(rom []byte) (Emulator, error) {
+	videoStd, _ := DetectVideoStandardFromROM(rom)
+
 	mem := NewMemory(rom)
 	vdp := NewVDP()
 
-	timing := GetTimingForRegion(region)
+	timing := GetVideoTiming(videoStd)
 	vdp.SetTotalScanlines(timing.Scanlines)
 
 	samplesPerFrame := sampleRate / timing.FPS
@@ -74,7 +79,7 @@ func NewEmulator(rom []byte, region Region) (Emulator, error) {
 		psg:                 psg,
 		io:                  io,
 		cyclesPerScanlineFP: cyclesPerScanlineFP,
-		region:              region,
+		videoStd:            videoStd,
 		timing:              timing,
 		scanlines:           timing.Scanlines,
 		cropBuffer:          make([]byte, (ScreenWidth-8)*MaxScreenHeight*4),
@@ -245,12 +250,7 @@ func (e *Emulator) GetActiveHeight() int {
 	return e.vdp.ActiveHeight()
 }
 
-// GetRegion returns the emulator's region setting
-func (e *Emulator) GetRegion() Region {
-	return e.region
-}
-
-// GetTiming returns FPS and scanline count for the current region.
+// GetTiming returns FPS and scanline count for the current video standard.
 func (e *Emulator) GetTiming() coreif.Timing {
 	return coreif.Timing{
 		FPS:       e.timing.FPS,
@@ -258,10 +258,10 @@ func (e *Emulator) GetTiming() coreif.Timing {
 	}
 }
 
-// SetRegion updates the emulator's region configuration
-func (e *Emulator) SetRegion(region Region) {
-	e.region = region
-	e.timing = GetTimingForRegion(region)
+// setVideoStandard updates the emulator's video standard configuration.
+func (e *Emulator) setVideoStandard(v VideoStandard) {
+	e.videoStd = v
+	e.timing = GetVideoTiming(v)
 	e.scanlines = e.timing.Scanlines
 	e.vdp.SetTotalScanlines(e.timing.Scanlines)
 	e.cyclesPerScanlineFP = (e.timing.CPUClockHz * 65536) / e.timing.FPS / e.timing.Scanlines
@@ -275,6 +275,19 @@ func (e *Emulator) SetOption(key string, value string) {
 	switch key {
 	case "crop_border":
 		e.cropBorder = value == "true"
+	case "video_standard":
+		var v VideoStandard
+		switch strings.ToLower(value) {
+		case "ntsc":
+			v = VideoNTSC
+		case "pal":
+			v = VideoPAL
+		default:
+			v, _ = DetectVideoStandardFromROM(e.mem.rom)
+		}
+		if v != e.videoStd {
+			e.setVideoStandard(v)
+		}
 	}
 }
 
@@ -401,7 +414,7 @@ func (e *Emulator) Serialize() ([]byte, error) {
 }
 
 // Deserialize restores emulator state from a save state byte slice.
-// Note: Region is NOT restored - the current region setting is preserved.
+// Note: Video standard is NOT restored - the current setting is preserved.
 func (e *Emulator) Deserialize(data []byte) error {
 	if err := e.VerifyState(data); err != nil {
 		return err

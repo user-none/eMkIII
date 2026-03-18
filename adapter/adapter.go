@@ -6,6 +6,18 @@ import (
 	"github.com/user-none/emkiii/core"
 )
 
+// videoStandardOption is the core option for overriding the video standard.
+var videoStandardOption = coreif.CoreOption{
+	Key:         "video_standard",
+	Label:       "Video Standard",
+	Description: "Override the detected video standard",
+	Type:        coreif.CoreOptionSelect,
+	Default:     "auto",
+	Values:      []string{"auto", "ntsc", "pal"},
+	Category:    coreif.CoreOptionCategoryVideo,
+	PerGame:     true,
+}
+
 // Factory implements CoreFactory for the SMS emulator.
 type Factory struct{}
 
@@ -46,6 +58,7 @@ func (f *Factory) SystemInfo() coreif.SystemInfo {
 				Default:     "false",
 				Category:    coreif.CoreOptionCategoryVideo,
 			},
+			videoStandardOption,
 		},
 		MetadataVariants: []coreif.MetadataVariant{
 			{Name: "Master System", RDBName: "Sega - Master System - Mark III", ThumbnailRepo: "Sega_-_Master_System_-_Mark_III"},
@@ -58,17 +71,11 @@ func (f *Factory) SystemInfo() coreif.SystemInfo {
 	}
 }
 
-// CreateEmulator creates a new emulator instance with the given ROM and region.
-func (f *Factory) CreateEmulator(rom []byte, region coreif.Region) (coreif.Emulator, error) {
-	e, err := core.NewEmulator(rom, region)
+// CreateEmulator creates a new emulator instance with the given ROM.
+func (f *Factory) CreateEmulator(rom []byte) (coreif.Emulator, error) {
+	e, err := core.NewEmulator(rom)
 	if err != nil {
 		return nil, err
 	}
 	return &e, nil
-}
-
-// DetectRegion auto-detects the region from ROM data.
-// The bool return indicates whether the region was found in the database.
-func (f *Factory) DetectRegion(rom []byte) (coreif.Region, bool) {
-	return core.DetectRegionFromROM(rom)
 }

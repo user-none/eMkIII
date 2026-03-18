@@ -15,7 +15,7 @@ func TestEmulator_ComponentIntegration(t *testing.T) {
 	rom := createTestROM(4)
 	mem := NewMemory(rom)
 	vdp := NewVDP()
-	timing := GetTimingForRegion(RegionNTSC)
+	timing := GetVideoTiming(VideoNTSC)
 
 	vdp.SetTotalScanlines(timing.Scanlines)
 
@@ -41,7 +41,8 @@ func TestEmulator_ComponentIntegration(t *testing.T) {
 // TestEmulator_TimingCalculations tests frame timing calculations
 func TestEmulator_TimingCalculations(t *testing.T) {
 	testCases := []struct {
-		region   Region
+		name     string
+		videoStd VideoStandard
 		expected struct {
 			fps            int
 			scanlines      int
@@ -51,7 +52,8 @@ func TestEmulator_TimingCalculations(t *testing.T) {
 		}
 	}{
 		{
-			region: RegionNTSC,
+			name:     "NTSC",
+			videoStd: VideoNTSC,
 			expected: struct {
 				fps            int
 				scanlines      int
@@ -67,7 +69,8 @@ func TestEmulator_TimingCalculations(t *testing.T) {
 			},
 		},
 		{
-			region: RegionPAL,
+			name:     "PAL",
+			videoStd: VideoPAL,
 			expected: struct {
 				fps            int
 				scanlines      int
@@ -85,8 +88,8 @@ func TestEmulator_TimingCalculations(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.region.String(), func(t *testing.T) {
-			timing := GetTimingForRegion(tc.region)
+		t.Run(tc.name, func(t *testing.T) {
+			timing := GetVideoTiming(tc.videoStd)
 
 			if timing.FPS != tc.expected.fps {
 				t.Errorf("FPS: expected %d, got %d", tc.expected.fps, timing.FPS)
@@ -114,7 +117,7 @@ func TestEmulator_TimingCalculations(t *testing.T) {
 // TestEmulator_FixedPointTiming tests fixed-point cycle accumulation accuracy
 func TestEmulator_FixedPointTiming(t *testing.T) {
 	// Test NTSC timing
-	timing := GetTimingForRegion(RegionNTSC)
+	timing := GetVideoTiming(VideoNTSC)
 
 	// Fixed-point calculation (8 fractional bits)
 	cyclesPerScanlineFP := (timing.CPUClockHz * 256) / timing.FPS / timing.Scanlines
@@ -141,7 +144,7 @@ func TestEmulator_ScanlineExecution(t *testing.T) {
 	rom := createTestROM(4)
 	mem := NewMemory(rom)
 	vdp := NewVDP()
-	timing := GetTimingForRegion(RegionNTSC)
+	timing := GetVideoTiming(VideoNTSC)
 
 	vdp.SetTotalScanlines(timing.Scanlines)
 
@@ -197,7 +200,7 @@ func TestEmulator_VDPInterruptIntegration(t *testing.T) {
 
 // TestEmulator_PSGIntegration tests PSG audio generation
 func TestEmulator_PSGIntegration(t *testing.T) {
-	timing := GetTimingForRegion(RegionNTSC)
+	timing := GetVideoTiming(VideoNTSC)
 	psg := sn76489.New(timing.CPUClockHz, 48000, 2000, sn76489.Sega)
 
 	// Write a tone to channel 0
@@ -232,7 +235,7 @@ func TestEmulator_FrameLoop_Logic(t *testing.T) {
 	rom := createTestROM(4)
 	mem := NewMemory(rom)
 	vdp := NewVDP()
-	timing := GetTimingForRegion(RegionNTSC)
+	timing := GetVideoTiming(VideoNTSC)
 
 	vdp.SetTotalScanlines(timing.Scanlines)
 
@@ -429,7 +432,7 @@ func TestEmulator_HCounterDuringFrame(t *testing.T) {
 
 // TestEmulator_AudioSampleCount tests audio sample generation per frame
 func TestEmulator_AudioSampleCount(t *testing.T) {
-	timing := GetTimingForRegion(RegionNTSC)
+	timing := GetVideoTiming(VideoNTSC)
 
 	// At 48kHz and 60 FPS, we expect ~800 samples per frame
 	expectedSamples := 48000 / timing.FPS
@@ -464,7 +467,7 @@ func TestEmulator_AudioSampleCount(t *testing.T) {
 // createTestEmulator creates an Emulator for testing serialization
 func createTestEmulator() *Emulator {
 	rom := createTestROM(4)
-	e, _ := NewEmulator(rom, RegionNTSC)
+	e, _ := NewEmulator(rom)
 	return &e
 }
 
@@ -615,7 +618,7 @@ func TestVerifyState_WrongROM(t *testing.T) {
 	for i := range differentROM {
 		differentROM[i] = byte(i & 0xFF)
 	}
-	e2, _ := NewEmulator(differentROM, RegionNTSC)
+	e2, _ := NewEmulator(differentROM)
 	base2 := &e2
 
 	err = base2.VerifyState(state)
@@ -639,9 +642,9 @@ func TestVerifyState_TooShort(t *testing.T) {
 
 // TestDeserialize_PreservesRegion tests that region is NOT changed by load
 func TestDeserialize_PreservesRegion(t *testing.T) {
-	// Create emulator with NTSC
+	// Create emulator (defaults to NTSC via auto-detect)
 	ntscROM := createTestROM(4)
-	ntscEmu, _ := NewEmulator(ntscROM, RegionNTSC)
+	ntscEmu, _ := NewEmulator(ntscROM)
 	baseNTSC := &ntscEmu
 
 	// Save state
@@ -650,13 +653,14 @@ func TestDeserialize_PreservesRegion(t *testing.T) {
 		t.Fatalf("Serialize failed: %v", err)
 	}
 
-	// Create new emulator with PAL using same ROM
-	palEmu, _ := NewEmulator(ntscROM, RegionPAL)
+	// Create new emulator and switch to PAL via SetOption
+	palEmu, _ := NewEmulator(ntscROM)
 	basePAL := &palEmu
+	basePAL.SetOption("video_standard", "pal")
 
-	// Verify initial region is PAL
-	if basePAL.GetRegion() != RegionPAL {
-		t.Fatal("Initial region should be PAL")
+	// Verify region is PAL
+	if basePAL.videoStd != VideoPAL {
+		t.Fatal("Video standard should be PAL after SetOption")
 	}
 
 	// Load NTSC state into PAL emulator
@@ -665,9 +669,9 @@ func TestDeserialize_PreservesRegion(t *testing.T) {
 		t.Fatalf("Deserialize failed: %v", err)
 	}
 
-	// Region should still be PAL (not changed by state load)
-	if basePAL.GetRegion() != RegionPAL {
-		t.Errorf("Region should be preserved as PAL, got %v", basePAL.GetRegion())
+	// Video standard should still be PAL (not changed by state load)
+	if basePAL.videoStd != VideoPAL {
+		t.Errorf("Video standard should be preserved as PAL, got %d", basePAL.videoStd)
 	}
 }
 
